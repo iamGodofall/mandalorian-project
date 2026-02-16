@@ -13,6 +13,7 @@ The Mandalorian phone represents a radical departure from modern smartphone arch
 ### The 10NES Inspiration
 
 In 1980s, Nintendo's 10NES chip revolutionized gaming security:
+
 - **Real-time verification**: Authenticated every few milliseconds
 - **Military-grade encryption**: RSA-style cryptography from the 1980s
 - **Hardware-based**: No software could bypass it
@@ -115,6 +116,7 @@ VeridianOS/
 ## 🔐 Security Guarantees
 
 ### 1. Hardware Security Module (BeskarVault)
+
 - **32 key slots**: 7 predefined + 25 custom slots
 - **5 security levels**: From LEVEL_0 (standard) to LEVEL_4 (critical)
 - **Multi-factor authentication**: PIN + Biometric + Hardware Token
@@ -122,36 +124,42 @@ VeridianOS/
 - **Post-quantum ready**: CRYSTALS-Dilithium signature support
 
 ### 2. Continuous Integrity Monitoring
+
 - **50ms check intervals** (like 10NES chip)
 - **Multi-layer verification**: CRC32 fast checks + SHA3-256 full verification
 - **Memory region monitoring**: Kernel text, data, and critical segments
 - **Code segment validation**: Function-level integrity verification
 
 ### 3. Secure Communications (BeskarLink)
+
 - **Signal Protocol**: Double Ratchet + X3DH key agreement
 - **Perfect Forward Secrecy**: Past messages safe even if keys compromised
 - **Post-compromise security**: Future messages safe after compromise
 - **Safety numbers**: MITM protection through fingerprint verification
 
 ### 4. Application Security (BeskarAppGuard)
+
 - **64 granular permissions**: 16 categories × 4 permissions each
 - **BlackBerry Balance containers**: Personal/Work/Enterprise isolation
 - **Resource quotas**: Memory, CPU, storage, network limits per app
 - **Runtime monitoring**: Risk scoring + auto-freeze for misbehaving apps
 
 ### 5. Decentralized Enterprise (BeskarEnterprise)
+
 - **NO centralized BES servers**: Peer-to-peer policy enforcement
 - **Local compliance**: 100% offline capable, no cloud dependency
 - **Sovereign by design**: User-controlled, vendor-independent
 - **Emergency procedures**: Remote lock, wipe, quarantine without backdoors
 
 ### 6. Hardware-Backed Security
+
 - **Key fusing**: One-time programmable cryptographic keys
 - **Secure enclave integration**: TPM/TEE support
 - **Physical security**: Anti-tampering measures
 - **Secure boot chain**: From hardware to application
 
 ### 7. Zero-Trust Architecture
+
 - **Capability-based access**: seL4 microkernel isolation
 - **IPC monitoring**: Aegis privacy agent tracks all inter-app communication
 - **Permission granularity**: Fine-grained capability controls
@@ -161,6 +169,7 @@ VeridianOS/
 ## 🚀 Getting Started
 
 ### Prerequisites
+
 ```bash
 # Install build dependencies
 ./scripts/setup-dependencies.sh
@@ -170,6 +179,7 @@ sudo apt install gcc-riscv64-unknown-elf qemu-system-riscv64
 ```
 
 ### Building the System
+
 ```bash
 # Build BeskarCore with all security modules
 cd beskarcore
@@ -183,6 +193,7 @@ make demo
 ```
 
 ### Running Security Demos
+
 ```bash
 # Phase 1: Hardware Security Module demo
 ./demo_beskar_vault
@@ -202,6 +213,7 @@ make demo
 
 
 ### Testing
+
 ```bash
 # Run unit tests
 cd tests && make test
@@ -246,6 +258,7 @@ guardian_init(&config);
 ### Real-Time Integrity Checks
 
 The guardian performs continuous verification:
+
 1. **Fast CRC32 checks** for quick detection
 2. **Full SHA3-256 verification** for cryptographic security
 3. **Memory region scanning** for unauthorized modifications
@@ -263,12 +276,14 @@ guardian_verify_hardware_integrity(); // Verify TPM/enclave
 ## 🎯 Why This Matters
 
 ### The Problem with Modern Security
+
 - **Steam games**: Cracked within hours of release
 - **Mobile apps**: Side-loaded malware rampant
 - **Cloud services**: Single points of failure
 - **Internet dependency**: Offline = insecure
 
 ### The 10NES Solution
+
 - **Analog security**: Works without internet
 - **Hardware-based**: No software bypass possible
 - **Real-time verification**: Catches attacks immediately
