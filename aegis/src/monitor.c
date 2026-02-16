@@ -117,9 +117,68 @@ int prompt_user_permission(const char* app_name, const char* capability) {
     return USER_DENY;
 }
 
-// Main permission request handler
+// Map capability string to Helm capability enum
+static helm_capability_t map_capability_string(const char* capability) {
+    if (strcmp(capability, CAP_CAMERA) == 0) return HELM_CAP_CAMERA;
+    if (strcmp(capability, CAP_MICROPHONE) == 0) return HELM_CAP_MICROPHONE;
+    if (strcmp(capability, CAP_LOCATION) == 0) return HELM_CAP_LOCATION;
+    if (strcmp(capability, CAP_CONTACTS) == 0) return HELM_CAP_CONTACTS;
+    if (strcmp(capability, CAP_NETWORK) == 0) return HELM_CAP_NETWORK;
+    if (strcmp(capability, CAP_STORAGE) == 0) return HELM_CAP_STORAGE;
+    return HELM_CAP_STORAGE; // Default fallback
+}
+
+// Main permission request handler with Helm integration
 int aegis_request_permission(const char* app_name, const char* capability) {
     printf("[AEGIS] Permission request from %s for %s\n", app_name, capability);
+
+    // Map app name to ID for Helm
+    uint32_t app_id;
+    if (strcmp(app_name, "Signal") == 0) app_id = APP_SIGNAL;
+    else if (strcmp(app_name, "WhatsApp") == 0) app_id = APP_WHATSAPP;
+    else if (strcmp(app_name, "Instagram") == 0) app_id = APP_INSTAGRAM;
+    else app_id = 999; // Unknown app
+
+    // ============================================================================
+    // THE HELM INTEGRATION: Sovereign Attestation Required
+    // ============================================================================
+    // Before checking user policy, verify app identity with The Helm
+    // This is the "secret conversation" - inspired by Nintendo 10NES
+
+    printf("[AEGIS] 🔐 Requesting Helm attestation for %s...\n", app_name);
+
+    helm_capability_t helm_cap = map_capability_string(capability);
+    helm_attest_result_t helm_result = helm_request_capability(
+        app_id,
+        helm_cap,
+        300  // 5 minute capability timeout
+    );
+
+    if (helm_result != HELM_ATTEST_OK) {
+        printf("[AEGIS] ❌ Helm attestation FAILED for %s - %s\n",
+               app_name, capability);
+
+        // Log security violation
+        char violation_event[128];
+        snprintf(violation_event, sizeof(violation_event),
+                 "HELM_VIOLATION: %s failed attestation for %s",
+                 app_name, capability);
+        shield_ledger_append(violation_event);
+
+        // Check if this triggers emergency halt
+        if (helm_result == HELM_ATTEST_FAIL_TAMPER) {
+            printf("[AEGIS] 🚨 CRITICAL: System integrity compromised!\n");
+            // In real system, this would trigger emergency procedures
+        }
+
+        return -1; // Deny access
+    }
+
+    printf("[AEGIS] ✅ Helm attestation PASSED - %s identity verified\n", app_name);
+
+    // ============================================================================
+    // Continue with traditional Aegis user policy checks
+    // ============================================================================
 
     // First check if we have a cached user decision
     int cached_decision = check_user_policy(app_name, capability);

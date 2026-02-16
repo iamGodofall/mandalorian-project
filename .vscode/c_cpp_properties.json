@@ -1,9 +1,14 @@
 {
     "configurations": [
         {
-            "name": "Win32",
+            "name": "Windows",
             "includePath": [
                 "${workspaceFolder}/**",
+                "${env:INCLUDE}",
+                "${env:WindowsSdkDir}Include\\${env:WindowsSDKVersion}ucrt",
+                "${env:WindowsSdkDir}Include\\${env:WindowsSDKVersion}shared",
+                "${env:WindowsSdkDir}Include\\${env:WindowsSDKVersion}um",
+                "${env:WindowsSdkDir}Include\\${env:WindowsSDKVersion}winrt",
                 "C:/Windows/System32/vcpkg/installed/x64-windows/include"
             ],
             "defines": [
@@ -11,12 +16,55 @@
                 "UNICODE",
                 "_UNICODE"
             ],
-            "windowsSdkVersion": "10.0.20348.0",
             "compilerPath": "C:/Program Files/Microsoft Visual Studio/2022/Community/VC/Tools/MSVC/14.44.35207/bin/Hostx64/x64/cl.exe",
             "cStandard": "c11",
             "cppStandard": "c++17",
-            "intelliSenseMode": "windows-msvc-x64",
-            "configurationProvider": "ms-vscode.cmake-tools"
+            "intelliSenseMode": "windows-msvc-x64"
+        },
+        {
+            "name": "RISC-V 64-bit",
+            "includePath": [
+                "${workspaceFolder}/**",
+                "${workspaceFolder}/beskarcore/seL4/include/**",
+                "${workspaceFolder}/beskarcore/seL4/libsel4/include/**"
+            ],
+            "defines": [
+                "_DEBUG"
+            ],
+            "compilerPath": "riscv64-unknown-linux-gnu-gcc",
+            "cStandard": "c99",
+            "cppStandard": "c++17",
+            "intelliSenseMode": "linux-gcc-x64"
+        },
+        {
+            "name": "ARM64 (AArch64)",
+            "includePath": [
+                "${workspaceFolder}/**",
+                "${workspaceFolder}/beskarcore/seL4/include/**",
+                "${workspaceFolder}/beskarcore/seL4/libsel4/include/**"
+            ],
+            "defines": [
+                "_DEBUG"
+            ],
+            "compilerPath": "aarch64-linux-gnu-gcc",
+            "cStandard": "c99",
+            "cppStandard": "c++17",
+            "intelliSenseMode": "linux-gcc-arm64"
+        },
+        {
+            "name": "x86_64 Linux",
+            "includePath": [
+                "${workspaceFolder}/**",
+                "${workspaceFolder}/beskarcore/seL4/include/**",
+                "${workspaceFolder}/beskarcore/seL4/libsel4/include/**"
+            ],
+            "defines": [
+                "_DEBUG"
+            ],
+            "compilerPath": "x86_64-linux-gnu-gcc",
+            "cStandard": "c99",
+            "cppStandard": "c++17",
+            "intelliSenseMode": "linux-gcc-x64"
         }
     ],
     "version": 4
