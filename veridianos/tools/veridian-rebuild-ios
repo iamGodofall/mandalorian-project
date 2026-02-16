@@ -1,0 +1,63 @@
+#!/usr/bin/env python3
+"""
+Veridian iOS App Rebuilder
+Recompiles open-source iOS apps against OpenSwiftUI
+Usage: veridian-rebuild-ios <app_source_dir>
+"""
+
+import os
+import sys
+import shutil
+import subprocess
+
+def main():
+    if len(sys.argv) != 2:
+        print("Usage: veridian-rebuild-ios <app_source_dir>")
+        sys.exit(1)
+
+    app_dir = sys.argv[1]
+    if not os.path.exists(app_dir):
+        print(f"Error: {app_dir} not found")
+        sys.exit(1)
+
+    print(f"[+] Rebuilding iOS app: {app_dir}")
+    
+    # Step 1: Inject OpenSwiftUI
+    openswiftui_path = "/usr/share/veridianos/openswiftui"
+    app_swift_dir = os.path.join(app_dir, "Sources")
+    
+    if not os.path.exists(app_swift_dir):
+        print("Error: No Swift source found")
+        sys.exit(1)
+    
+    # Replace imports
+    for root, _, files in os.walk(app_swift_dir):
+        for file in files:
+            if file.endswith(".swift"):
+                filepath = os.path.join(root, file)
+                with open(filepath, 'r') as f:
+                    content = f.read()
+                # Replace Apple imports
+                content = content.replace("import SwiftUI", "import OpenSwiftUI")
+                content = content.replace("import UIKit", "import OpenSwiftUI")
+                with open(filepath, 'w') as f:
+                    f.write(content)
+    
+    # Step 2: Build with VeridianOS SDK
+    print("[+] Building with VeridianOS SDK...")
+    env = os.environ.copy()
+    env["SDKROOT"] = "/usr/share/veridianos/sdk"
+    subprocess.run(["swift", "build", "--product", "App"], 
+                   cwd=app_dir, env=env, check=True)
+    
+    # Step 3: Install
+    build_path = os.path.join(app_dir, ".build", "debug", "App")
+    install_dir = "/home/user/VeridianOS/Applications/"
+    os.makedirs(install_dir, exist_ok=True)
+    shutil.copy(build_path, install_dir)
+    
+    print(f"[✓] App installed to {install_dir}")
+    print("[!] Launch from VeridianOS app drawer")
+
+if __name__ == "__main__":
+    main()

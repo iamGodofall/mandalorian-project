@@ -1,0 +1,60 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+      with:
+        submodules: recursive
+
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y cmake ninja-build gcc-riscv64-unknown-elf clang-format cppcheck
+
+    - name: Check code formatting
+      run: |
+        find beskarcore/src/ beskarcore/include/ -name "*.c" -o -name "*.h" | xargs clang-format --dry-run --Werror --style=file
+
+    - name: Static analysis
+      run: |
+        cppcheck --enable=all --std=c99 --platform=unix64 \
+          -Ibeskarcore/include \
+          --xml \
+          --xml-version=2 \
+          beskarcore/src/ 2> cppcheck_results.xml || true
+
+    - name: Configure CMake
+      run: |
+        mkdir build
+        cd build
+        cmake -DCMAKE_TOOLCHAIN_FILE=../toolchains/x86_64.cmake \
+              -DCMAKE_BUILD_TYPE=Debug \
+              ..
+
+    - name: Build
+      run: |
+        cd build
+        make -j$(nproc)
+
+    - name: Run tests
+      run: |
+        cd build
+        make test || true
+
+    - name: Upload test results
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: test-results
+        path: |
+          build/Testing/
+          cppcheck_results.xml

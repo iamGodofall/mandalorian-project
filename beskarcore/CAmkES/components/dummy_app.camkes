@@ -1,0 +1,3 @@
+component dummy_app {
+  provides RPCInterface app_interface;
+}

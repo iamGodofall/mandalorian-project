@@ -1,0 +1,4 @@
+component shield_ledger {
+  provides RPCInterface shield_interface;
+  provides RPCInterface app_interface;
+}

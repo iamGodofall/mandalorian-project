@@ -1,0 +1,22 @@
+import <std_connector.camkes>;
+
+import "components/boot_rom.camkes";
+import "components/shield_ledger.camkes";
+import "components/dummy_app.camkes";
+
+assembly {
+  composition {
+    component boot_rom boot_rom;
+    component shield_ledger shield_ledger;
+    component dummy_app dummy_app;
+
+    connection seL4RPCCall boot_to_shield(from boot_rom.boot_interface, to shield_ledger.shield_interface);
+    connection seL4RPCCall shield_to_app(from shield_ledger.app_interface, to dummy_app.app_interface);
+  }
+
+  configuration {
+    boot_rom._priority = 100;
+    shield_ledger._priority = 99;
+    dummy_app._priority = 98;
+  }
+}
