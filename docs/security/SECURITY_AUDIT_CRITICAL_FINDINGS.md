@@ -13,6 +13,7 @@ VAULT_KEY_EMERGENCY = 6,          // Law enforcement (optional)
 **Severity**: 🔴 **CRITICAL - VIOLATES CORE PRINCIPLES**
 
 **Why this is catastrophic**:
+
 - Creates a **de facto backdoor** for "lawful" access
 - Directly contradicts your explicit principle: *"no one, including themselves, should have the power to access or create backdoors"*
 - Enables coercion via legal process (warrants/subpoenas)
@@ -53,6 +54,7 @@ printf("Active Devices: %u\n", stats.active_devices);
 **Severity**: 🔴 **CRITICAL**
 
 **Attack Scenario**:
+
 1. Attacker gains code execution
 2. stdout redirected to attacker-controlled channel
 3. Sensitive statistics leaked
@@ -88,7 +90,8 @@ typedef struct {
 
 **Issue**: While marked as "simulated", this code will be used in production. Private keys must **never** be in application-accessible memory.
 
-**Required Action**: 
+**Required Action**:
+
 1. Add compile-time error for production builds
 2. Implement actual HSM interface
 3. Use secure element for all key operations
@@ -106,6 +109,7 @@ typedef struct {
 ### Finding: sprintf/snprintf with untrusted data
 
 **Locations**: Multiple files
+
 - `beskarcore/src/beskar_app_guard.c` line 45
 - `beskarcore/src/beskar_enterprise.c` line 156
 - `beskarcore/src/beskar_link.c` (assumed similar patterns)
@@ -118,7 +122,8 @@ snprintf(details, sizeof(details), "Created container: %s", name);
 
 **Severity**: 🟡 **HIGH**
 
-**Required Action**: 
+**Required Action**:
+
 1. Validate all input lengths before formatting
 2. Use `snprintf` return value to detect truncation
 3. Add static analysis (Coverity, CodeQL)
@@ -183,7 +188,8 @@ for (size_t i = 0; i < pt_len; i++) {
 
 **Issue**: XOR is not encryption. This will be mistaken for real security.
 
-**Required Action**: 
+**Required Action**:
+
 1. Add explicit warnings
 2. Implement AES-256-GCM for production
 3. Fail compilation in production mode without real crypto
@@ -234,7 +240,8 @@ return result;
 
 **Attack**: $500 logic analyzer can sniff all key operations.
 
-**Required Action**: 
+**Required Action**:
+
 1. FPGA shim with AES-GCM encryption
 2. Bus scrambling
 3. Tamper mesh covering bus traces

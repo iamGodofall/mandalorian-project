@@ -372,6 +372,7 @@ make simulate      # Build for QEMU simulation
 make run_simulate  # Run in QEMU
 ```
 
+
 #### Security Demos
 
 ```bash
@@ -387,6 +388,143 @@ make demo
 ./demo_beskar_enterprise     # Decentralized policy demonstration
 ./demo                       # Main functional demo (SHA3-256 + Merkle ledger)
 ```
+
+---
+
+### 🖥️ Windows Development (WSL2)
+
+To run and test the Mandalorian Project (BeskarCore) on **Windows with VS Code**, you'll need a **Linux environment** — seL4's build system and RISC-V toolchains are Linux-native. Windows alone won't work.
+
+#### ✅ Recommended Setup: WSL2 + VS Code
+
+**Step 1: Install WSL2 with Ubuntu**
+
+```powershell
+# Run in PowerShell (Admin)
+wsl --install -d Ubuntu-22.04
+
+```
+
+- Reboot when prompted
+- Create Linux username/password when Ubuntu launches
+
+**Step 2: Install VS Code + Remote-WSL Extension**
+
+1. Install [VS Code for Windows](https://code.visualstudio.com/)
+2. Install extension: **"Remote - WSL"** (Microsoft)
+3. Press `Ctrl+Shift+P` → "Remote-WSL: New Window" → opens VS Code *inside* Ubuntu
+
+**Step 3: Install Build Dependencies (Inside WSL2 Ubuntu)**
+
+```bash
+# Update packages
+sudo apt update && sudo apt upgrade -y
+
+# Install core dependencies
+sudo apt install -y git build-essential cmake ninja-build python3 \
+  libxml2-utils libssl-dev libncurses5-dev flex bison
+
+# Install RISC-V toolchain (prebuilt)
+wget https://github.com/riscv-collab/riscv-gnu-toolchain/releases/download/2023.07.0/riscv64-unknown-elf-gcc-13.1.0-1-x86_64-linux-ubuntu14.tar.gz
+tar -xzf riscv64-unknown-elf-gcc-13.1.0-1-x86_64-linux-ubuntu14.tar.gz -C /opt
+export PATH="/opt/riscv/bin:$PATH"
+echo 'export PATH="/opt/riscv/bin:$PATH"' >> ~/.bashrc
+
+# Install QEMU RISC-V emulator
+sudo apt install -y qemu-system-riscv64
+```
+
+**Step 4: Clone and Build BeskarCore**
+
+```bash
+# Clone repo inside WSL2 (~ directory)
+git clone https://github.com/iamGodofall/mandalorian-project.git
+cd mandalorian-project/beskarcore
+
+# Build for QEMU simulation
+make deps
+make simulate
+
+# Run in QEMU emulator
+make run_simulate
+```
+
+**Step 5: VS Code Integration**
+
+1. In VS Code (WSL window): `File → Open Folder` → select `/home/YOURUSER/mandalorian-project`
+2. Install these extensions **inside WSL**:
+   - **C/C++** (Microsoft)
+   - **CMake Tools** (Microsoft)
+   - **CodeLLDB** (for debugging)
+3. Create `.vscode/tasks.json` for build automation:
+
+```json
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Build BeskarCore (QEMU)",
+      "type": "shell",
+      "command": "make simulate",
+      "group": "build",
+      "problemMatcher": ["$gcc"],
+      "cwd": "${workspaceFolder}/beskarcore"
+    },
+    {
+      "label": "Run in QEMU",
+      "type": "shell",
+      "command": "make run_simulate",
+      "dependsOn": "Build BeskarCore (QEMU)",
+      "group": "test",
+      "cwd": "${workspaceFolder}/beskarcore"
+    }
+  ]
+}
+```
+
+#### ⚠️ Critical Limitations
+
+| Capability | Works in WSL2/QEMU? | Requires Physical Hardware? |
+|------------|---------------------|-----------------------------|
+| Build BeskarCore | ✅ Yes | ❌ No |
+| Run in QEMU emulation | ✅ Yes (functional testing) | ❌ No |
+| Test Continuous Guardian timing | ⚠️ Approximate only | ✅ Yes (real 50ms checks need hardware timers) |
+| Test tamper sensors | ❌ No | ✅ Yes (requires custom PCB) |
+| Test OTP key fusing | ❌ No | ✅ Yes (Phase 3 custom silicon only) |
+| Actual phone functionality | ❌ No | ✅ Yes (VisionFive 2 + cellular modem) |
+
+> **You cannot test true hardware security properties (tamper response, OTP fusing) without physical custom hardware.** QEMU validates *software logic only*.
+
+#### 🚫 What Won't Work
+
+| Approach | Why It Fails |
+|----------|--------------|
+| Native Windows build (no WSL) | seL4 build system requires Linux `make`, `bash`, symlinks |
+| Docker Desktop on Windows | RISC-V toolchains break in Docker volume mounts; QEMU performance terrible |
+| "Linux subsystem" without WSL2 | WSL1 lacks proper kernel emulation for QEMU RISC-V |
+| VS Code SSH to remote Linux VM | Possible but slower than WSL2; network latency hurts build cycles |
+
+#### 💡 Daily Development Workflow
+
+```bash
+# In VS Code terminal (WSL2)
+cd ~/mandalorian-project/beskarcore
+make clean && make simulate && make run_simulate
+```
+
+Press `Ctrl+A X` to exit QEMU when done.
+
+#### 🔑 Hardware Testing Path (VisionFive 2)
+
+When ready to test on **real VisionFive 2 hardware**:
+
+1. Build SD card image: `make sdcard`
+2. Flash to microSD: Use [balenaEtcher](https://www.balena.io/etcher/) on Windows
+3. Insert SD into VisionFive 2 + HDMI/USB serial cable
+4. Monitor boot via serial terminal (PuTTY/TeraTerm on Windows COM port)
+
+> Physical hardware testing **cannot be done from VS Code directly** — requires serial console to the device.
+
 
 
 ---

@@ -10,17 +10,28 @@
 // BlackBerry-inspired with modern post-quantum enhancements
 // ============================================================================
 
-// Secure memory region (simulated - in real hardware, this would be isolated)
+// CRITICAL: Compile-time check to prevent simulation code in production
+#ifdef PRODUCTION_BUILD
+#error "PRODUCTION_BUILD defined but using simulation-only BeskarVault implementation. \
+        Real hardware requires: 1) Secure element integration (ATECC608B), \
+        2) Private keys must NEVER be in application RAM, \
+        3) Hardware TRNG required, 4) AES-256-GCM encryption only (no XOR)"
+#endif
+
+// Secure memory region (SIMULATION ONLY - in real hardware, this would be isolated)
+// WARNING: This is NOT secure - keys are in application-accessible memory
 static uint8_t secure_memory[BESKAR_VAULT_SECURE_MEMORY_SIZE];
 static bool secure_memory_used[BESKAR_VAULT_SECURE_MEMORY_SIZE / 64]; // Bitmap
 
-// Key storage (simulated HSM - in real hardware, keys never leave secure enclave)
+// Key storage (SIMULATION ONLY - real HSM keys never leave secure enclave)
+// CRITICAL SECURITY ISSUE: Private keys in RAM - for simulation only
 typedef struct {
-    uint8_t private_key[64];      // Simulated - real HSM never exposes this
+    uint8_t private_key[64];      // SIMULATION ONLY - real HSM never exposes this
     uint8_t public_key[64];
     vault_key_metadata_t metadata;
     bool is_present;
 } vault_key_slot_t;
+
 
 static vault_key_slot_t key_slots[BESKAR_VAULT_KEY_SLOTS];
 static vault_status_t vault_state = {0};
@@ -320,8 +331,17 @@ int vault_get_key_metadata(vault_key_type_t type, vault_key_metadata_t *metadata
 // Cryptographic Operations
 // ============================================================================
 
+// SIMULATION ONLY: XOR encryption is NOT secure - for demonstration only
+// Production must use AES-256-GCM in hardware secure enclave
+#if defined(PRODUCTION_BUILD)
+#warning "XOR encryption detected - use AES-256-GCM for production"
+#endif
+
+
+
 int vault_sign(vault_key_type_t key, const uint8_t *data, size_t data_len,
                uint8_t *signature, size_t *sig_len) {
+
     if (!vault_initialized || !vault_state.is_initialized) {
         return -1;
     }
@@ -879,12 +899,24 @@ static int generate_device_unique_id(void) {
     // For simulation, generate random ID
     extern int sha3_256(uint8_t *digest, const uint8_t *data, size_t len);
 
+    // CRITICAL SECURITY WARNING: time(NULL) + rand() is PREDICTABLE
+    // This is SIMULATION ONLY - production requires hardware TRNG
+    // An attacker can pre-compute all possible device IDs
+    #if defined(PRODUCTION_BUILD)
+    #warning "Predictable randomness detected - use hardware TRNG for production"
+    #endif
+
+
+    
+    LOG_WARN("Using PREDICTABLE randomness (time+rand) - SIMULATION ONLY");
+
     // Use time + random data to generate unique ID
     time_t now = time(NULL);
     uint8_t seed[sizeof(time_t) + 32];
     memcpy(seed, &now, sizeof(time_t));
 
     // Add some "random" data (in real hardware, from TRNG)
+    // WARNING: rand() is NOT cryptographically secure
     for (int i = 0; i < 32; i++) {
         seed[sizeof(time_t) + i] = (uint8_t)(rand() % 256);
     }
@@ -892,6 +924,7 @@ static int generate_device_unique_id(void) {
     sha3_256(vault_state.device_unique_id, seed, sizeof(seed));
     return 0;
 }
+
 
 static int simulate_key_generation(vault_key_type_t type, uint8_t *pub_key, size_t *pub_len) {
     // Simulate key generation (in real hardware, this happens in secure enclave)
@@ -954,7 +987,7 @@ const char* vault_key_type_to_string(vault_key_type_t type) {
         case VAULT_KEY_COMMUNICATION: return "COMMUNICATION";
         case VAULT_KEY_STORAGE: return "STORAGE";
         case VAULT_KEY_BACKUP: return "BACKUP";
-        case VAULT_KEY_EMERGENCY: return "EMERGENCY";
+        // REMOVED: VAULT_KEY_EMERGENCY - No backdoors, ever
         default: 
             if (type >= VAULT_KEY_CUSTOM_START && type < BESKAR_VAULT_KEY_SLOTS) {
                 return "CUSTOM";
@@ -962,6 +995,7 @@ const char* vault_key_type_to_string(vault_key_type_t type) {
             return "UNKNOWN";
     }
 }
+
 
 const char* vault_tamper_type_to_string(vault_tamper_type_t type) {
     switch (type) {

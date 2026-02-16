@@ -169,8 +169,13 @@ int app_guard_create_container(const char *name, app_container_type_t type,
     // Generate container ID
     extern int sha3_256(uint8_t *digest, const uint8_t *data, size_t len);
     uint8_t seed[64];
-    snprintf((char*)seed, sizeof(seed), "%s_%lu", name, (unsigned long)time(NULL));
-    sha3_256(c->container_id, seed, strlen((char*)seed));
+    int seed_len = snprintf((char*)seed, sizeof(seed), "%s_%lu", name, (unsigned long)time(NULL));
+    if (seed_len < 0 || (size_t)seed_len >= sizeof(seed)) {
+        LOG_ERROR("Container name too long - possible attack");
+        return -1;
+    }
+    sha3_256(c->container_id, seed, seed_len);
+
 
     strncpy(c->container_name, name, BESKAR_APP_GUARD_CONTAINER_NAME_LEN - 1);
     c->type = type;
@@ -197,8 +202,13 @@ int app_guard_create_container(const char *name, app_container_type_t type,
              app_guard_container_type_to_string(type));
 
     char details[256];
-    snprintf(details, sizeof(details), "Created container: %s", name);
+    int details_len = snprintf(details, sizeof(details), "Created container: %s", name);
+    if (details_len < 0 || (size_t)details_len >= sizeof(details)) {
+        LOG_WARN("Container name truncated in log - possible attack");
+        // Continue with truncated name - not critical for logging
+    }
     log_guard_event("CONTAINER_CREATE", details);
+
 
     return 0;
 }
@@ -355,8 +365,13 @@ int app_guard_install_app(const char *package_path, const uint8_t *container_id,
              new_app->app_name, container->container_name);
 
     char details[256];
-    snprintf(details, sizeof(details), "Installed app: %s", new_app->app_name);
+    int details_len = snprintf(details, sizeof(details), "Installed app: %s", new_app->app_name);
+    if (details_len < 0 || (size_t)details_len >= sizeof(details)) {
+        LOG_WARN("App name truncated in log - possible attack");
+        // Continue with truncated name - not critical for logging
+    }
     log_guard_event("APP_INSTALL", details);
+
 
     return 0;
 }
@@ -450,8 +465,13 @@ int app_guard_launch_app(const uint8_t *app_id) {
     LOG_INFO("Launched app: %s", app->app_name);
 
     char details[256];
-    snprintf(details, sizeof(details), "Launched app: %s", app->app_name);
+    int details_len = snprintf(details, sizeof(details), "Launched app: %s", app->app_name);
+    if (details_len < 0 || (size_t)details_len >= sizeof(details)) {
+        LOG_WARN("App name truncated in log - possible attack");
+        // Continue with truncated name - not critical for logging
+    }
     log_guard_event("APP_LAUNCH", details);
+
 
     return 0;
 }
@@ -569,10 +589,15 @@ int app_guard_request_permission(const uint8_t *app_id, uint32_t permission_id,
              app_guard_grant_mode_to_string(mode));
 
     char details[256];
-    snprintf(details, sizeof(details), "Granted %s to %s",
+    int details_len = snprintf(details, sizeof(details), "Granted %s to %s",
              app_guard_permission_to_string(permission_id),
              app->app_name);
+    if (details_len < 0 || (size_t)details_len >= sizeof(details)) {
+        LOG_WARN("Permission details truncated in log - possible attack");
+        // Continue with truncated details - not critical for logging
+    }
     log_guard_event("PERM_GRANT", details);
+
 
     return 0;
 }
@@ -1065,4 +1090,118 @@ float app_guard_calculate_risk_score(const uint8_t *app_id) {
         return -1.0f;
     }
 
-    float score = 0.0f
+    float score = 0.0f;
+    
+    // Calculate risk based on various factors
+    // Permission violations increase risk
+    score += monitor->permission_violations * 0.05f;
+    
+    // Data exfiltration increases risk
+    score += (monitor->data_sent / (100.0f * 1024 * 1024)) * 0.3f;
+    
+    // Network connections increase risk
+    score += monitor->network_connections * 0.01f;
+    
+    // File system access increases risk
+    score += monitor->files_accessed * 0.02f;
+    
+    // Cap at 1.0
+    if (score > 1.0f) {
+        score = 1.0f;
+    }
+    
+    monitor->risk_score = score;
+    return score;
+}
+
+// ============================================================================
+// Helper Functions
+// ============================================================================
+
+static int find_app(const uint8_t *app_id, app_info_t **app) {
+    for (uint32_t i = 0; i < app_count; i++) {
+        if (memcmp(apps[i].app_id, app_id, 32) == 0) {
+            *app = &apps[i];
+            return 0;
+        }
+    }
+    return -1;
+}
+
+static int find_container(const uint8_t *container_id, app_container_t **container) {
+    for (uint32_t i = 0; i < container_count; i++) {
+        if (memcmp(containers[i].container_id, container_id, 32) == 0) {
+            *container = &containers[i];
+            return 0;
+        }
+    }
+    return -1;
+}
+
+static int find_policy(uint32_t policy_id, app_policy_t **policy) {
+    for (uint32_t i = 0; i < policy_count; i++) {
+        if (policies[i].rule_id == policy_id) {
+            *policy = &policies[i];
+            return 0;
+        }
+    }
+    return -1;
+}
+
+static int find_monitor(uint64_t app_id_hash, app_runtime_monitor_t **monitor) {
+    for (uint32_t i = 0; i < monitor_count; i++) {
+        if (monitors[i].app_id_hash == app_id_hash) {
+            *monitor = &monitors[i];
+            return 0;
+        }
+    }
+    return -1;
+}
+
+static void update_stats(void) {
+    // Recalculate statistics
+    stats.running_apps = 0;
+    stats.frozen_apps = 0;
+    for (uint32_t i = 0; i < app_count; i++) {
+        if (apps[i].state == APP_STATE_RUNNING) {
+            stats.running_apps++;
+        } else if (apps[i].state == APP_STATE_FROZEN) {
+            stats.frozen_apps++;
+        }
+    }
+}
+
+static int log_guard_event(const char *event_type, const char *details) {
+    LOG_INFO("[GUARD] %s: %s", event_type, details);
+    return 0;
+}
+
+static uint64_t hash_app_id(const uint8_t *app_id) {
+    // Simple hash of app_id
+    uint64_t hash = 0;
+    for (int i = 0; i < 32; i++) {
+        hash = hash * 31 + app_id[i];
+    }
+    return hash;
+}
+
+const char* app_guard_container_type_to_string(app_container_type_t type) {
+    switch (type) {
+        case APP_TYPE_PERSONAL: return "PERSONAL";
+        case APP_TYPE_WORK: return "WORK";
+        case APP_TYPE_ENTERPRISE: return "ENTERPRISE";
+        case APP_TYPE_ISOLATED: return "ISOLATED";
+        default: return "UNKNOWN";
+    }
+}
+
+const char* app_guard_grant_mode_to_string(permission_grant_mode_t mode) {
+    switch (mode) {
+        case PERM_GRANT_MODE_ASK: return "ASK";
+        case PERM_GRANT_MODE_ALLOW: return "ALWAYS";
+        case PERM_GRANT_MODE_DENY: return "DENY";
+        case PERM_GRANT_MODE_TIME_LIMIT: return "TIME_LIMITED";
+        case PERM_GRANT_MODE_ONE_TIME: return "ONE_TIME";
+        default: return "UNKNOWN";
+    }
+}

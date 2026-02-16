@@ -181,6 +181,14 @@ typedef enum {
     PERM_GRANT_MODE_ONE_TIME = 4    // Allow once
 } permission_grant_mode_t;
 
+// Aliases for backward compatibility (use these in code, not in switch statements)
+#define PERM_GRANT_ALWAYS      PERM_GRANT_MODE_ALLOW
+#define PERM_GRANT_SESSION     PERM_GRANT_MODE_ALLOW
+#define PERM_GRANT_ONE_TIME    PERM_GRANT_MODE_ONE_TIME
+#define PERM_GRANT_TIME_LIMITED PERM_GRANT_MODE_TIME_LIMIT
+
+
+
 // ============================================================================
 // Data Structures
 // ============================================================================

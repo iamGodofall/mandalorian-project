@@ -163,8 +163,13 @@ int enterprise_create_organization(const char *name, const uint8_t *master_key,
     // Generate org ID
     extern int sha3_256(uint8_t *digest, const uint8_t *data, size_t len);
     uint8_t seed[256];
-    snprintf((char*)seed, sizeof(seed), "%s_%lu", name, (unsigned long)time(NULL));
-    sha3_256(o->org_id, seed, strlen((char*)seed));
+    int seed_len = snprintf((char*)seed, sizeof(seed), "%s_%lu", name, (unsigned long)time(NULL));
+    if (seed_len < 0 || (size_t)seed_len >= sizeof(seed)) {
+        LOG_ERROR("Organization name too long - possible attack");
+        return -1;
+    }
+    sha3_256(o->org_id, seed, seed_len);
+
 
     strncpy(o->org_name, name, BESKAR_ENTERPRISE_ORG_NAME_LEN - 1);
     
@@ -182,8 +187,13 @@ int enterprise_create_organization(const char *name, const uint8_t *master_key,
              name, o->org_id[0], o->org_id[1], o->org_id[30], o->org_id[31]);
 
     char details[256];
-    snprintf(details, sizeof(details), "Created organization: %s", name);
+    int details_len = snprintf(details, sizeof(details), "Created organization: %s", name);
+    if (details_len < 0 || (size_t)details_len >= sizeof(details)) {
+        LOG_WARN("Organization name truncated in log - possible attack");
+        // Continue with truncated name - not critical for logging
+    }
     log_enterprise_event("ORG_CREATE", details);
+
 
     return 0;
 }
@@ -300,9 +310,14 @@ int enterprise_enroll_device(const uint8_t *org_id, const char *device_name,
     // Generate device ID
     extern int sha3_256(uint8_t *digest, const uint8_t *data, size_t len);
     uint8_t seed[256];
-    snprintf((char*)seed, sizeof(seed), "%s_%s_%lu", device_name, user_email, 
+    int seed_len = snprintf((char*)seed, sizeof(seed), "%s_%s_%lu", device_name, user_email, 
              (unsigned long)time(NULL));
-    sha3_256(d->device_id, seed, strlen((char*)seed));
+    if (seed_len < 0 || (size_t)seed_len >= sizeof(seed)) {
+        LOG_ERROR("Device name or email too long - possible attack");
+        return -1;
+    }
+    sha3_256(d->device_id, seed, seed_len);
+
 
     strncpy(d->device_name, device_name, sizeof(d->device_name) - 1);
     strncpy(d->user_email, user_email, sizeof(d->user_email) - 1);
@@ -331,8 +346,13 @@ int enterprise_enroll_device(const uint8_t *org_id, const char *device_name,
              device_name, user_email, org->org_name);
 
     char details[256];
-    snprintf(details, sizeof(details), "Enrolled device: %s", device_name);
+    int details_len = snprintf(details, sizeof(details), "Enrolled device: %s", device_name);
+    if (details_len < 0 || (size_t)details_len >= sizeof(details)) {
+        LOG_WARN("Device name truncated in log - possible attack");
+        // Continue with truncated name - not critical for logging
+    }
     log_enterprise_event("DEVICE_ENROLL", details);
+
 
     // Check compliance immediately
     if (ent_config.require_compliance) {
@@ -476,8 +496,13 @@ int enterprise_create_policy(const uint8_t *org_id, enterprise_policy_category_t
              name, p->policy_id, enterprise_policy_category_to_string(category));
 
     char details[256];
-    snprintf(details, sizeof(details), "Created policy: %s", name);
+    int details_len = snprintf(details, sizeof(details), "Created policy: %s", name);
+    if (details_len < 0 || (size_t)details_len >= sizeof(details)) {
+        LOG_WARN("Policy name truncated in log - possible attack");
+        // Continue with truncated name - not critical for logging
+    }
     log_enterprise_event("POLICY_CREATE", details);
+
 
     return 0;
 }
@@ -560,9 +585,14 @@ int enterprise_apply_policy(const uint8_t *device_id, uint32_t policy_id) {
     LOG_INFO("Applied policy %s to device %s", policy->policy_name, device->device_name);
 
     char details[256];
-    snprintf(details, sizeof(details), "Applied policy %s to %s", 
+    int details_len = snprintf(details, sizeof(details), "Applied policy %s to %s", 
              policy->policy_name, device->device_name);
+    if (details_len < 0 || (size_t)details_len >= sizeof(details)) {
+        LOG_WARN("Policy details truncated in log - possible attack");
+        // Continue with truncated details - not critical for logging
+    }
     log_enterprise_event("POLICY_APPLY", details);
+
 
     return 0;
 }
@@ -647,10 +677,15 @@ int enterprise_issue_command(const uint8_t *target_device,
              (unsigned long long)cmd->command_id);
 
     char details[256];
-    snprintf(details, sizeof(details), "Issued command %s (ID: %llu)",
-             enterprise_command_type_to_string(type),
-             (unsigned long long)cmd->command_id);
+    const char *cmd_type_str = enterprise_command_type_to_string(type);
+    int details_len = snprintf(details, sizeof(details), "Issued command %s (ID: %llu)",
+             cmd_type_str, (unsigned long long)cmd->command_id);
+    if (details_len < 0 || (size_t)details_len >= sizeof(details)) {
+        LOG_WARN("Command details truncated in log - possible attack");
+        // Continue with truncated details - not critical for logging
+    }
     log_enterprise_event("CMD_ISSUE", details);
+
 
     return 0;
 }
@@ -980,9 +1015,14 @@ int enterprise_log_audit_event(const char *event_type, const char *details,
     // Generate action hash
     extern int sha3_256(uint8_t *digest, const uint8_t *data, size_t len);
     char data[512];
-    snprintf(data, sizeof(data), "%s_%s_%lu", event_type, details, 
+    int data_len = snprintf(data, sizeof(data), "%s_%s_%lu", event_type, details, 
              (unsigned long)entry->timestamp);
+    if (data_len < 0 || (size_t)data_len >= sizeof(data)) {
+        LOG_WARN("Audit data truncated - may affect hash calculation");
+        // Continue with truncated data
+    }
     sha3_256(entry->action_hash, (uint8_t*)data, strlen(data));
+
 
     return 0;
 }

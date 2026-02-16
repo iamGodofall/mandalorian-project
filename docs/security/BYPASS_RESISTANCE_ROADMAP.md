@@ -28,6 +28,7 @@ To ensure the Mandalorian Project's vision cannot be bypassed, we must move beyo
 ### 1.1 Software Security Implementation
 
 #### Constant-Time Cryptography
+
 ```c
 // Required: Constant-time Ed25519 signing to prevent timing attacks
 // Current implementation MUST be audited for:
@@ -40,6 +41,7 @@ To ensure the Mandalorian Project's vision cannot be bypassed, we must move beyo
 ```
 
 #### Fault Injection Resistance
+
 ```c
 // Required: Double-check all critical operations
 int verify_signature(const uint8_t *msg, const uint8_t *sig) {
@@ -110,22 +112,22 @@ pkgs.stdenv.mkDerivation {
 ┌─────────────────────────────────────────┐
 │           Custom PCB Design             │
 │                                         │
-│  ┌─────────────┐    ┌──────────────┐   │
-│  │  JH7110 SoC │◄──►│  ATECC608B   │   │
-│  │             │I2C │  Secure Elem │   │
-│  │             │    │              │   │
-│  │  ┌───────┐  │    │  • Key slots │   │
-│  │  │ seL4  │  │    │  • ECDSA     │   │
-│  │  │micro- │  │    │  • SHA-256   │   │
-│  │  │kernel │  │    │  • Tamper    │   │
-│  │  └───────┘  │    │    detect    │   │
-│  └─────────────┘    └──────────────┘   │
+│  ┌─────────────┐    ┌──────────────┐    │
+│  │  JH7110 SoC │◄──►│  ATECC608B   │    │
+│  │             │I2C │  Secure Elem │    │
+│  │             │    │              │    │
+│  │  ┌───────┐  │    │  • Key slots │    │
+│  │  │ seL4  │  │    │  • ECDSA     │    │
+│  │  │micro- │  │    │  • SHA-256   │    │
+│  │  │kernel │  │    │  • Tamper    │    │
+│  │  └───────┘  │    │    detect    │    │
+│  └─────────────┘    └──────────────┘    │
 │                                         │
 │  Features:                              │
 │  • Keys generated IN secure element     │
-│  • Private keys NEVER leave chip          │
+│  • Private keys NEVER leave chip        │
 │  • Physical tamper mesh on enclosure    │
-│  • Temperature/voltage glitch detection   │
+│  • Temperature/voltage glitch detection │
 └─────────────────────────────────────────┘
 ```
 
@@ -152,15 +154,15 @@ pkgs.stdenv.mkDerivation {
 │      Custom RISC-V Security SoC         │
 │                                         │
 │  ┌─────────────────────────────────┐    │
-│  │     RISC-V Core (RV64GC)      │    │
-│  │   • 1.5 GHz, 4-wide issue      │    │
+│  │     RISC-V Core (RV64GC)        │    │
+│  │   • 1.5 GHz, 4-wide issue       │    │
 │  │   • Crypto extensions (K)       │    │
 │  │   • Vector extensions (V)       │    │
 │  └─────────────────────────────────┘    │
 │                                         │
 │  ┌─────────────────────────────────┐    │
-│  │    Integrated HSM (Secure En) │    │
-│  │   • OTP key fusing (256-bit)   │    │
+│  │    Integrated HSM (Secure En)   │    │
+│  │   • OTP key fusing (256-bit)    │    │
 │  │   • Ed25519 hardware accel      │    │
 │  │   • SHA3-256 hardware accel     │    │
 │  │   • CRYSTALS-Dilithium (opt)    │    │
@@ -174,7 +176,7 @@ pkgs.stdenv.mkDerivation {
 │  • JTAG permanently disabled via fuse   │
 │  • No debug interface post-production   │
 │  • Boot ROM immutable in silicon        │
-│  • Hardware watchdog (unstoppable)        │
+│  • Hardware watchdog (unstoppable)      │
 └─────────────────────────────────────────┘
 ```
 
@@ -286,7 +288,7 @@ violation:
 ### 5.2 Hardware Watchdog Requirements
 
 | Feature | Implementation | Bypass Resistance |
-|---------|---------------|-------------------|
+|---------|---------------|--------------------|
 | Separate clock domain | Independent oscillator | Clock glitching |
 | Voltage monitoring | Brown-out detection | Voltage glitching |
 | Temperature monitoring | ±1°C accuracy | Temperature attacks |
@@ -362,11 +364,13 @@ typedef enum {
 ## Conclusion
 
 **Without these measures, your system WILL be bypassed by:**
+
 - Nation-state actors with physical access
 - Sophisticated criminals with $10K equipment
 - Supply chain interdiction
 
 **With these measures, bypass requires:**
+
 - Custom silicon analysis ($1M+ equipment)
 - Physical destruction of the device
 - Coercion of the user (duress PIN mitigates)
