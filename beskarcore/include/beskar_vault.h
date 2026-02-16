@@ -12,6 +12,7 @@
 #define BESKAR_VAULT_MAX_TAMPER_CALLBACKS 8
 
 // Key types (inspired by BlackBerry key hierarchy)
+// CRITICAL: NO backdoors - VAULT_KEY_EMERGENCY removed per security audit
 typedef enum {
     VAULT_KEY_DEVICE_MASTER = 0,      // Device-unique, never leaves HSM
     VAULT_KEY_USER_AUTH = 1,          // PIN/password derived
@@ -19,9 +20,10 @@ typedef enum {
     VAULT_KEY_COMMUNICATION = 3,      // Network encryption
     VAULT_KEY_STORAGE = 4,            // Data at rest
     VAULT_KEY_BACKUP = 5,             // Encrypted backup
-    VAULT_KEY_EMERGENCY = 6,          // Law enforcement (optional)
-    VAULT_KEY_CUSTOM_START = 7,       // User-defined keys start here
+    // NO EMERGENCY KEY - Backdoors violate sovereign computing principles
+    VAULT_KEY_CUSTOM_START = 6,       // User-defined keys start here
 } vault_key_type_t;
+
 
 // Security levels (BlackBerry-inspired)
 typedef enum {

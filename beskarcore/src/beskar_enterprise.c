@@ -1028,25 +1028,19 @@ enterprise_stats_t enterprise_get_stats(void) {
 int enterprise_generate_report(const char *filepath) {
     LOG_INFO("Generating enterprise report: %s", filepath);
     
-    // Generate comprehensive report
-    printf("\n=== BESKAR ENTERPRISE REPORT ===\n");
-    printf("Total Devices: %u\n", stats.total_devices);
-    printf("Active Devices: %u\n", stats.active_devices);
-    printf("Compliant Devices: %u\n", stats.compliant_devices);
-    printf("Non-Compliant Devices: %u\n", stats.non_compliant_devices);
-    printf("Suspended Devices: %u\n", stats.suspended_devices);
-    printf("Wiped Devices: %u\n", stats.wiped_devices);
-    printf("Commands Issued: %llu\n", (unsigned long long)stats.commands_issued);
-    printf("Commands Executed: %llu\n", (unsigned long long)stats.commands_executed);
-    printf("Commands Failed: %llu\n", (unsigned long long)stats.commands_failed);
-    printf("Active Policies: %u\n", stats.policies_active);
-    printf("Compliance Checks: %llu\n", (unsigned long long)stats.compliance_checks);
-    printf("Violations Detected: %llu\n", (unsigned long long)stats.violations_detected);
-    printf("================================\n");
+    // SECURITY: Never output sensitive statistics to stdout
+    // All reporting goes through secure logging only
+    LOG_INFO("Enterprise statistics generated");
+    LOG_DEBUG("Total devices: %u", stats.total_devices);
+    LOG_DEBUG("Active devices: %u", stats.active_devices);
+    LOG_DEBUG("Compliant devices: %u", stats.compliant_devices);
     
+    // In production, write encrypted report to file
+    // TODO: Implement encrypted report generation
     (void)filepath;
     return 0;
 }
+
 
 // ============================================================================
 // Helper Functions
