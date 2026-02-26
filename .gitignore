@@ -1,0 +1,253 @@
+# Mandalorian Project - Git Ignore File
+# These files should not be uploaded to GitHub
+
+# =============================================================================
+# ANALYSIS DOCUMENTATION (Personal reference only - keep local, don't upload)
+# =============================================================================
+IMPROVEMENTS_SUMMARY.md
+PRE_UPLOAD_CHECKLIST.md
+
+
+
+# =============================================================================
+# BUILD ARTIFACTS
+# =============================================================================
+# Build directories
+build/
+build_*/
+build-*/
+out/
+cmake-build-*/
+Debug/
+Release/
+x64/
+x86/
+
+# Compiled object files
+*.o
+*.obj
+*.ko
+*.elf
+
+# Compiled binaries
+*.exe
+*.out
+*.app
+*.i*86
+*.x86_64
+*.hex
+*.bin
+
+# Static and dynamic libraries
+*.lib
+*.a
+*.la
+*.lo
+*.dll
+*.so
+*.so.*
+*.dylib
+
+# =============================================================================
+# CMAKE FILES
+# =============================================================================
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+compile_commands.json
+CTestTestfile.cmake
+_deps/
+
+# =============================================================================
+# IDE FILES
+# =============================================================================
+# Visual Studio
+.vs/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+*.vcxproj
+*.vcxproj.filters
+*.vcxproj.user
+ipch/
+*.aps
+*.ncb
+*.opensdf
+*.sdf
+*.cachefile
+*.VC.db
+*.VC.VC.opendb
+
+# Visual Studio Code
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+*.code-workspace
+
+# CLion
+.idea/
+*.iml
+*.iws
+cmake-build-*/
+
+# Eclipse
+.metadata
+.settings/
+.cproject
+.project
+
+# =============================================================================
+# TESTING ARTIFACTS
+# =============================================================================
+# Test outputs
+Testing/
+test-results/
+*.log
+*.trs
+
+# Coverage reports
+*.gcno
+*.gcda
+*.gcov
+coverage.info
+coverage/
+lcov-report/
+
+# Fuzzing corpus
+corpus/
+crashes/
+hangs/
+
+# Valgrind
+*.valgrind
+vgcore.*
+
+# =============================================================================
+# OS FILES
+# =============================================================================
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+*.cab
+*.msi
+*.msm
+*.msp
+*.lnk
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
+
+# Linux
+*~
+.nfs*
+.directory
+
+# =============================================================================
+# DEPENDENCIES
+# =============================================================================
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Node.js
+node_modules/
+npm-debug.log
+yarn-error.log
+
+# =============================================================================
+# SECURITY SENSITIVE
+# =============================================================================
+# Private keys (should never be in repo)
+*.pem
+*.key
+*.p12
+*.pfx
+id_rsa
+id_dsa
+id_ecdsa
+id_ed25519
+*.pub
+!test-keys/*.pub  # Allow test public keys
+
+# Secrets
+.env
+.env.local
+.env.*.local
+secrets/
+credentials/
+config.json
+!config.json.example
+
+# =============================================================================
+# TEMPORARY FILES
+# =============================================================================
+*.tmp
+*.temp
+*.swp
+*.swo
+*~
+*.bak
+*.orig
+*.rej
+*.patch
+*.diff
+
+# =============================================================================
+# DOCUMENTATION BUILD
+# =============================================================================
+docs/_build/
+docs/_static/
+docs/_templates/
+*.doctree
+*.pickle
+
+# =============================================================================
+# seL4 SPECIFIC
+# =============================================================================
+# seL4 build artifacts
+sel4_build/
+stage/
+images/
+*.pbf
+*.bin.h
+
+# =============================================================================
+# PROJECT SPECIFIC
+# =============================================================================
+# Hardware flashing artifacts
+*.img
+*.flash
+*.rom
+
+# Backup files
+*.backup
+*.old
+
+# =============================================================================
+# EXCEPTIONS (Files that SHOULD be included)
+# =============================================================================
+# Keep these even if they match patterns above
+!.github/
+!LICENSE
+!LICENSE.md

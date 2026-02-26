@@ -1,0 +1,125 @@
+Mandalorian Project - Dual Licensing Model
+
+Copyright (c) 2025-2026 Themba Enock Mpehle and The Mandalorian Project Contributors
+
+================================================================================
+LICENSE OPTIONS
+================================================================================
+
+This software is available under TWO licenses:
+
+1. MANDALORIAN SOVEREIGNTY LICENSE (Open Source)
+   - For individuals, researchers, and non-commercial use
+   - Full source code available
+   - No backdoors, ever
+   - See Section A below
+
+2. COMMERCIAL LICENSE (Enterprise/Government)
+   - For organizations requiring proprietary use rights
+   - Contact: info@socialfeed.co.za
+   - See Section B below
+
+================================================================================
+SECTION A: MANDALORIAN SOVEREIGNTY LICENSE v1.0 (Open Source)
+================================================================================
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, subject to the following SOVEREIGNTY CONDITIONS:
+
+1. NO BACKDOORS
+   You may NOT introduce any mechanism allowing access to user data, system
+   functions, or cryptographic keys without explicit, real-time, informed
+   consent from the user. This includes law enforcement access, vendor
+   overrides, remote access without authorization, key escrow, or hidden
+   administrative accounts.
+
+2. SHIELD LEDGER IMMUTABILITY
+   You MUST preserve the integrity and immutability of the Shield Ledger.
+   Any modification allowing deletion or suppression of security audit
+   events voids your license.
+
+3. REPRODUCIBLE BUILDS
+   You MUST provide complete build instructions yielding bit-for-bit
+   identical binaries when built by independent parties.
+
+4. TRANSPARENCY
+   You MUST clearly document hardware dependencies, security limitations,
+   and simulation-only code.
+
+5. USER SOVEREIGNTY
+   The user retains absolute authority over their device. Any mechanism
+   subverting user control voids your license.
+
+6. COPYLEFT REQUIREMENT
+   If you distribute modified versions or use this Software in a service,
+   you MUST release your modifications under this same license.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND.
+
+================================================================================
+SECTION B: COMMERCIAL LICENSE (Enterprise/Government)
+================================================================================
+
+For organizations requiring:
+- Proprietary use without copyleft obligations
+- Commercial support and SLAs
+- Custom feature development
+- White-label licensing
+- Government/defense sovereign deployments
+
+Contact: info@socialfeed.co.za
+Subject: "Mandalorian Commercial License Inquiry"
+
+Pricing Tiers:
+- Enterprise: $50,000 - $500,000/year per organization
+- Government/Defense: Custom pricing ($1M+)
+- Hardware OEM: Per-device licensing
+
+Commercial licenses include:
+- Dedicated support channel
+- Priority security updates
+- Custom HSM integration
+- Compliance documentation
+- Training and onboarding
+
+================================================================================
+WHICH LICENSE SHOULD I CHOOSE?
+================================================================================
+
+Choose MANDALORIAN SOVEREIGNTY LICENSE if:
+✓ You are an individual user or researcher
+✓ You are building open-source projects
+✓ You believe in software freedom and transparency
+✓ You will share your improvements with the community
+
+Choose COMMERCIAL LICENSE if:
+✓ You are a corporation building proprietary products
+✓ You need legal indemnification
+✓ You require professional support
+✓ You cannot comply with copyleft requirements
+✓ You are a government/defense organization
+
+================================================================================
+COMPONENT LICENSES
+================================================================================
+
+This project incorporates:
+
+- seL4 Microkernel: GPL-2.0 (see beskarcore/seL4/LICENSE.md)
+- HACL* Cryptography: MIT (see beskarcore/seL4/libsel4/LICENSES/)
+- CAmkES: BSD-2-Clause (see beskarcore/CAmkES/LICENSE)
+
+The Mandalorian Project's original work is licensed as described above.
+
+================================================================================
+ATTRIBUTION
+================================================================================
+
+"This is the way."
+
+Built for sovereignty. Not for surveillance.
+
+For investment inquiries: info@socialfeed.co.za

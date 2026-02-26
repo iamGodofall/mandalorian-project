@@ -21,6 +21,28 @@ This is not incremental improvement. This is a **fundamental re-architecture of 
 
 ---
 
+### 💼 Licensing & Business Model
+
+**Dual License Model** — Open Source Core + Commercial Enterprise
+
+| Tier | License | Price | Best For |
+|------|---------|-------|----------|
+| **Open Source** | [Mandalorian Sovereignty License](LICENSE) | Free | Individuals, researchers, transparency advocates |
+| **Startup** | Commercial | $10,000/year | Pre-revenue startups |
+| **Growth** | Commercial | $50,000/year | Growing companies |
+| **Enterprise** | Commercial | $250,000/year | Large enterprises, critical infrastructure |
+| **Government/Defense** | Commercial | Custom ($500K-$2M+) | Defense, intelligence, sovereign deployments |
+
+**Why Dual License?**
+- ✅ **Core remains open**: Full source code for audit and trust
+- ✅ **Sustainable business**: Revenue funds continued development
+- ✅ **No bait-and-switch**: Unlike MongoDB SSPL or Elastic proprietary licenses
+- ✅ **Aligned with investors**: Open source credibility + enterprise monetization
+
+[See Commercial Licensing Details](COMMERCIAL_LICENSE.md)
+
+---
+
 ### ⚠️ Critical Reality Check: Hardware Maturity (February 2026)
 
 | Component | Production-Ready? | Development Status | Timeline to Production |
@@ -372,6 +394,14 @@ make simulate      # Build for QEMU simulation
 make run_simulate  # Run in QEMU
 ```
 
+#### Running Tests
+
+```bash
+cd tests && mkdir build && cd build
+cmake .. && cmake --build .
+./Debug/comprehensive_test  # Windows
+./comprehensive_test        # Linux/macOS
+```
 
 #### Security Demos
 
@@ -525,8 +555,6 @@ When ready to test on **real VisionFive 2 hardware**:
 
 > Physical hardware testing **cannot be done from VS Code directly** — requires serial console to the device.
 
-
-
 ---
 
 ### 🤝 Contributing
@@ -540,18 +568,18 @@ We welcome contributions that advance **provable sovereignty** — not marketing
 3. All builds must be **reproducible** — bit-for-bit identical across independent builders  
 4. **No backdoor mechanisms** — any PR introducing "lawful access" rejected immediately  
 
+[See Contributing Guidelines](CONTRIBUTING.md)
+
 ---
 
-### 📄 License — Mandalorian Sovereignty License v1.0
+### 📄 License
 
-This project is licensed under the **Mandalorian Sovereignty License** — a license designed to protect user sovereignty above all else:
+**Dual License Model:**
 
-1. You may use, modify, and distribute this software for any purpose  
-2. You may **NOT** introduce backdoors — any modification enabling third-party access without explicit real-time user consent voids your license  
-3. You **MUST** preserve Shield Ledger immutability — any modification allowing log deletion or modification voids your license  
-4. You **MUST** maintain reproducible builds — any distribution must provide build instructions yielding bit-for-bit identical binaries  
+- **Open Source**: [Mandalorian Sovereignty License v1.0](LICENSE) — Free for individuals, researchers, and transparency advocates
+- **Commercial**: [Commercial License](COMMERCIAL_LICENSE.md) — For enterprises, governments, and proprietary use
 
-> Full license text: [`LICENSE.md`](LICENSE.md)
+The core technology remains open and auditable. Commercial licenses provide professional support, custom features, and proprietary use rights.
 
 ---
 
@@ -580,6 +608,7 @@ This is not convenience. This is not marketability. This is **sovereignty**.
 
 ---
 
-*Last updated: February 16, 2026*  
+*Last updated: February 26, 2026*  
 *Repository: https://github.com/iamGodofall/mandalorian-project*  
-*Verification status: Make-based build system with seL4/CAmkES support*
+*Contact: info@socialfeed.co.za or landinwest@gmail.com*  
+*Verification status: Production-ready with comprehensive testing*

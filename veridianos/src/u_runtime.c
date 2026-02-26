@@ -335,8 +335,13 @@ int android_app_load(const char *apk_path, void **art_context) {
     }
 
     // Initialize context
-    strcpy(context->package_name, "com.example.app"); // Extract from manifest
-    strcpy(context->main_activity, "MainActivity");   // Extract from manifest
+    strncpy(context->package_name, "com.example.app", 
+            sizeof(context->package_name) - 1);
+    context->package_name[sizeof(context->package_name) - 1] = '\0';
+    strncpy(context->main_activity, "MainActivity", 
+            sizeof(context->main_activity) - 1);
+    context->main_activity[sizeof(context->main_activity) - 1] = '\0';
+
     context->version_code = 1;
     context->dex_size = 1024; // Actual DEX size
     context->lib_count = 0;

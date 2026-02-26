@@ -901,9 +901,10 @@ int verify_kernel_integrity() {
     // Format hash as hex string for logging
     char hash_str[65];
     for (int i = 0; i < 32; i++) {
-        sprintf(hash_str + (i * 2), "%02x", kernel_hash[i]);
+        snprintf(hash_str + (i * 2), sizeof(hash_str) - (i * 2), "%02x", kernel_hash[i]);
     }
     hash_str[64] = '\0';
+
 
     LOG_INFO("Kernel hash: %s", hash_str);
 

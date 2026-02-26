@@ -32,7 +32,9 @@ int monitoring_init(const monitoring_config_t *config) {
         monitoring_config.max_alerts = MAX_ALERTS;
         monitoring_config.collection_interval_seconds = 60;
         monitoring_config.retention_period_days = 30;
-        strcpy(monitoring_config.output_file, "monitoring.log");
+        strncpy(monitoring_config.output_file, "monitoring.log", sizeof(monitoring_config.output_file) - 1);
+        monitoring_config.output_file[sizeof(monitoring_config.output_file) - 1] = '\0';
+
         monitoring_config.enable_prometheus_export = 0;
         monitoring_config.prometheus_port = 9090;
     }

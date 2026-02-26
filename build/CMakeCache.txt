@@ -191,6 +191,26 @@ CMAKE_TOOLCHAIN_FILE:STRING=C:/Windows/System32/vcpkg/scripts/buildsystems/vcpkg
 // Studio IDE projects all commands are done without /nologo.
 CMAKE_VERBOSE_MAKEFILE:BOOL=FALSE
 
+//Function attributes     default->Verification friendly default
+// configuration. syscalls will be inlined,         but generated
+// functions will not.     inline->When set to true will mark generated
+// functions as 'inline', allowing         them to be inlined by
+// the callee user code. This may be undesirable         for verification,
+// so setting to 'n' will forcibly prevent the function       
+//  from being inlined.     public->When set to true will make
+// all user facing functions available as         public symbols,
+// which can be convenient for some language bindings.
+LibSel4FunctionAttributes:STRING=inline
+
+//use only IPC buffer for syscalls. When generating syscall wrappers,
+// only use the     IPC buffer for marshalling and unmarshalling
+// arguments. Without this option set,     arguments will be passed
+// in registers where possible for better performance.
+LibSel4StubsUseIPCBufferOnly:BOOL=OFF
+
+//Path to a file.
+SYSCALL_STUB_GEN_PATH:FILEPATH=D:/mandalorian-project/beskarcore/seL4/libsel4/tools/syscall_stub_gen.py
+
 //Automatically copy dependencies into the output directory for
 // executables.
 VCPKG_APPLOCAL_DEPS:BOOL=ON
@@ -366,6 +386,16 @@ CMAKE_STATIC_LINKER_FLAGS_RELWITHDEBINFO-ADVANCED:INTERNAL=1
 CMAKE_TOOLCHAIN_FILE-ADVANCED:INTERNAL=1
 //ADVANCED property for variable: CMAKE_VERBOSE_MAKEFILE
 CMAKE_VERBOSE_MAKEFILE-ADVANCED:INTERNAL=1
+LibSel4FunctionAttributeDefault:INTERNAL=OFF
+LibSel4FunctionAttributeInline:INTERNAL=ON
+LibSel4FunctionAttributePublic:INTERNAL=OFF
+//STRINGS property for variable: LibSel4FunctionAttributes
+LibSel4FunctionAttributes-STRINGS:INTERNAL=inline;default;public
+LibSel4FunctionAttributes_all_strings:INTERNAL=inline;default;public
+LibSel4PrintInvocationErrors:INTERNAL=0
+LibSel4PrintInvocationErrors_UNAVAILABLE:INTERNAL=ON
+//ADVANCED property for variable: SYSCALL_STUB_GEN_PATH
+SYSCALL_STUB_GEN_PATH-ADVANCED:INTERNAL=1
 //Install the dependencies listed in your manifest:
 //\n    If this is off, you will have to manually install your dependencies.
 //\n    See https://github.com/microsoft/vcpkg/tree/master/docs/specifications/manifests.md
