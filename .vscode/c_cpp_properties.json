@@ -1,70 +1,49 @@
 {
     "configurations": [
         {
-            "name": "Windows",
+            "name": "Win32",
             "includePath": [
                 "${workspaceFolder}/**",
-                "${env:INCLUDE}",
-                "${env:WindowsSdkDir}Include\\${env:WindowsSDKVersion}ucrt",
-                "${env:WindowsSdkDir}Include\\${env:WindowsSDKVersion}shared",
-                "${env:WindowsSdkDir}Include\\${env:WindowsSDKVersion}um",
-                "${env:WindowsSdkDir}Include\\${env:WindowsSDKVersion}winrt",
-                "C:/Windows/System32/vcpkg/installed/x64-windows/include"
+                "${workspaceFolder}/beskarcore/include",
+                "${workspaceFolder}/beskarcore/include/hal",
+                "${workspaceFolder}/veridianos/include",
+                "${workspaceFolder}/aegis/include",
+                "${workspaceFolder}/helm/include"
             ],
             "defines": [
                 "_DEBUG",
                 "UNICODE",
-                "_UNICODE"
+                "_UNICODE",
+                "SIMULATION_MODE",
+                "VAULT_HAL_SIMULATION"
             ],
-            "compilerPath": "C:/Program Files/Microsoft Visual Studio/2022/Community/VC/Tools/MSVC/14.44.35207/bin/Hostx64/x64/cl.exe",
+            "compilerPath": "C:/Program Files/Microsoft Visual Studio/2022/Community/VC/Tools/MSVC/14.40.33807/bin/Hostx64/x64/cl.exe",
             "cStandard": "c11",
             "cppStandard": "c++17",
-            "intelliSenseMode": "windows-msvc-x64"
+            "intelliSenseMode": "windows-msvc-x64",
+            "configurationProvider": "ms-vscode.cmake-tools"
         },
         {
-            "name": "RISC-V 64-bit",
+            "name": "WSL",
             "includePath": [
                 "${workspaceFolder}/**",
-                "${workspaceFolder}/beskarcore/seL4/include/**",
-                "${workspaceFolder}/beskarcore/seL4/libsel4/include/**"
+                "${workspaceFolder}/beskarcore/include",
+                "${workspaceFolder}/beskarcore/include/hal",
+                "${workspaceFolder}/veridianos/include",
+                "${workspaceFolder}/aegis/include",
+                "${workspaceFolder}/helm/include",
+                "/usr/include",
+                "/usr/include/x86_64-linux-gnu"
             ],
             "defines": [
-                "_DEBUG"
+                "SIMULATION_MODE",
+                "VAULT_HAL_SIMULATION"
             ],
-            "compilerPath": "riscv64-unknown-linux-gnu-gcc",
-            "cStandard": "c99",
+            "compilerPath": "/usr/bin/gcc",
+            "cStandard": "c11",
             "cppStandard": "c++17",
-            "intelliSenseMode": "linux-gcc-x64"
-        },
-        {
-            "name": "ARM64 (AArch64)",
-            "includePath": [
-                "${workspaceFolder}/**",
-                "${workspaceFolder}/beskarcore/seL4/include/**",
-                "${workspaceFolder}/beskarcore/seL4/libsel4/include/**"
-            ],
-            "defines": [
-                "_DEBUG"
-            ],
-            "compilerPath": "aarch64-linux-gnu-gcc",
-            "cStandard": "c99",
-            "cppStandard": "c++17",
-            "intelliSenseMode": "linux-gcc-arm64"
-        },
-        {
-            "name": "x86_64 Linux",
-            "includePath": [
-                "${workspaceFolder}/**",
-                "${workspaceFolder}/beskarcore/seL4/include/**",
-                "${workspaceFolder}/beskarcore/seL4/libsel4/include/**"
-            ],
-            "defines": [
-                "_DEBUG"
-            ],
-            "compilerPath": "x86_64-linux-gnu-gcc",
-            "cStandard": "c99",
-            "cppStandard": "c++17",
-            "intelliSenseMode": "linux-gcc-x64"
+            "intelliSenseMode": "linux-gcc-x64",
+            "configurationProvider": "ms-vscode.cmake-tools"
         }
     ],
     "version": 4
