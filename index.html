@@ -1,193 +1,460 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mandalorian Project — Sovereign Mobile Computing</title>
-    
-    <!-- Open Graph / Social Media Preview Tags -->
-    <meta property="og:type" content="website">
-    <meta property="og:url" content="https://iamgodofall.github.io/mandalorian-project/">
-    <meta property="og:title" content="Mandalorian Project — Sovereign Mobile Computing">
-    <meta property="og:description" content="Betrayal-Resistant Architecture Built on seL4 Microkernel. The world's first betrayal-resistant mobile computing platform.">
-    <meta property="og:image" content="https://iamgodofall.github.io/mandalorian-project/docs/banner.png">
-    
-    <!-- Twitter Card -->
-    <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:title" content="Mandalorian Project — Sovereign Mobile Computing">
-    <meta name="twitter:description" content="Betrayal-Resistant Architecture Built on seL4 Microkernel">
-    <meta name="twitter:image" content="https://iamgodofall.github.io/mandalorian-project/docs/banner.png">
-    
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Mandalorian Project — Sovereign Mobile Computing</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
+<style>
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
 
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
-            background:
-                radial-gradient(circle at 50% 20%, rgba(56, 139, 253, 0.08), transparent 60%),
-                radial-gradient(circle at 80% 80%, rgba(35, 134, 54, 0.06), transparent 60%),
-                #0d1117;
-            color: #c9d1d9;
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            padding: 60px 20px;
-        }
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  height: 100vh;
+  overflow-x: hidden;
+  color: white;
+  background: #0a0a0a;
+}
 
-        .container {
-            max-width: 1000px;
-            text-align: center;
-            padding: 60px 20px;
-            animation: fadeIn 0.6s ease-out;
-        }
+/* ===== HERO BACKGROUND ===== */
+.hero {
+  position: relative;
+  height: 100vh;
+  width: 100%;
+  background-image: url("./docs/white-banner.png");
+  background-size: cover;
+  background-position: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-image 1.5s ease-in-out;
+}
 
-        /* Banner */
-        .logo {
-            width: 100%;
-            max-width: 900px;
-            height: auto;
-            margin-bottom: 50px;
-            border-radius: 12px;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
-        }
+/* Dark overlay for readability */
+.hero::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to bottom, 
+    rgba(0,0,0,0.4) 0%, 
+    rgba(0,0,0,0.2) 50%, 
+    rgba(0,0,0,0.5) 100%
+  );
+  pointer-events: none;
+}
 
-        /* Title */
-        h1 {
-            font-size: 3rem;
-            font-weight: 700;
-            letter-spacing: -0.02em;
-            margin-bottom: 16px;
-            color: #f0f6fc;
-            text-shadow: 0 0 30px rgba(88, 166, 255, 0.15);
-        }
+/* ===== HEADER OVERLAY ===== */
+.header-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  padding: 30px 50px;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  background: rgba(0,0,0,0.3);
 
-        /* Tagline */
-        .tagline {
-            font-size: 1.3rem;
-            font-weight: 500;
-            color: #8b949e;
-            margin-bottom: 30px;
-        }
+  border-bottom: 1px solid rgba(255,255,255,0.1);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  z-index: 10;
+}
 
-        /* Architecture Strip */
-        .architecture {
-            margin-bottom: 50px;
-            font-size: 0.95rem;
-            letter-spacing: 0.08em;
-            text-transform: uppercase;
-            color: #58a6ff;
-            opacity: 0.8;
-        }
+.logo {
+  font-size: 1.5rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  background: linear-gradient(135deg, #fff 0%, #a0a0a0 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
 
-        /* Description */
-        .description {
-            font-size: 1.15rem;
-            line-height: 1.7;
-            max-width: 750px;
-            margin: 0 auto 60px;
-            color: #c9d1d9;
-        }
+.nav-links {
+  display: flex;
+  gap: 30px;
+}
 
-        /* CTA */
-        .cta {
-            display: inline-block;
-            background: linear-gradient(135deg, #238636, #2ea043);
-            color: white;
-            padding: 16px 32px;
-            border-radius: 10px;
-            text-decoration: none;
-            font-weight: 600;
-            font-size: 1.05rem;
-            transition: all 0.2s ease;
-            box-shadow: 0 8px 30px rgba(35, 134, 54, 0.25);
-        }
+.nav-links a {
+  color: rgba(255,255,255,0.8);
+  text-decoration: none;
+  font-size: 0.9rem;
+  font-weight: 500;
+  transition: all 0.3s ease;
+  position: relative;
+}
 
-        .cta:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 12px 40px rgba(35, 134, 54, 0.35);
-        }
+.nav-links a::after {
+  content: '';
+  position: absolute;
+  bottom: -4px;
+  left: 0;
+  width: 0;
+  height: 2px;
+  background: linear-gradient(90deg, #0ea5e9, #2563eb);
+  transition: width 0.3s ease;
+}
 
-        /* Feature Grid */
-        .features {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-            gap: 24px;
-            margin-top: 60px;
-            text-align: left;
-        }
+.nav-links a:hover {
+  color: white;
+}
 
-        /* Feature Card */
-        .feature {
-            background: linear-gradient(145deg, #161b22, #1c2128);
-            padding: 28px;
-            border-radius: 14px;
-            border: 1px solid rgba(88, 166, 255, 0.15);
-            transition: transform 0.2s ease, box-shadow 0.2s ease;
-        }
+.nav-links a:hover::after {
+  width: 100%;
+}
 
-        .feature:hover {
-            transform: translateY(-4px);
-            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
-        }
+/* ===== GLASS CARD ===== */
+.glass-card {
+  position: relative;
+  z-index: 5;
+  max-width: 700px;
+  padding: 60px;
+  border-radius: 24px;
+  backdrop-filter: blur(30px);
+  -webkit-backdrop-filter: blur(30px);
+  background: rgba(255, 255, 255, 0.05);
 
-        .feature h3 {
-            color: #f0f6fc;
-            margin-bottom: 14px;
-            font-size: 1.1rem;
-        }
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow: 
+    0 25px 50px -12px rgba(0, 0, 0, 0.5),
+    0 0 0 1px rgba(255, 255, 255, 0.05) inset;
+  text-align: center;
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  will-change: transform;
+}
 
-        .feature p {
-            color: #8b949e;
-            font-size: 0.95rem;
-            line-height: 1.6;
-        }
-    </style>
+.glass-card:hover {
+  transform: translateY(-8px) scale(1.02);
+  box-shadow: 
+    0 35px 60px -12px rgba(0, 0, 0, 0.6),
+    0 0 0 1px rgba(255, 255, 255, 0.1) inset;
+}
+
+.badge {
+  display: inline-block;
+  padding: 8px 16px;
+  border-radius: 100px;
+  background: rgba(14, 165, 233, 0.2);
+  border: 1px solid rgba(14, 165, 233, 0.3);
+  color: #0ea5e9;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-bottom: 24px;
+}
+
+.glass-card h1 {
+  font-size: 3.5rem;
+  font-weight: 700;
+  line-height: 1.1;
+  margin-bottom: 20px;
+  letter-spacing: -0.03em;
+  background: linear-gradient(135deg, #fff 0%, #c0c0c0 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.glass-card .subtitle {
+  font-size: 1.25rem;
+  font-weight: 300;
+  opacity: 0.9;
+  margin-bottom: 30px;
+  color: rgba(255,255,255,0.85);
+}
+
+.glass-card p {
+  line-height: 1.8;
+  opacity: 0.75;
+  margin-bottom: 40px;
+  font-size: 1.05rem;
+  color: rgba(255,255,255,0.7);
+}
+
+/* CTA Buttons */
+.cta-group {
+  display: flex;
+  gap: 16px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.cta-primary {
+  display: inline-block;
+  padding: 16px 32px;
+  border-radius: 12px;
+  text-decoration: none;
+  background: linear-gradient(135deg, #0ea5e9, #2563eb);
+  color: white;
+  font-weight: 600;
+  font-size: 1rem;
+  transition: all 0.3s ease;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 4px 20px rgba(37, 99, 235, 0.4);
+}
+
+.cta-primary:hover {
+  transform: translateY(-2px) scale(1.05);
+  box-shadow: 0 8px 40px rgba(37, 99, 235, 0.6);
+}
+
+.cta-secondary {
+  display: inline-block;
+  padding: 16px 32px;
+  border-radius: 12px;
+  text-decoration: none;
+  background: rgba(255,255,255,0.1);
+  color: white;
+  font-weight: 600;
+  font-size: 1rem;
+  transition: all 0.3s ease;
+  border: 1px solid rgba(255,255,255,0.2);
+  cursor: pointer;
+}
+
+.cta-secondary:hover {
+  background: rgba(255,255,255,0.2);
+  transform: translateY(-2px);
+}
+
+/* ===== FOOTER BAND ===== */
+.footer-overlay {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 24px 50px;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  background: rgba(0,0,0,0.4);
+
+  border-top: 1px solid rgba(255,255,255,0.1);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.85rem;
+  z-index: 10;
+  color: rgba(255,255,255,0.6);
+}
+
+.footer-left {
+  display: flex;
+  gap: 24px;
+}
+
+.footer-left span {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.footer-left span::before {
+  content: "◆";
+  color: #0ea5e9;
+  font-size: 0.6rem;
+}
+
+/* ===== PARTICLE EFFECT ===== */
+.particles {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 3;
+}
+
+.particle {
+  position: absolute;
+  width: 4px;
+  height: 4px;
+  background: rgba(255,255,255,0.3);
+  border-radius: 50%;
+  animation: float 20s infinite ease-in-out;
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translateY(100vh) rotate(0deg);
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+  }
+  90% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(-100vh) rotate(720deg);
+    opacity: 0;
+  }
+}
+
+/* ===== RESPONSIVE ===== */
+@media (max-width: 768px) {
+  .header-overlay {
+    padding: 20px 24px;
+  }
+  
+  .nav-links {
+    display: none;
+  }
+  
+  .glass-card {
+    padding: 40px 24px;
+    margin: 20px;
+    max-width: none;
+  }
+  
+  .glass-card h1 {
+    font-size: 2.5rem;
+  }
+  
+  .glass-card .subtitle {
+    font-size: 1rem;
+  }
+  
+  .cta-group {
+    flex-direction: column;
+  }
+  
+  .footer-overlay {
+    flex-direction: column;
+    gap: 12px;
+    text-align: center;
+    padding: 20px 24px;
+  }
+  
+  .footer-left {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+}
+</style>
 </head>
+
 <body>
-    <div class="container">
-        <img src="docs/banner.png" alt="Mandalorian Project Banner" class="logo">
-        
-        <h1>Mandalorian Project</h1>
-        <p class="tagline">Sovereign Mobile Computing</p>
-        
-        <div class="architecture">
-            seL4 Microkernel • RISC-V Architecture • Capability-Based Isolation • Hardware Root of Trust
-        </div>
-        
-        <p class="description">
-            A system engineered to be cryptographically and architecturally incapable of violating user trust — 
-            even under coercion, legal compulsion, or physical capture.
-        </p>
-        
-        <a href="https://github.com/iamGodofall/mandalorian-project" class="cta">
-            View on GitHub
-        </a>
-        
-        <div class="features">
-            <div class="feature">
-                <h3>🛡️ Beskar Security Stack</h3>
-                <p>Multi-layer security architecture with hardware-backed HSM, capability-based isolation, and continuous runtime integrity verification.</p>
-            </div>
-            <div class="feature">
-                <h3>🔐 Post-Quantum Messaging</h3>
-                <p>Signal Protocol with CRYSTALS-Dilithium augmentation for future-proof secure communications.</p>
-            </div>
-            <div class="feature">
-                <h3>✅ Zero-Trust Architecture</h3>
-                <p>Built on seL4 microkernel with capability-based access control and immutable audit logging.</p>
-            </div>
-        </div>
+
+<section class="hero" id="hero">
+  <!-- Particle Effects -->
+  <div class="particles" id="particles"></div>
+  
+  <!-- Header -->
+  <div class="header-overlay">
+    <div class="logo">◆ MANDALORIAN</div>
+    <nav class="nav-links">
+      <a href="https://github.com/iamGodofall/mandalorian-project/blob/master/README.md">Documentation</a>
+      <a href="https://github.com/iamGodofall/mandalorian-project">GitHub</a>
+      <a href="https://github.com/iamGodofall/mandalorian-project/blob/master/COMMERCIAL_LICENSE.md">Enterprise</a>
+    </nav>
+  </div>
+
+  <!-- Main Glass Card -->
+  <div class="glass-card" id="glassCard">
+    <div class="badge">Sovereign by Design</div>
+    <h1>Betrayal-Resistant Mobile Computing</h1>
+    <p class="subtitle">Built on formally verified microkernel architecture</p>
+    <p>
+      Capability-based isolation. Post-quantum cryptographic foundations. 
+      Hardware-enforced integrity with zero cloud dependency. 
+      The world's first mobile platform mathematically incapable of violating user trust.
+    </p>
+    
+    <div class="cta-group">
+      <a href="https://github.com/iamGodofall/mandalorian-project" class="cta-primary">
+        Explore Repository →
+      </a>
+      <a href="https://github.com/iamGodofall/mandalorian-project/blob/master/README.md" class="cta-secondary">
+        Read the Architecture
+      </a>
     </div>
+  </div>
+
+  <!-- Footer -->
+  <div class="footer-overlay">
+    <div class="footer-left">
+      <span>seL4 Microkernel</span>
+      <span>RISC-V Architecture</span>
+      <span>Post-Quantum</span>
+      <span>Zero Trust</span>
+    </div>
+    <div>© 2026 Mandalorian Project</div>
+  </div>
+</section>
+
+<script>
+// ===== IMAGE ROTATION =====
+const hero = document.getElementById('hero');
+const images = [
+  "./docs/white-banner.png",
+  "./docs/dark-banner.png"
+];
+let currentIndex = 0;
+
+// Preload images
+images.forEach(src => {
+  const img = new Image();
+  img.src = src;
+});
+
+// Smooth crossfade every 8 seconds
+setInterval(() => {
+  currentIndex = (currentIndex + 1) % images.length;
+  hero.style.opacity = '0.8';
+  setTimeout(() => {
+    hero.style.backgroundImage = `url(${images[currentIndex]})`;
+    hero.style.opacity = '1';
+  }, 200);
+}, 8000);
+
+// ===== PARALLAX EFFECT =====
+const glassCard = document.getElementById('glassCard');
+
+document.addEventListener('mousemove', (e) => {
+  const x = (window.innerWidth / 2 - e.pageX) / 30;
+  const y = (window.innerHeight / 2 - e.pageY) / 30;
+  
+  glassCard.style.transform = `translate(${x}px, ${y}px)`;
+});
+
+// Reset on mouse leave
+document.addEventListener('mouseleave', () => {
+  glassCard.style.transform = 'translate(0, 0)';
+});
+
+// ===== PARTICLE GENERATION =====
+const particlesContainer = document.getElementById('particles');
+const particleCount = 30;
+
+for (let i = 0; i < particleCount; i++) {
+  const particle = document.createElement('div');
+  particle.className = 'particle';
+  particle.style.left = Math.random() * 100 + '%';
+  particle.style.animationDelay = Math.random() * 20 + 's';
+  particle.style.animationDuration = (15 + Math.random() * 10) + 's';
+  particlesContainer.appendChild(particle);
+}
+
+// ===== SMOOTH SCROLL =====
+document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+  anchor.addEventListener('click', function (e) {
+    e.preventDefault();
+    const target = document.querySelector(this.getAttribute('href'));
+    if (target) {
+      target.scrollIntoView({ behavior: 'smooth' });
+    }
+  });
+});
+</script>
+
 </body>
 </html>
