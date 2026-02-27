@@ -65,7 +65,8 @@ int app_guard_init(const app_guard_config_t *config) {
         guard_config.enable_enterprise_mode = false;
         guard_config.strict_permission_mode = true;
         guard_config.default_memory_quota_mb = 256;
-        guard_config.default_storage_quota_mb = 512;
+        // 2TB default storage for sovereign computing - local first, cloud optional
+        guard_config.default_storage_quota_mb = 2097152; // 2TB = 2,097,152 MB
         guard_config.freeze_after_idle_minutes = 30;
         guard_config.max_apps_per_container = 64;
     }

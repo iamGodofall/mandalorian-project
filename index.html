@@ -232,8 +232,6 @@ body {
     inset 0 1px 0 rgba(255, 255, 255, 0.3);
 }
 
-
-
 .cta-secondary {
   display: inline-block;
   padding: 16px 32px;
@@ -251,6 +249,141 @@ body {
 .cta-secondary:hover {
   background: rgba(255,255,255,0.2);
   transform: translateY(-2px);
+}
+
+/* ===== LOCAL SOVEREIGNTY SECTION ===== */
+.local-sovereignty {
+  padding: 80px 50px;
+  background: linear-gradient(180deg, #0a0a0a 0%, #0f0f12 100%);
+}
+
+.sovereignty-container {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.section-header {
+  text-align: center;
+  margin-bottom: 50px;
+}
+
+.section-header span {
+  display:inline-block; 
+  padding:8px 16px; 
+  border-radius:100px; 
+  background:rgba(14,165,233,0.15); 
+  border:1px solid rgba(14,165,233,0.3); 
+  color:#0ea5e9; 
+  font-size:0.75rem; 
+  font-weight:600; 
+  text-transform:uppercase; 
+  letter-spacing:0.1em; 
+  margin-bottom:24px;
+}
+
+.section-header h2 {
+  font-size:2.5rem; 
+  font-weight:700; 
+  margin-bottom:20px; 
+  letter-spacing:-0.02em; 
+  color:#fff;
+}
+
+.section-header p {
+  font-size:1.1rem; 
+  color:rgba(255,255,255,0.6); 
+  max-width:600px; 
+  margin:0 auto; 
+  line-height:1.7;
+}
+
+.feature-cards {
+  display:grid; 
+  grid-template-columns:repeat(auto-fit, minmax(280px,1fr)); 
+  gap:24px; 
+  margin-bottom:50px;
+}
+
+.feature-card {
+  background:rgba(255,255,255,0.03); 
+  border:1px solid rgba(255,255,255,0.08); 
+  border-radius:20px; 
+  padding:32px;
+}
+
+.feature-card .icon {
+  font-size:28px; 
+  margin-bottom:16px;
+}
+
+.feature-card h3 {
+  font-size:1.25rem; 
+  font-weight:600; 
+  color:#fff; 
+  margin-bottom:12px;
+}
+
+.feature-card p {
+  font-size:0.95rem; 
+  color:rgba(255,255,255,0.6); 
+  line-height:1.6;
+}
+
+.feature-card strong {
+  color:#0ea5e9;
+}
+
+.cloud-warning {
+  background:rgba(255,255,255,0.02); 
+  border:1px solid rgba(255,255,255,0.08); 
+  border-radius:24px; 
+  padding:40px; 
+  margin-bottom:40px;
+}
+
+.cloud-warning h3 {
+  font-size:1.4rem; 
+  font-weight:600; 
+  color:#fff; 
+  margin-bottom:16px;
+}
+
+.cloud-warning p {
+  font-size:1rem; 
+  color:rgba(255,255,255,0.7); 
+  line-height:1.8;
+  margin-bottom:12px;
+}
+
+.cloud-warning strong {
+  color:#ef4444;
+}
+
+.cloud-warning em {
+  color:rgba(255,255,255,0.8);
+}
+
+.storage-specs {
+  display:flex; 
+  justify-content:center; 
+  gap:50px; 
+  flex-wrap:wrap;
+}
+
+.spec-item {
+  text-align:center;
+}
+
+.spec-value {
+  font-size:2.5rem; 
+  font-weight:700; 
+  color:#0ea5e9;
+}
+
+.spec-label {
+  font-size:0.85rem; 
+  color:rgba(255,255,255,0.5); 
+  margin-top:8px;
 }
 
 /* ===== FOOTER BAND ===== */
@@ -401,6 +534,22 @@ body {
   .footer-left span {
     font-size: 0.8rem;
   }
+  
+  .local-sovereignty {
+    padding: 60px 24px;
+  }
+  
+  .section-header h2 {
+    font-size: 2rem;
+  }
+  
+  .storage-specs {
+    gap: 30px;
+  }
+  
+  .spec-value {
+    font-size: 2rem;
+  }
 }
 
 @media (max-width: 480px) {
@@ -480,6 +629,58 @@ body {
       <span>Zero Trust</span>
     </div>
     <div>© 2026 Mandalorian Project</div>
+  </div>
+</section>
+
+<!-- Local Sovereignty Section -->
+<section class="local-sovereignty">
+  <div class="sovereignty-container">
+    <div class="section-header">
+      <span>Local First Architecture</span>
+      <h2>Your Data, Your Device, Your Control</h2>
+      <p>We believe in sovereignty — your computing should run locally, not in someone else's cloud.</p>
+    </div>
+    
+    <div class="feature-cards">
+      <div class="feature-card">
+        <div class="icon">💾</div>
+        <h3>Massive Local Storage</h3>
+        <p>Every Mandalorian device comes with <strong>2TB of encrypted local storage</strong>. Your data stays on your device — not in the cloud.</p>
+      </div>
+      
+      <div class="feature-card">
+        <div class="icon">☁️🚫</div>
+        <h3>Zero Cloud Dependency</h3>
+        <p>All security decisions happen locally on your device. No servers, no cloud APIs, no dependency on network connectivity for core functionality.</p>
+      </div>
+      
+      <div class="feature-card">
+        <div class="icon">🔐</div>
+        <h3>Hardware Encryption</h3>
+        <p>AES-256-GCM encryption with keys stored in dedicated HSM. Private keys never leave the secure enclave.</p>
+      </div>
+    </div>
+    
+    <div class="cloud-warning">
+      <h3>⚠️ The Cloud "Strong-Arming" Problem</h3>
+      <p>Modern devices have been deliberately designed with <strong>minimized local storage</strong> to force users into cloud subscriptions. This is manipulation, not convenience.</p>
+      <p>The technology for full local computing existed <em>decades before</em> the cloud frenzy. We chose to bring it back — with modern security.</p>
+    </div>
+    
+    <div class="storage-specs">
+      <div class="spec-item">
+        <div class="spec-value">2TB</div>
+        <div class="spec-label">Local Storage</div>
+      </div>
+      <div class="spec-item">
+        <div class="spec-value">AES-256</div>
+        <div class="spec-label">Encryption</div>
+      </div>
+      <div class="spec-item">
+        <div class="spec-value">0%</div>
+        <div class="spec-label">Cloud Dependency</div>
+      </div>
+    </div>
   </div>
 </section>
 

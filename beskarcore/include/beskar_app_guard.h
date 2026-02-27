@@ -290,7 +290,7 @@ typedef struct {
     bool enable_enterprise_mode;
     bool strict_permission_mode;
     uint32_t default_memory_quota_mb;
-    uint32_t default_storage_quota_mb;
+    uint32_t default_storage_quota_mb;  // Default: 2TB for sovereign computing
     uint32_t freeze_after_idle_minutes;
     uint32_t max_apps_per_container;
 } app_guard_config_t;
