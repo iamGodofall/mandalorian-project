@@ -1,3 +1,5 @@
+![Mandalorian Project — Sovereign Mobile Computing](./docs/banner.png)
+
 ## 🔥 Mandalorian Project — Sovereign Mobile Computing
 
 *Betrayal-Resistant Architecture Built on seL4 Microkernel*
@@ -60,7 +62,8 @@ This is not incremental improvement. This is a **fundamental re-architecture of 
 
 #### Layer 4: BeskarEnterprise — Decentralized Policy Enforcement
 
-```c
+```
+c
 // NO centralized servers. NO vendor-controlled policy.
 // Peer-to-peer policy validation with offline capability.
 
@@ -86,7 +89,8 @@ typedef struct {
 
 #### Layer 3: BeskarAppGuard — Capability-Based Application Isolation
 
-```c
+```
+c
 // 64 granular permissions organized as 16 categories × 4 levels
 // Enforced at seL4 kernel boundary — not application-layer middleware
 
@@ -127,7 +131,8 @@ app_container_t *container = seL4_create_app_container(
 
 #### Layer 2: BeskarLink — Post-Quantum Secure Messaging
 
-```c
+```
+c
 
 // Signal Protocol (Double Ratchet + X3DH) with post-quantum augmentation
 
@@ -215,7 +220,8 @@ Inspired by Nintendo's 10NES lockout chip — **not its cryptography** (which wa
 
 #### Implementation
 
-```c
+```
+c
 // File: beskarcore/src/continuous_guardian.c
 // CRITICAL: Entire guardian module resides in ROM — cannot be patched or disabled
 
@@ -314,7 +320,7 @@ violation:
 > **Critical decision**: Full Android/iOS runtime ports are infeasible for sovereign security. Instead:<br>
 > • **Phase 1**: Native apps built against BeskarCore API<br>
 > • **Phase 2**: WebAssembly runtime with capability-based sandboxing<br>
-> • **Phase 3**: Optional compatibility layer with explicit security downgrade warnings
+> • **Phase 3**: Optional compatibility layer with explicit security downgrade warnings<br>
 
 ---
 
@@ -376,7 +382,8 @@ violation:
 
 #### Prerequisites
 
-```bash
+```
+bash
 # Install build dependencies
 ./scripts/setup-dependencies.sh
 
@@ -386,7 +393,8 @@ sudo apt install gcc-riscv64-unknown-elf qemu-system-riscv64
 
 #### Building BeskarCore
 
-```bash
+```
+bash
 git clone https://github.com/iamGodofall/mandalorian-project.git
 cd mandalorian-project/beskarcore
 make deps          # Check dependencies
@@ -396,16 +404,18 @@ make run_simulate  # Run in QEMU
 
 #### Running Tests
 
-```bash
+```
+bash
 cd tests && mkdir build && cd build
-cmake .. && cmake --build .
+cmake .. && cmake --build . 
 ./Debug/comprehensive_test  # Windows
 ./comprehensive_test        # Linux/macOS
 ```
 
 #### Security Demos
 
-```bash
+```
+bash
 cd beskarcore
 
 # Build demos
@@ -429,7 +439,8 @@ To run and test the Mandalorian Project (BeskarCore) on **Windows with VS Code**
 
 **Step 1: Install WSL2 with Ubuntu**
 
-```powershell
+```
+powershell
 # Run in PowerShell (Admin)
 wsl --install -d Ubuntu-22.04
 
@@ -446,7 +457,8 @@ wsl --install -d Ubuntu-22.04
 
 **Step 3: Install Build Dependencies (Inside WSL2 Ubuntu)**
 
-```bash
+```
+bash
 # Update packages
 sudo apt update && sudo apt upgrade -y
 
@@ -466,7 +478,8 @@ sudo apt install -y qemu-system-riscv64
 
 **Step 4: Clone and Build BeskarCore**
 
-```bash
+```
+bash
 # Clone repo inside WSL2 (~ directory)
 git clone https://github.com/iamGodofall/mandalorian-project.git
 cd mandalorian-project/beskarcore
@@ -488,7 +501,8 @@ make run_simulate
    - **CodeLLDB** (for debugging)
 3. Create `.vscode/tasks.json` for build automation:
 
-```json
+```
+json
 {
   "version": "2.0.0",
   "tasks": [
@@ -536,7 +550,8 @@ make run_simulate
 
 #### 💡 Daily Development Workflow
 
-```bash
+```
+bash
 # In VS Code terminal (WSL2)
 cd ~/mandalorian-project/beskarcore
 make clean && make simulate && make run_simulate
@@ -587,7 +602,7 @@ The core technology remains open and auditable. Commercial licenses provide prof
 
 - **seL4 microkernel team** — formally verified foundation for capability-based security  
 - **Signal Protocol team** — gold standard for E2EE messaging (Double Ratchet + X3DH)  
-- **HACL\* project** — formally verified constant-time cryptography  
+- **HACL\*** project — formally verified constant-time cryptography  
 - **BlackBerry security architects** — containerization model (reimagined without centralized servers)  
 - **Nintendo R&D1 team** — 10NES *architectural insight* (continuous verification) — *not its cryptography*  
 - **OpenTitan project** — transparent silicon design principles  
