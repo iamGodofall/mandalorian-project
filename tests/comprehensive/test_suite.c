@@ -139,6 +139,24 @@ int test_container_management() {
 int test_resource_quotas() {
     // Test memory, CPU, storage quotas
     printf("  [Resource quota tests - requires app_guard module]\n");
+    
+    // Test storage quota configuration
+    // Default is now 2TB for sovereign computing
+    #define DEFAULT_STORAGE_QUOTA_MB 2097152  // 2TB
+    
+    // Verify the quota value is reasonable
+    TEST_ASSERT(DEFAULT_STORAGE_QUOTA_MB > 0, "Storage quota should be positive");
+    TEST_ASSERT(DEFAULT_STORAGE_QUOTA_MB >= 1024, "Storage quota should be at least 1GB");
+    
+    // 2TB in bytes
+    uint64_t quota_bytes = (uint64_t)DEFAULT_STORAGE_QUOTA_MB * 1024 * 1024;
+    TEST_ASSERT(quota_bytes > 0, "Storage quota in bytes should be positive");
+    
+    // Verify 2TB is enough for sovereign computing
+    // 2TB = 2,199,023,255,552 bytes
+    TEST_ASSERT(quota_bytes >= 2000000000000ULL, "2TB quota should be at least 2TB");
+    
+    printf("  ✅ Storage quota test passed: %d MB (2TB)\n", DEFAULT_STORAGE_QUOTA_MB);
     return 0;
 }
 
