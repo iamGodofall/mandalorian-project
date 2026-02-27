@@ -406,7 +406,7 @@ images.forEach(src => {
   img.src = src;
 });
 
-// Smooth crossfade every 8 seconds
+// Smooth crossfade every 30 seconds
 setInterval(() => {
   currentIndex = (currentIndex + 1) % images.length;
   hero.style.opacity = '0.8';
@@ -414,7 +414,8 @@ setInterval(() => {
     hero.style.backgroundImage = `url(${images[currentIndex]})`;
     hero.style.opacity = '1';
   }, 200);
-}, 8000);
+}, 30000);
+
 
 // ===== PARALLAX EFFECT =====
 const glassCard = document.getElementById('glassCard');
