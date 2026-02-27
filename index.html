@@ -209,21 +209,29 @@ body {
   padding: 16px 32px;
   border-radius: 12px;
   text-decoration: none;
-  background: rgba(14, 165, 233, 0.15);
-  color: #0ea5e9;
+  background: linear-gradient(135deg, rgba(14, 165, 233, 0.9) 0%, rgba(37, 99, 235, 0.85) 100%);
+  color: white;
   font-weight: 600;
   font-size: 1rem;
   transition: all 0.3s ease;
-  border: 1px solid rgba(14, 165, 233, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.3);
   cursor: pointer;
-  box-shadow: 0 4px 20px rgba(14, 165, 233, 0.2);
+  box-shadow: 
+    0 4px 20px rgba(14, 165, 233, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
 }
 
 .cta-primary:hover {
-  background: rgba(14, 165, 233, 0.25);
+  background: linear-gradient(135deg, rgba(14, 165, 233, 1) 0%, rgba(37, 99, 235, 0.95) 100%);
   transform: translateY(-2px) scale(1.05);
-  box-shadow: 0 8px 40px rgba(14, 165, 233, 0.4);
+  box-shadow: 
+    0 8px 40px rgba(14, 165, 233, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.3);
 }
+
 
 
 .cta-secondary {
@@ -318,6 +326,18 @@ body {
 }
 
 /* ===== RESPONSIVE ===== */
+@media (max-width: 1024px) {
+  .glass-card {
+    padding: 50px 40px;
+    margin: 20px;
+    max-width: 90%;
+  }
+  
+  .glass-card h1 {
+    font-size: 3rem;
+  }
+}
+
 @media (max-width: 768px) {
   .header-overlay {
     padding: 20px 24px;
@@ -329,20 +349,40 @@ body {
   
   .glass-card {
     padding: 40px 24px;
-    margin: 20px;
-    max-width: none;
+    margin: 16px;
+    max-width: calc(100% - 32px);
+    border-radius: 20px;
   }
   
   .glass-card h1 {
-    font-size: 2.5rem;
+    font-size: 2.2rem;
+    line-height: 1.15;
   }
   
   .glass-card .subtitle {
+    font-size: 1.1rem;
+  }
+  
+  .glass-card p {
     font-size: 1rem;
+    line-height: 1.7;
   }
   
   .cta-group {
     flex-direction: column;
+    gap: 12px;
+  }
+  
+  .cta-primary, .cta-secondary {
+    padding: 14px 28px;
+    font-size: 0.95rem;
+    width: 100%;
+    text-align: center;
+  }
+  
+  .badge {
+    font-size: 0.7rem;
+    padding: 6px 14px;
   }
   
   .footer-overlay {
@@ -355,8 +395,42 @@ body {
   .footer-left {
     flex-wrap: wrap;
     justify-content: center;
+    gap: 16px;
+  }
+  
+  .footer-left span {
+    font-size: 0.8rem;
   }
 }
+
+@media (max-width: 480px) {
+  .glass-card {
+    padding: 32px 20px;
+    margin: 12px;
+    max-width: calc(100% - 24px);
+  }
+  
+  .glass-card h1 {
+    font-size: 1.9rem;
+  }
+  
+  .glass-card .subtitle {
+    font-size: 1rem;
+  }
+  
+  .header-overlay {
+    padding: 16px 20px;
+  }
+  
+  .logo {
+    font-size: 1.3rem;
+  }
+  
+  .footer-overlay {
+    padding: 16px 20px;
+  }
+}
+
 </style>
 </head>
 
