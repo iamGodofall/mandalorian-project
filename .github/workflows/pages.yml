@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - master
-      - gh-pages
 
 permissions:
   contents: read
@@ -25,7 +24,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          ref: gh-pages
+          ref: master
           fetch-depth: 0
         
       - name: Setup Pages
