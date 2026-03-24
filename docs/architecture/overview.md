@@ -30,43 +30,45 @@ Every phone today is a **betrayal machine**:
 ## System Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                           Mandalorian Device                            │
-│                                                                          │
-│  ┌──────────────────────────────────────────────────────────────────┐  │
-│  │                         VeridianOS                                │  │
-│  │              (Android compatibility / iOS runtime)                 │  │
-│  │                   Phase 2 target — not yet built                  │  │
-│  └────────────────────────────┬─────────────────────────────────────┘  │
-│                                │                                          │
-│  ┌────────────────────────────▼─────────────────────────────────────┐  │
-│  │                     Mandalorian Gate                              │  │
-│  │         Single enforcement point. 10-step pipeline.               │  │
-│  │         exec · read · write · process · web · cron · memory       │  │
-│  └────────────────────────────┬─────────────────────────────────────┘  │
-│                                │                                          │
-│  ┌──────────────┬──────────────┼──────────────┬───────────────────┐  │
-│  │              │              │              │                    │  │
-│  ▼              ▼              ▼              ▼                    ▼  │
-│ ┌────┐    ┌─────────┐  ┌───────────┐  ┌────────┐    ┌───────────┐ │
-│ │Helm│    │BeskarVault│ │ BeskarLink│  │Aegis  │    │ Shield    │ │
-│ │Att.│    │  (HSM)   │  │(Messaging)│  │RealTime│   │  Ledger   │ │
-│ │    │    │ 32 slots │  │Signal+PQ  │  │Monitor │    │ Merkle    │ │
-│ └────┘    └─────────┘  └───────────┘  └────────┘    └───────────┘ │
-│                                                                          │
-│ ════════════════════════════════════════════════════════════════════════ │
-│                         seL4 Microkernel                                 │
-│            Formally verified · Capability-based · 15K LOC              │
-│ ════════════════════════════════════════════════════════════════════════ │
-│                                                                          │
-│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐               │
-│  │ ARM/     │  │  RISC-V  │  │ WiFi/BT  │  │ Cellular │               │
-│  │ RISC-V   │  │  JH7110  │  │  Baseband │  │ Baseband │               │
-│  │ Apps CPU │  │  Secure  │  │  (untrust │  │ (untrust │               │
-│  │          │  │  World   │  │   ed)     │  │   ed)    │               │
-│  └──────────┘  └──────────┘  └──────────┘  └──────────┘               │
-│                                                                          │
-└─────────────────────────────────────────────────────────────────────────┘
++------------------------------------------------------------------+
+|                          Mandalorian Device                        |
+|                                                                   |
+|  +----------------------------------------------------------+   |
+|  |                        VeridianOS                          |   |
+|  |              Android compatibility / iOS runtime          |   |
+|  |                   Phase 1 target                         |   |
+|  +----------------------------+------------------------------+   |
+|                               |                                   |
+|  +----------------------------v------------------------------+   |
+|  |                      Mandalorian Gate                     |   |
+|  |      9-step enforcement pipeline. No bypass. Ever.       |   |
+|  |      exec - read - write - process - web - cron - memory  |   |
+|  +----------------------------+------------------------------+   |
+|                               |                                   |
+|  +------------+ +-------------+ +-------------+ +---------------+  |
+|  |    Helm   | | BeskarVault | | BeskarLink  | |     Aegis     |  |
+|  |Attest.    | |    (HSM)    | | (Messaging) | |  Real-time    |  |
+|  | PQ ID     | |  32 slots   | |  Signal+PQ  | |   Monitor     |  |
+|  +-----------+ +-------------+ +-------------+ +-------+-------+  |
+|                                                        |          |
+|                                              +---------v-------+  |
+|                                              |   Shield Ledger |  |
+|                                              |     Merkle      |  |
+|                                              +-----------------+  |
+|                                                                   |
+|  ==============================================================  |
+|  ===================== seL4 Microkernel =========================  |
+|  ========= Formally verified - Capability-based - 15K LOC ======  |
+|  ==============================================================  |
+|                                                                   |
+|  +----------+  +----------+  +----------+  +----------+           |
+|  |  ARM /   |  |  RISC-V  |  |  WiFi/BT  |  | Cellular |           |
+|  |  RISC-V  |  |  JH7110   |  |  Baseband |  | Baseband |           |
+|  | Apps CPU |  | Secure    |  | (untrusted|  |(untrusted |           |
+|  |          |  |  World    |  |    ed)    |  |    ed)   |           |
+|  +----------+  +----------+  +----------+  +----------+           |
+|                                                                   |
++------------------------------------------------------------------+
 ```
 
 ---
@@ -89,7 +91,7 @@ Every phone today is a **betrayal machine**:
 
 ```
 TRUSTED (verified boot chain):
-  ROM → Bootloader → seL4 Kernel → Helm → Mandalorian Gate
+  ROM -> Bootloader -> seL4 Kernel -> Helm -> Mandalorian Gate
 
 UNTRUSTED (isolated, no direct hardware access):
   - Android/iOS userspace apps
@@ -123,7 +125,7 @@ Compound identities (Dilithium + Ed25519) mean that even a quantum computer cann
 Keys in BeskarVault cannot be extracted. Physical tampering triggers zeroization. The best an attacker can do is destroy the key — not steal it.
 
 ### 5. Airlock Mode
-Emergency self-destruct. One command → all data zeroized, new device identity generated, old identity irrecoverably destroyed.
+Emergency self-destruct. One command -> all data zeroized, new device identity generated, old identity irrecoverably destroyed.
 
 ---
 
@@ -138,7 +140,7 @@ Emergency self-destruct. One command → all data zeroized, new device identity 
 | Memory | 8GB LPDDR4 | LPDDR5 + memory encryption |
 | Storage | NVMe SSD | Encrypted NVMe with integrity |
 
-**Reality check**: The JH7110 is a development board. Real Mandalorian hardware requires custom silicon. This is a 3–5 year roadmap.
+**Reality check**: The JH7110 is a development board. Real Mandalorian hardware requires custom silicon. This is a 3-5 year roadmap.
 
 ---
 
@@ -147,20 +149,20 @@ Emergency self-destruct. One command → all data zeroized, new device identity 
 AI agents (via OpenClaw) connect through the OpenClaw Adapter:
 ```
 OpenClaw Agent
-      │
-      │ Tool call (exec/read/write/process/web/memory/cron)
-      │
-      ▼
+      |
+      | Tool call (exec/read/write/process/web/memory/cron)
+      |
+      v
 openclaw-adapter.c
-      │ Builds mandalorian_request_t
-      │
-      ▼
-Mandalorian Gate (10-step enforcement)
-      │ Helm policy check
-      │ BeskarVault HMAC verification
-      │ Receipt logged to Shield Ledger
-      │
-      ▼
+      | Builds mandalorian_request_t
+      |
+      v
+Mandalorian Gate (9-step enforcement)
+      | Helm policy check
+      | BeskarVault HMAC verification
+      | Receipt logged to Shield Ledger
+      |
+      v
 Result returned to agent
 ```
 
@@ -174,14 +176,14 @@ This means: **AI agents operating on Mandalorian are themselves capability-bound
 
 | Property | Regular Phone | Mandalorian |
 |----------|--------------|-------------|
-| OS can be backdoored | ✅ Yes | ❌ No (Gate blocks unathorized ops) |
-| Baseband has DMA to app RAM | ✅ Yes | ❌ No (isolated by seL4) |
-| Firmware updates are opaque | ✅ Yes | ❌ No (verified boot + Guardian) |
-| Keys extractable via hardware attack | ✅ Yes | ❌ No (BeskarVault zeroizes) |
-| Audit trail of OS-level ops | ❌ No | ✅ Yes (Shield Ledger) |
-| Post-quantum key exchange | ❌ No | ✅ Yes (Kyber-768) |
-| Formal verification of TCB | ❌ No | ✅ Yes (seL4 is formally verified) |
-| Sovereign key storage | ❌ No | ✅ Yes (Airlock mode) |
+| OS can be backdoored | Yes | No (Gate blocks unauthorized ops) |
+| Baseband has DMA to app RAM | Yes | No (isolated by seL4) |
+| Firmware updates are opaque | Yes | No (verified boot + Guardian) |
+| Keys extractable via hardware attack | Yes | No (BeskarVault zeroizes) |
+| Audit trail of OS-level ops | No | Yes (Shield Ledger) |
+| Post-quantum key exchange | No | Yes (Kyber-768) |
+| Formal verification of TCB | No | Yes (seL4 is formally verified) |
+| Sovereign key storage | No | Yes (Airlock mode) |
 
 ---
 
@@ -195,20 +197,20 @@ Every app (Android `.apk` or iOS `.ipa`) runs inside a **seL4-isolated sandbox d
 
 | Capability | Default | User Control |
 |---|---|---|
-| Network | ❌ Denied | Grant per-session |
-| Camera | ❌ Denied | Grant per-session |
-| Microphone | ❌ Denied | Grant per-session |
-| Storage | ✅ App-only | Revocable |
-| Notifications | ✅ App-only | Revocable |
-| Location | ❌ Denied | Grant per-session |
+| Network | Denied | Grant per-session |
+| Camera | Denied | Grant per-session |
+| Microphone | Denied | Grant per-session |
+| Storage | App-only | Revocable |
+| Notifications | App-only | Revocable |
+| Location | Denied | Grant per-session |
 
 ### Android Apps (Waydroid Container)
 
 Android runs in a **Waydroid container** on top of VeridianOS/seL4:
 
 ```
-Android App → Waydroid Container → VeridianOS → seL4 Microkernel
-                     ↓
+Android App -> Waydroid Container -> VeridianOS -> seL4 Microkernel
+                     |
               microG (open GMS)
               Aegis permission mediator
               Network blocklist (Facebook, Mixpanel, etc.)
@@ -224,8 +226,8 @@ Android App → Waydroid Container → VeridianOS → seL4 Microkernel
 iOS apps don't run in a emulator — their **UI layer is reimplemented** from public Apple Developer documentation:
 
 ```
-iOS App Source → OpenSwiftUI SDK → VeridianOS renderer (Skia)
-                      ↓
+iOS App Source -> OpenSwiftUI SDK -> VeridianOS renderer (Skia)
+                      |
               Hardened NSURLSession (blocklist active)
               Encrypted UserDefaults (BeskarCore key)
               No iCloud, no App Store APIs
@@ -253,22 +255,22 @@ Apps can only communicate if Aegis approves — based on shared capability grant
 ## Phase Roadmap
 
 ```
-Phase 0 (NOW)    ── Production-ready software foundation
+Phase 0 (NOW)    -- Production-ready software foundation
                    seL4 + Gate + Helm + Vault + Ledger + Link
                    All tests passing. Windows build working.
                    CI/CD operational.
 
-Phase 1 (Q2 2026) ── Formal verification extends to Gate
+Phase 1 (Q2 2026) -- Formal verification extends to Gate
                    Reproducible builds
                    VisionFive 2 hardware demo
                    Keybase live demo
 
-Phase 2 (Q3–Q4 2026) ── VeridianOS Android compatibility
+Phase 2 (Q3-Q4 2026) -- VeridianOS Android compatibility
                    WASM runtime
                    Discrete HSM prototype
                    BeskarLink production
 
-Phase 3 (2027+)  ── Custom RISC-V SoC tape-out
+Phase 3 (2027+)  -- Custom RISC-V SoC tape-out
                    Integrated tamper mesh
                    Memory encryption in hardware
                    Mandalorian Phone: production hardware

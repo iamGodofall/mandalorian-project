@@ -8,7 +8,7 @@
 
 BeskarVault is the Mandalorian's **hardware security module (HSM)** — a dedicated, isolated environment for cryptographic key operations. Keys stored in BeskarVault cannot be extracted, even under hardware tampering, firmware compromise, or coercion.
 
-Located at `beskarcore/include/vault.h`, implemented across `beskarcore/src/beskar_vault.c`, `src/beskar_vault_lowlevel.c`, `src/beskar_vault_derivation.c`, and `src/beskar_vault_crypto.c`.
+Located at `beskarcore/include/beskar_vault.h`, implemented across `beskarcore/src/beskar_vault.c`, `src/beskar_vault_lowlevel.c`, `src/beskar_vault_derivation.c`, and `src/beskar_vault_crypto.c`.
 
 ---
 

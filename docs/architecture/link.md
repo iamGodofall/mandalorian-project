@@ -86,11 +86,8 @@ The only visible metadata is **packet timing** (which can be obscured via paddin
 
 | File | Role |
 |------|------|
-| `beskarcore/include/link.h` | Public API |
-| `beskarcore/src/link_crypto.c` | Kyber + X25519 + AES-GCM |
-| `beskarcore/src/link_ratchet.c` | Double Ratchet implementation |
-| `beskarcore/src/link_session.c` | Session management |
-| `beskarcore/src/link_federation.c` | Signal/Matrix federation |
+| `beskarcore/include/beskar_link.h` | Public API + data structures |
+| `beskarcore/src/beskar_link.c` | Full protocol stack: X3DH, Kyber-768, Double Ratchet, federation |
 
 ---
 

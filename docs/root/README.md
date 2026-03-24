@@ -413,7 +413,7 @@ make  # Builds lib + demo
 ```
 
 **Key Features Live:**
-- Gate: 10-step no-bypass enforcement
+- Gate: 9-step no-bypass enforcement
 - Policy: Trust/quotas/env rules
 - Crypto: libsodium Ed25519
 - Receipts: Merkle immutable log

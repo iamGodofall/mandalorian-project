@@ -89,10 +89,11 @@ Receipt Created
 
 | File | Role |
 |------|------|
-| `beskarcore/include/guardian.h` | Public API |
+| `beskarcore/include/continuous_guardian.h` | Public API |
+| `beskarcore/src/continuous_guardian.c` | Guardian — gate audit wrapper |
 | `beskarcore/src/merkle_ledger.c` | Merkle tree implementation |
-| `beskarcore/src/guardian.c` | Guardian — gate audit wrapper |
 | `beskarcore/src/logging.c` | Structured log output |
+| `beskarcore/src/monitoring.c` | Receipt monitoring |
 | `tests/comprehensive/test_mandalorian_gate.c` | Receipt generation tests |
 
 ---
