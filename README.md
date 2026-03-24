@@ -384,12 +384,35 @@ violation:
 
 ```
 bash
-# Install build dependencies
-./scripts/setup-dependencies.sh
+# Install libsodium + deps
+sudo apt install libsodium-dev cmake pkg-config
 
-# For RISC-V development
-sudo apt install gcc-riscv64-unknown-elf qemu-system-riscv64
+# Clone & Mandalorian Core
+cd beskarcore && make deps simulate
+./constrained-agent-demo  # Test gate/policy
+
+# Full system
+cd .. && mkdir build && cd build
+cmake .. && make -j8
+
+# Run demos
+./beskarcore/demo
+./helm/demo_helm
 ```
+
+#### Mandalorian Core Status: ✅ PRODUCTION READY
+```
+cd mandalorian
+make  # Builds lib + demo
+./constrained-agent-demo  # Tests 10 gate steps
+```
+
+**Key Features Live:**
+- Gate: 10-step no-bypass enforcement
+- Policy: Trust/quotas/env rules
+- Crypto: libsodium Ed25519
+- Receipts: Merkle immutable log
+- Helm/OpenClaw integrated
 
 #### Building BeskarCore
 

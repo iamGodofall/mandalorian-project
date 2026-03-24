@@ -1,94 +1,35 @@
-## Phase 1: Documentation Updates
+# Mandalorian Build Fix Plan - Windows Compatibility
+Current working directory: d:/mandalorian-project
 
-- [x] Update beskarcore/README.md with current implementation status
-- [x] Update veridianos/README.md with current implementation status
-- [x] Create project root README.md with overview and build instructions
-- [x] Add comprehensive API documentation for all components
-- [x] Create deployment and operations guides
-- [x] Add troubleshooting guides
-- [x] Create security documentation
+## Approved Plan Steps (Phase 1: Best Native Windows + WSL Fallback)
 
-## Phase 2: Testing Infrastructure
+### Step 1: [IN PROGRESS] Install pkg-config and libsodium on Windows (native fix)
+- Execute commands to install via Chocolatey/Scoop/vcpkg
+- Verify PKG_CONFIG_EXECUTABLE
 
-- [x] Set up unit testing framework (CMocka for C components)
-- [x] Add unit tests for beskarcore crypto functions (SHA3, ed25519)
-- [x] Add unit tests for veridianos runtime components
-- [x] Add integration tests for seL4 components
-- [x] Add performance benchmarks
-- [x] Add security tests
-- [x] Set up CI/CD pipeline with GitHub Actions
-- [x] Add automated testing for cross-compilation
+### Step 2: [PENDING] Update CMakeLists.txt for robust Windows libsodium detection
+- Add fallback find_library if pkg-config fails
+- Preserve Linux pkg-config path
 
-## Phase 3: Build System Improvements
+### Step 3: [PENDING] Enhance README.md and scripts/setup-dependencies.sh
+- Add Windows-specific install steps
+- Update build matrix
 
-- [x] Add comprehensive build targets (test, coverage, analyze, etc.) to beskarcore/Makefile
-- [x] Add dependency management
-- [x] Add cross-compilation support
-- [x] Add packaging and distribution targets
-- [x] Update tests/Makefile with additional targets
+### Step 4: [PENDING] Clean rebuild mandalorian/
+- rm -rf mandalorian/build
+- mkdir build && cd build && cmake .. -DCMAKE_BUILD_TYPE=Release
+- cmake --build . --config Release
 
-## Phase 4: Security Hardening
+### Step 5: [PENDING] Test demo and ctest
+- ./Release/constrained-agent-demo.exe
+- ctest -C Release -V
 
-- [x] Add input validation and sanitization to all components
-- [x] Implement secure defaults
-- [x] Add audit logging
-- [x] Add security monitoring components
+### Step 6: [PENDING] WSL2 Setup (full project support)
+- Install WSL2 Ubuntu
+- Clone project, make deps simulate
 
-## Phase 5: Error Handling & Logging
+## Progress Tracking
+- Step 1: Starting now...
 
-- [x] Implement structured logging system (complete beskarcore/src/logging.c)
-- [x] Add comprehensive error codes
-- [x] Add graceful degradation mechanisms
-- [x] Add recovery mechanisms
+Updated after each step completion.
 
-## Phase 6: Performance Optimization
-
-- [x] Add profiling and benchmarking tools
-- [x] Optimize memory usage
-- [x] Optimize IPC performance
-- [x] Add caching where appropriate
-
-## Phase 7: Monitoring & Observability
-
-- [x] Add metrics collection
-- [x] Add health checks
-- [x] Add performance monitoring
-- [x] Add alerting system
-
-## Phase 8: Deployment & Operations
-
-- [x] Create deployment script
-- [x] Create monitoring script
-- [x] Create maintenance script
-
-## Phase 9: Critical Security Fixes (February 2026)
-
-- [x] REMOVE VAULT_KEY_EMERGENCY backdoor - no law enforcement access ever
-- [x] ADD compile-time checks to prevent simulation code in production builds
-- [x] FIX buffer overflow vulnerabilities in snprintf() calls (11 locations)
-- [x] REMOVE printf() information leakage from enterprise_generate_report()
-- [x] ADD security warning documentation for all simulation-only code
-- [x] CREATE comprehensive security fixes documentation
-
-### Security Fixes Details
-
-See `docs/security/CRITICAL_SECURITY_FIXES.md` for complete details on:
-
-- Backdoor removal and prevention
-- Production build safety checks
-- Buffer overflow protections
-- Information leakage prevention
-- Remaining hardware-dependent issues
-
-### Verification
-
-```bash
-# Verify no backdoors exist
-grep -r "EMERGENCY\|emergency\|law_enforcement" beskarcore/ --include="*.h" --include="*.c"
-
-# Verify buffer overflow protections
-grep -r "details_len.*snprintf" beskarcore/src/ --include="*.c"
-
-# Verify production safety checks
-grep -r "PRODUCTION_BUILD" beskarcore/src/ --include="*.c"
-```

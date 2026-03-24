@@ -139,6 +139,17 @@ bool helm_is_emergency_state(void);
 int helm_attempt_recovery(void);
 
 // Audit and Logging
+// Mandalorian integration
+#include "../../mandalorian/core/gate.h"
+
+gate_result_t helm_mandalorian_gate(
+    uint32_t app_id, 
+    const char *action, 
+    const char *resource, 
+    const char *payload,
+    const mandalorian_cap_t *cap
+);
+
 int helm_log_security_event(const char *event_type, const char *details);
 int helm_get_audit_trail(helm_audit_entry_t *entries, uint32_t max_entries, uint32_t *count);
 

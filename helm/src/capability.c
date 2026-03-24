@@ -130,15 +130,46 @@ helm_attest_result_t helm_request_capability(
         return HELM_ATTEST_FAIL_HARDWARE;
     }
 
+    // Map Helm cap to Mandalorian + Gate call
+    mandalorian_cap_t mand_cap = {0}; // Derive from helm_capability
+    strcpy(mand_cap.action, capability_to_action(capability)); // e.g. "read_sensor"
+    strcpy(mand_cap.resource, "helm_internal");
+    
+    // Gate the capability grant itself
+    gate_result_t gate_res = helm_mandalorian_gate(app_id, mand_cap.action, mand_cap.resource, "", &mand_cap);
+    if (gate_res != GATE_OK) {
+        LOG_ERROR("Mandalorian gate denied helm cap %d for app %u", capability, app_id);
+        return HELM_ATTEST_FAIL_POLICY;
+    }
+    
     // Log to Shield Ledger
     char details[256];
-    snprintf(details, sizeof(details), "Granted capability %d to app %u (session %d)",
-             capability, app_id, session_id);
+    snprintf(details, sizeof(details), "Granted cap=%d app=%u session=%d via Mandalorian gate", capability, app_id, session_id);
     helm_log_security_event("CAPABILITY_GRANTED", details);
 
-    LOG_INFO("Capability %d granted to app %u (session %d)", capability, app_id, session_id);
+    LOG_INFO("Cap %d granted to app %u via Mandalorian (session %d)", capability, app_id, session_id);
 
     return HELM_ATTEST_OK;
+}
+
+static const char* capability_to_action(helm_capability_t cap) {
+    switch(cap) {
+        case HELM_CAP_CAMERA: return "access_camera";
+        case HELM_CAP_MICROPHONE: return "access_mic";
+        default: return "unknown";
+    }
+}
+
+// Wrapper: Mandalorian gate from Helm context
+gate_result_t helm_mandalorian_gate(uint32_t app_id, const char *action, const char *resource, 
+                                   const char *payload, const mandalorian_cap_t *cap) {
+    mandalorian_request_t req = {
+        .agent_id = app_id,
+        .action = (char*)action,
+        .resource = (char*)resource,
+        .payload = (char*)payload
+    };
+    return mandalorian_execute(&req, cap);
 }
 
 int helm_register_app_key(uint32_t app_id, const uint8_t *public_key) {
