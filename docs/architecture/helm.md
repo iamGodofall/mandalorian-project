@@ -170,12 +170,11 @@ submit_receipt_to_helm(&receipt);
 
 | File | Role |
 |------|------|
-| `helm/include/helm.h` | Public API |
-| `helm/src/attestation.c` | Dilithium + Ed25519 compound signatures |
-| `helm/src/capability.c` | Capability issuance + renewal |
-| `helm/src/policy.c` | Dynamic policy evaluation + revocation |
-| `helm/src/monitoring.c` | Receipt collection + anomaly detection |
-| `helm/src/helm.c` | CLI + main entry point |
+| `helm/include/helm.h` | Public API + data structures |
+| `helm/src/helm.c` | CLI, init, emergency halt, version, config |
+| `helm/src/attestation.c` | Nonce generation, hardware integrity, Dilithium + Ed25519 compound signatures |
+| `helm/src/capability.c` | Capability issuance, renewal, revocation |
+| `helm/src/monitoring.c` | Receipt collection, anomaly scoring, metric registration |
 | `helm/demo_helm.c` | Usage demonstration |
 
 ---
