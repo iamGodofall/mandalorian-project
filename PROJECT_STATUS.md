@@ -834,7 +834,7 @@ Compromise of one object key does not imply compromise of the master key or othe
 
 | Issue | Description | Recommendation | Status |
 |---|---|---|---|
-| **Ghost files — incorrectly flagged** | §14 originally claimed 7 tracked files were missing from disk. Verification (2026-03-24) shows: (1) none of the 7 are tracked in git, (2) `mandate/PRODUCT_BRIEF.md` exists on disk but is NOT in git, (3) all 1371 git-tracked files exist on disk — zero ghost files | No action needed; Appendix B should be deleted | ✅ Resolved |
+| **Ghost files — incorrectly flagged** | §14 originally claimed 7 tracked files were missing from disk. Verification (2026-03-24) shows: (1) none of the 7 are tracked in git, (2) `mandate/PRODUCT_BRIEF.md` exists on disk but is NOT in git, (3) all 1371 git-tracked files exist on disk — zero ghost files | No action needed | ✅ Resolved |
 | **Docker entrypoint** | `DOCKER/entrypoint.sh` is not tracked and not on disk. The `Dockerfile` uses `CMD ["/app/mandalorian"]` as its entrypoint — no shell wrapper required | No shell entrypoint needed for the Go/HTTP service image; clarify in DOCKER/README.md | ✅ Resolved |
 | **seL4 headers sync** | `beskarcore/seL4/` is a nested git worktree linked to a separate seL4 fork (`09cb058f`). Fork is maintained independently — not a submodule, no immediate sync needed | Maintain seL4 fork separately; merge updates as needed | ⚠️ Long-term |
 | **seL4 not integrated as build target** | seL4 kernel headers are a reference snapshot (capability model documentation), not a build target. Formal verification requires JH7110/VisionFive 2 hardware — noted in BYPASS_RESISTANCE_ROADMAP.md | Add CMake toolchain file for seL4 cross-compilation targeting VisionFive 2 | ⚠️ Long-term |
@@ -876,68 +876,17 @@ The following were flagged in earlier audits but are **confirmed present and sub
 
 ## 15. Docker & Containerization
 
-**Purpose:** Containerized development, build, and runtime environments for the Mandalorian/VeridianOS platform.
+**Planned:** Containerized development, build, and runtime environments for the Mandalorian/VeridianOS platform. The following files were specified in the architecture but **have not been committed to git**:
 
-### `Dockerfile`
+| File | Status | Notes |
+|---|---|---|
+| `Dockerfile` | ❌ Not committed | Multi-stage build targeting `archlinux/base` was planned |
+| `docker-compose.yml` | ❌ Not committed | Production compose for `mandalorian-app` was planned |
+| `docker-compose.dev.yml` | ❌ Not committed | Development compose with source mounts was planned |
+| `DOCKER/README.md` | ❌ Not committed | Documentation for Docker setup was planned |
+| `DOCKER/entrypoint.sh` | ❌ Not committed | Container entrypoint was planned |
 
-Multi-stage build targeting `archlinux/base` as the base image:
-
-**Build stages:**
-1. **Builder stage** — installs `base-devel`, `cmake`, `ninja`, `ccache`, `git`, `openssl`, `fmt`, `spdlog`, `cxxopts`, `CLI11`, `nlohmann-json`, `libsodium`, `cppcheck`, `clang-format`, `clang`, `lld`, `gcov`, `lcov`, `genhtml`, `doxygen`, `graphviz`, `python`, `python-pip`, `sqlite`, `swig`, `java`, `nodejs`, `npm`, `base` — builds all C/C++ components including `mandalorian-core` (static lib), `beskarcore` (static lib), `veridianos`, `aegis`, `helm` — produces static libs at `install/usr/local/lib/`
-2. **Development stage** — `archlinux/base` + development tools — produces static libs at `install/usr/local/lib/`
-3. **runtime-base stage** — `archlinux/base` + `beskar-runtime` package installation
-4. **Final runtime stage** — `beskar-runtime` + `beskar-extra` packages
-
-**Build args:**
-- `BUILDKIT_INLINE_CACHE=1` — inline cache for Docker layer reuse
-- `DATE`, `COMMIT_SHA`, `LLM_MODEL_NAME`, `LLM_MODEL_PATH` — metadata injected at build time
-
-**Entrypoint:** `/beskar/bin/beskar_launcher.sh` (ghost file — container will fail to start)
-
-**Key build features:**
-- Static library outputs: `libmandalorian-core.a`, `libaegis.a`, `libhelm.a`, `libveridianos.a`
-- CMake + Ninja build for all components
-- `make install` via custom CMake `INSTALL` target copying to `install/usr/local/`
-- Code coverage enabled via `GCOV_FLAGS`
-- IntelliSense compilation database output
-
-### `docker-compose.yml`
-
-Production configuration:
-- **Service:** `mandalorian-app`
-- **Image:** `ghcr.io/iamgodofall/mandalorian:latest` (GitHub Container Registry)
-- **Container name:** `mandalorian`
-- **Network:** `mandalorian-net` (bridge network)
-- **Capabilities:** `CAP_SYS_RAWIO` (raw I/O for hardware access)
-- **Devices:** `/dev/mem` (memory device for verified boot)
-- **Security options:** `no-new-privileges:true`
-- **Restart:** `unless-stopped`
-- **Volumes:**
-  - `mandalorian-data:/data` — persistent data
-  - `mandalorian-vault:/vault` — encrypted vault storage
-  - `mandalorian-logs:/var/log/mandalorian` — logs
-  - `/etc/mandalorian/config.json:/config/config.json:ro` — read-only config
-- **Environment variables:** `LOG_LEVEL=info`, `VAULT_BACKEND=file`, `ENABLE_GUARDIAN=true`, `BOOT_MODE=verified`
-- **Healthcheck:** HTTP GET on port 8080 at `/health` every 30s, timeout 10s, retries 3
-
-### `docker-compose.dev.yml`
-
-Development configuration:
-- **Service:** `mandalorian-dev`
-- **Image:** `ghcr.io/iamgodofall/mandalorian:dev`
-- **Source mounts:** `.:/app` (full project source)
-- **Docker socket:** `/var/run/docker.sock` (for nested containers)
-- **Device:** `/dev/fuse` (for FUSE-based operations)
-- **TTYs:** 3 consoles allocated
-- **Overridden entrypoint:** `["/bin/bash", "-c", "exec /bin/bash --login"]`
-- **Environment:** `DEV_MODE=1`, `LOG_LEVEL=debug`, `ENABLE_FUZZING=1`
-- **Capabilities:** `CAP_SYS_ADMIN` (full admin for development)
-
-### `DOCKER/README.md`
-
-Documents the Dockerfile multi-stage build strategy, environment variables, health check endpoints, volume strategy, resource limits, GPU passthrough, and known limitations.
-
-**Ghost file:** `DOCKER/entrypoint.sh` — tracked in git but not on disk. This is the actual Docker container entrypoint and its absence means the production container cannot start.
+**Current state:** The repository has no Docker files committed. The MkDocs site is deployed via `.github/workflows/pages.yml` to GitHub Pages. Docker-based deployment can be implemented by creating the above files.
 
 ---
 
@@ -1031,15 +980,9 @@ Debug configurations for `beskarcore` and `mandalorian-core` components:
 
 ## 18. Beskar Launcher
 
-**File:** `beskar_launcher.sh`
+**Planned:** `beskar_launcher.sh` was intended as the Docker container entrypoint (`/beskar/bin/beskar_launcher.sh`) for initializing the VeridianOS/Mandalorian environment inside the container.
 
-A bash entrypoint script that was the Docker container's `ENTRYPOINT` (`/beskar/bin/beskar_launcher.sh`). Used in both the Dockerfile and the runtime container image.
-
-**Purpose:** Initialize the VeridianOS/Mandalorian environment inside the container. This is the first process that runs when a production container starts.
-
-**Ghost files:** Both `beskar_launcher.sh` (root) and `DOCKER/entrypoint.sh` are ghost files — tracked in git but not present on disk. This means the Docker container currently **cannot start** because the entrypoint is missing. The `Dockerfile` references `/beskar/bin/beskar_launcher.sh` as its `ENTRYPOINT`, but that file was deleted without updating the Dockerfile.
-
-**Recommended fix:** Recreate `DOCKER/entrypoint.sh` based on the documented requirements in `DOCKER/README.md` and update the `Dockerfile`'s `ENTRYPOINT` to point to it.
+**Status:** `beskar_launcher.sh` has **not been committed to git**. The MkDocs documentation is deployed via `.github/workflows/pages.yml` instead of Docker. To enable Docker-based deployment, create `beskar_launcher.sh` and the associated Docker files listed in §15.
 
 ---
 
