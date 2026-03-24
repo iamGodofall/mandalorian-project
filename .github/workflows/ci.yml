@@ -246,3 +246,34 @@ jobs:
           done
 
       - name: Verify architecture consistency
+        run: |
+          echo "Verifying architecture docs..."
+          for doc in \
+            "docs/architecture/overview.md" \
+            "docs/architecture/gate.md" \
+            "docs/architecture/helm.md" \
+            "docs/architecture/vault.md" \
+            "docs/architecture/link.md" \
+            "docs/architecture/ledger.md"; do
+            if [ -f "$doc" ]; then
+              echo "  ✓ $doc"
+            else
+              echo "  ✗ MISSING: $doc"
+              exit 1
+            fi
+          done
+
+      - name: Build mkdocs site
+        run: |
+          pip install mkdocs-material
+          mkdocs build --strict --verbose
+        working-directory: .
+
+      - name: Verify site output
+        run: |
+          if [ -d "site" ]; then
+            echo "  ✓ site/ built ($(find site -type f | wc -l) files)"
+          else
+            echo "  ✗ site/ directory not found"
+            exit 1
+          fi

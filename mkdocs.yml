@@ -62,9 +62,7 @@ nav:
     - BlackBerry Enhancements: security/BLACKBERRY_ENHANCEMENTS.md
     - Bypass Resistance: security/BYPASS_RESISTANCE_ROADMAP.md
   - API Reference:
-    - API Docs: docs/api/README.md
-  - API Reference:
-    - API Docs: docs/api/README.md
+    - API Docs: api/README.md
   - Project Docs:
     - README: root/README.md
     - Roadmap: root/TODO.md
