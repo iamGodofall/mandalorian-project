@@ -221,6 +221,7 @@ docs/_static/
 docs/_templates/
 *.doctree
 *.pickle
+site/
 
 # =============================================================================
 # seL4 SPECIFIC

@@ -55,8 +55,8 @@ The Mandalorian Project is building a mobile phone that **cannot betray its user
 | [BeskarVault](architecture/vault.md) | Hardware key management (32 slots) | ✅ Production |
 | [BeskarLink](architecture/link.md) | Encrypted messaging (Signal + PQ) | ✅ Production |
 | [Shield Ledger](architecture/ledger.md) | Immutable Merkle audit trail | ✅ Production |
-| [Verified Boot](security/audit.md) | SHA3-256 + Ed25519 boot chain | ✅ Production |
-| [VeridianOS](README.md) | Android/iOS app compatibility | 🔄 Phase 2 |
+| [Security Audit](security/SECURITY_AUDIT_CRITICAL_FINDINGS.md) | SHA3-256 + Ed25519 boot chain | ✅ Production |
+| [VeridianOS](https://github.com/iamGodofall/mandalorian-project) | Android/iOS app compatibility | 🔄 Phase 2 |
 
 ---
 
@@ -98,7 +98,7 @@ cd tests/comprehensive
 
 - **GitHub Issues** — Bug reports, feature requests
 - **FOSDEM 2026** — [Talk outline](fosdem2026_talk_outline.md) submitted
-- **Contributing** — See [CONTRIBUTING.md](../CONTRIBUTING.md)
+- **Contributing** — See [CONTRIBUTING.md](https://github.com/iamGodofall/mandalorian-project/blob/master/CONTRIBUTING.md)
 
 ---
 

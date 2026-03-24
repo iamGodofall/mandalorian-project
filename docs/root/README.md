@@ -1,4 +1,4 @@
-![Mandalorian Project — Sovereign Mobile Computing](./docs/banner.png)
+![Mandalorian Project — Sovereign Mobile Computing](https://raw.githubusercontent.com/iamGodofall/mandalorian-project/master/banner.png)
 
 [![CI](https://github.com/iamGodofall/mandalorian-project/actions/workflows/ci.yml/badge.svg)](https://github.com/iamGodofall/mandalorian-project/actions/workflows/ci.yml)
 [![Tests](https://img.shields.io/badge/tests-100%25%20PASS-brightgreen)](tests/comprehensive/)
@@ -46,7 +46,7 @@ This is not incremental improvement. This is a **fundamental re-architecture of 
 - ✅ **No bait-and-switch**: Unlike MongoDB SSPL or Elastic proprietary licenses
 - ✅ **Aligned with investors**: Open source credibility + enterprise monetization
 
-[See Commercial Licensing Details](COMMERCIAL_LICENSE.md)
+[See Commercial Licensing Details](https://github.com/iamGodofall/mandalorian-project/blob/master/COMMERCIAL_LICENSE.md)
 
 ---
 
@@ -620,7 +620,7 @@ We welcome contributions that advance **provable sovereignty** — not marketing
 **Dual License Model:**
 
 - **Open Source**: [Mandalorian Sovereignty License v1.0](LICENSE) — Free for individuals, researchers, and transparency advocates
-- **Commercial**: [Commercial License](COMMERCIAL_LICENSE.md) — For enterprises, governments, and proprietary use
+- **Commercial**: [Commercial License](https://github.com/iamGodofall/mandalorian-project/blob/master/COMMERCIAL_LICENSE.md) — For enterprises, governments, and proprietary use
 
 The core technology remains open and auditable. Commercial licenses provide professional support, custom features, and proprietary use rights.
 
