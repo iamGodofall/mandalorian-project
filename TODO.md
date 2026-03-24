@@ -7,7 +7,7 @@
 ## ✅ Done (Production Ready)
 
 - [x] **seL4 Microkernel Integration** — capability-based security foundation
-- [x] **Mandalorian Gate (10-step enforcement)** — no bypass paths; all tests passing
+- [x] **Mandalorian Gate (9-step enforcement)** — no bypass paths; all tests passing
 - [x] **Continuous Guardian** — 50ms SHA3-256 integrity checks (ROM-resident)
 - [x] **Helm — Post-Quantum Attestation** — CRYSTALS-Dilithium signatures + Ed25519
 - [x] **BeskarVault HSM** — 32 key slots, 5 security levels, tamper response

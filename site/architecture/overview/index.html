@@ -720,6 +720,78 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#the-sandbox-one-runtime-any-app" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The Sandbox: One Runtime, Any App
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="The Sandbox: One Runtime, Any App">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#how-it-works" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How It Works
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#android-apps-waydroid-container" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Android Apps (Waydroid Container)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ios-apps-openswiftui" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        iOS Apps (OpenSwiftUI)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#sel4-sandbox-core-app_sandboxc" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        seL4 Sandbox Core (app_sandbox.c)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#cross-app-ipc" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Cross-App IPC
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#phase-roadmap" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1280,34 +1352,6 @@
 
               
             
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../root/PRE_UPLOAD_CHECKLIST/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Pre-Upload Checklist
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
           </ul>
         </nav>
       
@@ -1589,43 +1633,45 @@
 </ol>
 <hr />
 <h2 id="system-architecture">System Architecture</h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>┌─────────────────────────────────────────────────────────────────────────┐
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>│                           Mandalorian Device                            │
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>│                                                                          │
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>│  ┌──────────────────────────────────────────────────────────────────┐  │
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>│  │                         VeridianOS                                │  │
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>│  │              (Android compatibility / iOS runtime)                 │  │
-<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>│  │                   Phase 2 target — not yet built                  │  │
-<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>│  └────────────────────────────┬─────────────────────────────────────┘  │
-<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>│                                │                                          │
-<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>│  ┌────────────────────────────▼─────────────────────────────────────┐  │
-<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>│  │                     Mandalorian Gate                              │  │
-<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>│  │         Single enforcement point. 10-step pipeline.               │  │
-<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>│  │         exec · read · write · process · web · cron · memory       │  │
-<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>│  └────────────────────────────┬─────────────────────────────────────┘  │
-<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>│                                │                                          │
-<a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>│  ┌──────────────┬──────────────┼──────────────┬───────────────────┐  │
-<a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a>│  │              │              │              │                    │  │
-<a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a>│  ▼              ▼              ▼              ▼                    ▼  │
-<a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a>│ ┌────┐    ┌─────────┐  ┌───────────┐  ┌────────┐    ┌───────────┐ │
-<a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a>│ │Helm│    │BeskarVault│ │ BeskarLink│  │Aegis  │    │ Shield    │ │
-<a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a>│ │Att.│    │  (HSM)   │  │(Messaging)│  │RealTime│   │  Ledger   │ │
-<a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a>│ │    │    │ 32 slots │  │Signal+PQ  │  │Monitor │    │ Merkle    │ │
-<a id="__codelineno-0-23" name="__codelineno-0-23" href="#__codelineno-0-23"></a>│ └────┘    └─────────┘  └───────────┘  └────────┘    └───────────┘ │
-<a id="__codelineno-0-24" name="__codelineno-0-24" href="#__codelineno-0-24"></a>│                                                                          │
-<a id="__codelineno-0-25" name="__codelineno-0-25" href="#__codelineno-0-25"></a>│ ════════════════════════════════════════════════════════════════════════ │
-<a id="__codelineno-0-26" name="__codelineno-0-26" href="#__codelineno-0-26"></a>│                         seL4 Microkernel                                 │
-<a id="__codelineno-0-27" name="__codelineno-0-27" href="#__codelineno-0-27"></a>│            Formally verified · Capability-based · 15K LOC              │
-<a id="__codelineno-0-28" name="__codelineno-0-28" href="#__codelineno-0-28"></a>│ ════════════════════════════════════════════════════════════════════════ │
-<a id="__codelineno-0-29" name="__codelineno-0-29" href="#__codelineno-0-29"></a>│                                                                          │
-<a id="__codelineno-0-30" name="__codelineno-0-30" href="#__codelineno-0-30"></a>│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐               │
-<a id="__codelineno-0-31" name="__codelineno-0-31" href="#__codelineno-0-31"></a>│  │ ARM/     │  │  RISC-V  │  │ WiFi/BT  │  │ Cellular │               │
-<a id="__codelineno-0-32" name="__codelineno-0-32" href="#__codelineno-0-32"></a>│  │ RISC-V   │  │  JH7110  │  │  Baseband │  │ Baseband │               │
-<a id="__codelineno-0-33" name="__codelineno-0-33" href="#__codelineno-0-33"></a>│  │ Apps CPU │  │  Secure  │  │  (untrust │  │ (untrust │               │
-<a id="__codelineno-0-34" name="__codelineno-0-34" href="#__codelineno-0-34"></a>│  │          │  │  World   │  │   ed)     │  │   ed)    │               │
-<a id="__codelineno-0-35" name="__codelineno-0-35" href="#__codelineno-0-35"></a>│  └──────────┘  └──────────┘  └──────────┘  └──────────┘               │
-<a id="__codelineno-0-36" name="__codelineno-0-36" href="#__codelineno-0-36"></a>│                                                                          │
-<a id="__codelineno-0-37" name="__codelineno-0-37" href="#__codelineno-0-37"></a>└─────────────────────────────────────────────────────────────────────────┘
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>+------------------------------------------------------------------+
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>|                          Mandalorian Device                        |
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>|                                                                   |
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>|  +----------------------------------------------------------+   |
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>|  |                        VeridianOS                          |   |
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>|  |              Android compatibility / iOS runtime          |   |
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>|  |                   Phase 1 target                         |   |
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>|  +----------------------------+------------------------------+   |
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>|                               |                                   |
+<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>|  +----------------------------v------------------------------+   |
+<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>|  |                      Mandalorian Gate                     |   |
+<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>|  |      9-step enforcement pipeline. No bypass. Ever.       |   |
+<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>|  |      exec - read - write - process - web - cron - memory  |   |
+<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>|  +----------------------------+------------------------------+   |
+<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>|                               |                                   |
+<a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>|  +------------+ +-------------+ +-------------+ +---------------+  |
+<a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a>|  |    Helm   | | BeskarVault | | BeskarLink  | |     Aegis     |  |
+<a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a>|  |Attest.    | |    (HSM)    | | (Messaging) | |  Real-time    |  |
+<a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a>|  | PQ ID     | |  32 slots   | |  Signal+PQ  | |   Monitor     |  |
+<a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a>|  +-----------+ +-------------+ +-------------+ +-------+-------+  |
+<a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a>|                                                        |          |
+<a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a>|                                              +---------v-------+  |
+<a id="__codelineno-0-23" name="__codelineno-0-23" href="#__codelineno-0-23"></a>|                                              |   Shield Ledger |  |
+<a id="__codelineno-0-24" name="__codelineno-0-24" href="#__codelineno-0-24"></a>|                                              |     Merkle      |  |
+<a id="__codelineno-0-25" name="__codelineno-0-25" href="#__codelineno-0-25"></a>|                                              +-----------------+  |
+<a id="__codelineno-0-26" name="__codelineno-0-26" href="#__codelineno-0-26"></a>|                                                                   |
+<a id="__codelineno-0-27" name="__codelineno-0-27" href="#__codelineno-0-27"></a>|  ==============================================================  |
+<a id="__codelineno-0-28" name="__codelineno-0-28" href="#__codelineno-0-28"></a>|  ===================== seL4 Microkernel =========================  |
+<a id="__codelineno-0-29" name="__codelineno-0-29" href="#__codelineno-0-29"></a>|  ========= Formally verified - Capability-based - 15K LOC ======  |
+<a id="__codelineno-0-30" name="__codelineno-0-30" href="#__codelineno-0-30"></a>|  ==============================================================  |
+<a id="__codelineno-0-31" name="__codelineno-0-31" href="#__codelineno-0-31"></a>|                                                                   |
+<a id="__codelineno-0-32" name="__codelineno-0-32" href="#__codelineno-0-32"></a>|  +----------+  +----------+  +----------+  +----------+           |
+<a id="__codelineno-0-33" name="__codelineno-0-33" href="#__codelineno-0-33"></a>|  |  ARM /   |  |  RISC-V  |  |  WiFi/BT  |  | Cellular |           |
+<a id="__codelineno-0-34" name="__codelineno-0-34" href="#__codelineno-0-34"></a>|  |  RISC-V  |  |  JH7110   |  |  Baseband |  | Baseband |           |
+<a id="__codelineno-0-35" name="__codelineno-0-35" href="#__codelineno-0-35"></a>|  | Apps CPU |  | Secure    |  | (untrusted|  |(untrusted |           |
+<a id="__codelineno-0-36" name="__codelineno-0-36" href="#__codelineno-0-36"></a>|  |          |  |  World    |  |    ed)    |  |    ed)   |           |
+<a id="__codelineno-0-37" name="__codelineno-0-37" href="#__codelineno-0-37"></a>|  +----------+  +----------+  +----------+  +----------+           |
+<a id="__codelineno-0-38" name="__codelineno-0-38" href="#__codelineno-0-38"></a>|                                                                   |
+<a id="__codelineno-0-39" name="__codelineno-0-39" href="#__codelineno-0-39"></a>+------------------------------------------------------------------+
 </code></pre></div>
 <hr />
 <h2 id="security-layers">Security Layers</h2>
@@ -1678,7 +1724,7 @@
 <hr />
 <h2 id="trust-model">Trust Model</h2>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>TRUSTED (verified boot chain):
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>  ROM → Bootloader → seL4 Kernel → Helm → Mandalorian Gate
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>  ROM -&gt; Bootloader -&gt; seL4 Kernel -&gt; Helm -&gt; Mandalorian Gate
 <a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>
 <a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>UNTRUSTED (isolated, no direct hardware access):
 <a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>  - Android/iOS userspace apps
@@ -1705,7 +1751,7 @@
 <h3 id="4-sovereign-key-storage">4. Sovereign Key Storage</h3>
 <p>Keys in BeskarVault cannot be extracted. Physical tampering triggers zeroization. The best an attacker can do is destroy the key — not steal it.</p>
 <h3 id="5-airlock-mode">5. Airlock Mode</h3>
-<p>Emergency self-destruct. One command → all data zeroized, new device identity generated, old identity irrecoverably destroyed.</p>
+<p>Emergency self-destruct. One command -&gt; all data zeroized, new device identity generated, old identity irrecoverably destroyed.</p>
 <hr />
 <h2 id="hardware-requirements">Hardware Requirements</h2>
 <table>
@@ -1749,25 +1795,25 @@
 </tr>
 </tbody>
 </table>
-<p><strong>Reality check</strong>: The JH7110 is a development board. Real Mandalorian hardware requires custom silicon. This is a 3–5 year roadmap.</p>
+<p><strong>Reality check</strong>: The JH7110 is a development board. Real Mandalorian hardware requires custom silicon. This is a 3-5 year roadmap.</p>
 <hr />
 <h2 id="openclaw-agent-integration">OpenClaw Agent Integration</h2>
 <p>AI agents (via OpenClaw) connect through the OpenClaw Adapter:
 <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>OpenClaw Agent
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>      │
-<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>      │ Tool call (exec/read/write/process/web/memory/cron)
-<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>      │
-<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>      ▼
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>      |
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>      | Tool call (exec/read/write/process/web/memory/cron)
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>      |
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>      v
 <a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>openclaw-adapter.c
-<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>      │ Builds mandalorian_request_t
-<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>      │
-<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>      ▼
-<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a>Mandalorian Gate (10-step enforcement)
-<a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a>      │ Helm policy check
-<a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a>      │ BeskarVault HMAC verification
-<a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a>      │ Receipt logged to Shield Ledger
-<a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a>      │
-<a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a>      ▼
+<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>      | Builds mandalorian_request_t
+<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>      |
+<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>      v
+<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a>Mandalorian Gate (9-step enforcement)
+<a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a>      | Helm policy check
+<a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a>      | BeskarVault HMAC verification
+<a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a>      | Receipt logged to Shield Ledger
+<a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a>      |
+<a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a>      v
 <a id="__codelineno-2-16" name="__codelineno-2-16" href="#__codelineno-2-16"></a>Result returned to agent
 </code></pre></div></p>
 <p>Every AI action = one capability check = one receipt = immutable audit trail.</p>
@@ -1785,67 +1831,147 @@
 <tbody>
 <tr>
 <td>OS can be backdoored</td>
-<td>✅ Yes</td>
-<td>❌ No (Gate blocks unathorized ops)</td>
+<td>Yes</td>
+<td>No (Gate blocks unauthorized ops)</td>
 </tr>
 <tr>
 <td>Baseband has DMA to app RAM</td>
-<td>✅ Yes</td>
-<td>❌ No (isolated by seL4)</td>
+<td>Yes</td>
+<td>No (isolated by seL4)</td>
 </tr>
 <tr>
 <td>Firmware updates are opaque</td>
-<td>✅ Yes</td>
-<td>❌ No (verified boot + Guardian)</td>
+<td>Yes</td>
+<td>No (verified boot + Guardian)</td>
 </tr>
 <tr>
 <td>Keys extractable via hardware attack</td>
-<td>✅ Yes</td>
-<td>❌ No (BeskarVault zeroizes)</td>
+<td>Yes</td>
+<td>No (BeskarVault zeroizes)</td>
 </tr>
 <tr>
 <td>Audit trail of OS-level ops</td>
-<td>❌ No</td>
-<td>✅ Yes (Shield Ledger)</td>
+<td>No</td>
+<td>Yes (Shield Ledger)</td>
 </tr>
 <tr>
 <td>Post-quantum key exchange</td>
-<td>❌ No</td>
-<td>✅ Yes (Kyber-768)</td>
+<td>No</td>
+<td>Yes (Kyber-768)</td>
 </tr>
 <tr>
 <td>Formal verification of TCB</td>
-<td>❌ No</td>
-<td>✅ Yes (seL4 is formally verified)</td>
+<td>No</td>
+<td>Yes (seL4 is formally verified)</td>
 </tr>
 <tr>
 <td>Sovereign key storage</td>
-<td>❌ No</td>
-<td>✅ Yes (Airlock mode)</td>
+<td>No</td>
+<td>Yes (Airlock mode)</td>
 </tr>
 </tbody>
 </table>
 <hr />
+<h2 id="the-sandbox-one-runtime-any-app">The Sandbox: One Runtime, Any App</h2>
+<p><strong>Sandbox is the main trick.</strong> VeridianOS doesn't trust Android or iOS permission models — it replaces them entirely.</p>
+<h3 id="how-it-works">How It Works</h3>
+<p>Every app (Android <code>.apk</code> or iOS <code>.ipa</code>) runs inside a <strong>seL4-isolated sandbox domain</strong> with:</p>
+<table>
+<thead>
+<tr>
+<th>Capability</th>
+<th>Default</th>
+<th>User Control</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Network</td>
+<td>Denied</td>
+<td>Grant per-session</td>
+</tr>
+<tr>
+<td>Camera</td>
+<td>Denied</td>
+<td>Grant per-session</td>
+</tr>
+<tr>
+<td>Microphone</td>
+<td>Denied</td>
+<td>Grant per-session</td>
+</tr>
+<tr>
+<td>Storage</td>
+<td>App-only</td>
+<td>Revocable</td>
+</tr>
+<tr>
+<td>Notifications</td>
+<td>App-only</td>
+<td>Revocable</td>
+</tr>
+<tr>
+<td>Location</td>
+<td>Denied</td>
+<td>Grant per-session</td>
+</tr>
+</tbody>
+</table>
+<h3 id="android-apps-waydroid-container">Android Apps (Waydroid Container)</h3>
+<p>Android runs in a <strong>Waydroid container</strong> on top of VeridianOS/seL4:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>Android App -&gt; Waydroid Container -&gt; VeridianOS -&gt; seL4 Microkernel
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>                     |
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>              microG (open GMS)
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>              Aegis permission mediator
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>              Network blocklist (Facebook, Mixpanel, etc.)
+</code></pre></div>
+<ul>
+<li>Pure AOSP image, no Google Play Services</li>
+<li>microG replaces Google Services (open-source reimplementation)</li>
+<li>All tracker domains firewalled by default via Aegis</li>
+<li>Permission prompts go through Aegis — not Android's built-in (untrusted) system</li>
+</ul>
+<h3 id="ios-apps-openswiftui">iOS Apps (OpenSwiftUI)</h3>
+<p>iOS apps don't run in a emulator — their <strong>UI layer is reimplemented</strong> from public Apple Developer documentation:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>iOS App Source -&gt; OpenSwiftUI SDK -&gt; VeridianOS renderer (Skia)
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>                      |
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>              Hardened NSURLSession (blocklist active)
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>              Encrypted UserDefaults (BeskarCore key)
+<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>              No iCloud, no App Store APIs
+</code></pre></div>
+<p>OpenSwiftUI reimplements only <strong>public UIKit/SwiftUI APIs</strong> (Apache 2.0, no Apple code). Apps built for iOS can be recompiled against OpenSwiftUI instead of Apple's frameworks.</p>
+<h3 id="sel4-sandbox-core-app_sandboxc">seL4 Sandbox Core (<code>app_sandbox.c</code>)</h3>
+<p>Each sandbox domain gets its own seL4 capabilities:</p>
+<ul>
+<li><strong>Endpoint</strong> — IPC with other domains (policy-enforced)</li>
+<li><strong>TCB</strong> — Thread control block (CPU quota enforcement)</li>
+<li><strong>VSpace</strong> — Virtual address space (memory isolation)</li>
+<li><strong>CSpace</strong> — Capability space (least-privilege derivation)</li>
+</ul>
+<p>Quota enforcement runs continuously — apps that exceed memory/CPU limits are terminated or throttled automatically.</p>
+<h3 id="cross-app-ipc">Cross-App IPC</h3>
+<p>Apps can only communicate if Aegis approves — based on shared capability grants. No silent app-to-app talking.</p>
+<hr />
 <h2 id="phase-roadmap">Phase Roadmap</h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>Phase 0 (NOW)    ── Production-ready software foundation
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>                   seL4 + Gate + Helm + Vault + Ledger + Link
-<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>                   All tests passing. Windows build working.
-<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>                   CI/CD operational.
-<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>
-<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>Phase 1 (Q2 2026) ── Formal verification extends to Gate
-<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>                   Reproducible builds
-<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>                   VisionFive 2 hardware demo
-<a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a>                   Keybase live demo
-<a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a>
-<a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a>Phase 2 (Q3–Q4 2026) ── VeridianOS Android compatibility
-<a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a>                   WASM runtime
-<a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a>                   Discrete HSM prototype
-<a id="__codelineno-3-14" name="__codelineno-3-14" href="#__codelineno-3-14"></a>                   BeskarLink production
-<a id="__codelineno-3-15" name="__codelineno-3-15" href="#__codelineno-3-15"></a>
-<a id="__codelineno-3-16" name="__codelineno-3-16" href="#__codelineno-3-16"></a>Phase 3 (2027+)  ── Custom RISC-V SoC tape-out
-<a id="__codelineno-3-17" name="__codelineno-3-17" href="#__codelineno-3-17"></a>                   Integrated tamper mesh
-<a id="__codelineno-3-18" name="__codelineno-3-18" href="#__codelineno-3-18"></a>                   Memory encryption in hardware
-<a id="__codelineno-3-19" name="__codelineno-3-19" href="#__codelineno-3-19"></a>                   Mandalorian Phone: production hardware
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>Phase 0 (NOW)    -- Production-ready software foundation
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>                   seL4 + Gate + Helm + Vault + Ledger + Link
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>                   All tests passing. Windows build working.
+<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>                   CI/CD operational.
+<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>
+<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>Phase 1 (Q2 2026) -- Formal verification extends to Gate
+<a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a>                   Reproducible builds
+<a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a>                   VisionFive 2 hardware demo
+<a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a>                   Keybase live demo
+<a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a>
+<a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a>Phase 2 (Q3-Q4 2026) -- VeridianOS Android compatibility
+<a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a>                   WASM runtime
+<a id="__codelineno-5-13" name="__codelineno-5-13" href="#__codelineno-5-13"></a>                   Discrete HSM prototype
+<a id="__codelineno-5-14" name="__codelineno-5-14" href="#__codelineno-5-14"></a>                   BeskarLink production
+<a id="__codelineno-5-15" name="__codelineno-5-15" href="#__codelineno-5-15"></a>
+<a id="__codelineno-5-16" name="__codelineno-5-16" href="#__codelineno-5-16"></a>Phase 3 (2027+)  -- Custom RISC-V SoC tape-out
+<a id="__codelineno-5-17" name="__codelineno-5-17" href="#__codelineno-5-17"></a>                   Integrated tamper mesh
+<a id="__codelineno-5-18" name="__codelineno-5-18" href="#__codelineno-5-18"></a>                   Memory encryption in hardware
+<a id="__codelineno-5-19" name="__codelineno-5-19" href="#__codelineno-5-19"></a>                   Mandalorian Phone: production hardware
 </code></pre></div>
 
 

@@ -833,30 +833,45 @@ Compromise of one object key does not imply compromise of the master key or othe
 
 ### 14.1 High Priority
 
-| Issue | Description | Recommendation |
-|---|---|---|
-| **veridianos src/ not on disk** | `veridianos/src/*.c` are tracked in git index but the actual files are not present on disk | Create the source files from their SPEC.md definitions, or restore from git |
-| **Ghost files (50+ tracked missing files)** | Many files are tracked by git but not on disk (entrypoint, launcher, tests, etc.) | See Appendix B for full list; critical ones are `DOCKER/entrypoint.sh` and `beskar_launcher.sh` |
-| **seL4 not integrated** | seL4 kernel headers (9,500+ files) are in the repo as a reference but no actual seL4 build or integration exists | Add a `KCONFIG` or `CMake` option to include/exclude seL4; build against seL4 only when cross-compiling for a sel4 target |
-| **Waydroid runtime binary** | `android_runtime.c` describes a Waydroid integration but Waydroid itself is an external dependency not included in the repo | Add a `Makefile` target for waydroid setup, or include a Dockerfile that builds the Waydroid container environment |
-| **OpenSwiftUI stub** | `u_runtime.c` implements the API shim but OpenSwiftUI itself (the upstream project) is not included or linked | Add OpenSwiftUI as a submodule or document it as an external dependency |
+| Issue | Description | Recommendation | Status |
+|---|---|---|---|
+| **Ghost files (7 tracked but missing)** | `beskar_launcher.sh`, `PRODUCT_BRIEF.md` (root), `beskar_vault.png`, `VERIDIAN_OS_ARCHITECTURE.png`, `DOCKER/entrypoint.sh`, `tests/run_tests.sh`, `mandate/PRODUCT_BRIEF.md` — none on disk and none tracked in git | Recreate from context or decision whether to include | ⚠️ Low risk — not in git |
+| **Docker container entrypoint missing** | `DOCKER/entrypoint.sh` does not exist — production container will fail to start | Create `DOCKER/entrypoint.sh` with proper initialization | ⚠️ High if deploying |
+| **seL4 headers need sync** | `beskarcore/seL4/` is 21 commits behind the upstream seL4 kernel | Sync via `git fetch sel4 kernel` and merge | Medium |
+| **seL4 not integrated as build target** | seL4 kernel headers are a reference snapshot only, not built or cross-compiled | Add CMake toolchain file for seL4 cross-compilation targeting VisionFive 2 | Long-term |
 
 ### 14.2 Medium Priority
 
-| Issue | Description | Recommendation |
-|---|---|---|
-| **Tests directory empty** | `tests/comprehensive/` is referenced in CI but `run_tests.sh` is a ghost file | Implement actual test runner or replace with custom test framework |
-| **No fuzzing** | No fuzz testing for the policy engine or receipt verification | Add libFuzzer or AFL-based fuzzing targets |
-| **No threat model doc** | The security docs are reactive (fixes, findings) rather than a proactive threat model | Write a `docs/security/threat_model.md` covering assets, adversaries, attack trees |
-| **Product brief at two paths** | `mandate/PRODUCT_BRIEF.md` exists but `PRODUCT_Brief.md` at root is a ghost | Remove the ghost file or decide on canonical location |
+| Issue | Description | Recommendation | Status |
+|---|---|---|---|
+| **Waydroid runtime** | `android_runtime.c` describes Waydroid integration but Waydroid is an external dependency | Document as external dependency; add `Makefile` target for Waydroid setup | External dep |
+| **No fuzzing** | No fuzz testing for the policy engine or receipt verification | Add libFuzzer targets for `gate.c` and `policy.c` | Medium |
+| **No threat model doc** | Security docs are reactive; no proactive STRIDE/PASTA threat model | Write `docs/security/threat_model.md` | Medium |
+| **OpenSwiftUI not included** | `u_runtime.c` implements the API shim but OpenSwiftUI upstream is not a submodule | Document as external dependency | Low |
 
 ### 14.3 Lower Priority
 
-| Issue | Description | Recommendation |
+| Issue | Description | Recommendation | Status |
+|---|---|---|---|
+| **RISC-V CI fallback** | `ci.yml` RISC-V toolchain step falls back to simulation | Add QEMU-based RISC-V test runner | Low |
+| **No coverage gate** | CI has coverage but no minimum threshold enforcement | Add `--coverage-enforce 80%` to CTest config | Low |
+| **Docs root copies** | `mkdocs.yml` and `index.html` exist at root and in `docs/` | Decide if root copies are intentional (GitHub Pages direct) or should be removed | Low |
+
+### 14.4 Items Incorrectly Flagged (Verified On-Disk)
+
+The following were flagged in earlier audits but are **confirmed present and substantial**:
+
+| Item | Earlier Concern | Reality |
 |---|---|---|
-| **RISC-V CI not actually running** | `ci.yml` references RISC-V toolchain but the step falls back to simulation mode in CI | Consider adding a QEMU-based RISC-V test runner |
-| **No code coverage enforcement** | CI has coverage reporting but no minimum threshold | Add `--coverage-enforce 80%` or similar gate |
-| **Docs not in repo root** | `mkdocs.yml` and `index.html` are in the repo root alongside `docs/` | Decide if root copies are intentional (for GitHub Pages direct serving) or if they should be removed |
+| `veridianos/src/u_runtime.c` | "Not on disk" | ✅ 22KB, real implementation |
+| `veridianos/src/android_runtime.c` | "Not on disk" | ✅ 4KB, real implementation |
+| `veridianos/src/app_sandbox.c` | "Not on disk" | ✅ 5KB, real implementation |
+| `veridianos/include/u_runtime.h` | "Not on disk" | ✅ 2.5KB, real headers |
+| `beskarcore/src/continuous_guardian.c` | "Stub" | ✅ 7.5KB, full SHA3-256 rolling hash |
+| `beskarcore/src/merkle_ledger.c` | "Stub" | ✅ 8KB, full Merkle implementation |
+| `mandalorian/core/gate.c` | "Stub" | ✅ 9-step enforcement, 7.5KB |
+| `tests/comprehensive/test_mandalorian_gate.c` | "Tests missing" | ✅ 26KB, 100 test cases |
+| `beskarcore/seL4/` | "Not a real seL4 fork" | ✅ Kernel headers (9,500+ files) as capability model reference |
 
 ---
 
