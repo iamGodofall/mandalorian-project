@@ -258,10 +258,10 @@ jobs:
           done
 
   # ─────────────────────────────────────────────────────────────────────────────
-  # Job 7: GitHub Pages Build (deploy on success)
+  # Job 7: Build & Deploy GitHub Pages (mkdocs build → site/)
   # ─────────────────────────────────────────────────────────────────────────────
   deploy-pages:
-    name: Deploy to GitHub Pages
+    name: Build & Deploy Docs
     runs-on: ubuntu-latest
     needs: [unit-tests, comprehensive-tests, docs]
     if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
@@ -278,13 +278,31 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Install Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install mkdocs + material theme
+        run: |
+          pip install mkdocs-material "mkdocs-mermaid2-plugin[all]"
+
+      - name: Build docs site
+        run: |
+          cd docs
+          mkdocs build --strict --clean
+          echo "Built site at $(pwd)/site/"
+
       - name: Setup Pages
         uses: actions/configure-pages@v4
+        with:
+          static_folder: 'docs/site'
 
-      - name: Upload GitHub Pages artifact
+      - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: '.'
+          path: 'docs/site'
 
       - name: Deploy to GitHub Pages
+        id: deployment
         uses: actions/deploy-pages@v4
