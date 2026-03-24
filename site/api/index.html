@@ -15,6 +15,10 @@
         <link rel="canonical" href="https://iamgodofall.github.io/mandalorian-project/api/">
       
       
+        <link rel="prev" href="../security/BYPASS_RESISTANCE_ROADMAP/">
+      
+      
+        <link rel="next" href="../root/">
       
       
         
@@ -25,7 +29,7 @@
     
     
       
-        <title>Mandalorian Project API Documentation - Mandalorian Project</title>
+        <title>API Docs - Mandalorian Project</title>
       
     
     
@@ -110,7 +114,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Mandalorian Project API Documentation
+              API Docs
             
           </span>
         </div>
@@ -280,31 +284,13 @@
   
   
   
-  
     
-    
-      <li class="md-tabs__item">
-        <a href="../docs/api/README.md" class="md-tabs__link">
-          
-  
-  
-  API Reference
-
-        </a>
-      </li>
-    
-  
-
-      
-        
-  
-  
   
   
     
     
-      <li class="md-tabs__item">
-        <a href="../docs/api/README.md" class="md-tabs__link">
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="./" class="md-tabs__link">
           
   
   
@@ -329,6 +315,26 @@
   
   
   Project Docs
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../troubleshooting/" class="md-tabs__link">
+          
+  
+  
+  Support
 
         </a>
       </li>
@@ -832,26 +838,31 @@
       
   
   
+    
   
   
+  
     
     
     
     
+      
+        
+        
       
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" checked>
         
           
-          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
             
   
   
@@ -869,7 +880,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_4">
             <span class="md-nav__icon md-icon"></span>
             
@@ -884,10 +895,37 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../docs/api/README.md" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Docs
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -903,6 +941,315 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#beskarcore-apis" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        BeskarCore APIs
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="BeskarCore APIs">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#cryptographic-operations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Cryptographic Operations
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Cryptographic Operations">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#sha3-hash-functions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        SHA3 Hash Functions
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ed25519-digital-signatures" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Ed25519 Digital Signatures
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#boot-verification" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Boot Verification
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#shield-ledger" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Shield Ledger
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#veridianos-apis" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        VeridianOS APIs
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="VeridianOS APIs">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#universal-app-runtime" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Universal App Runtime
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#app-sandboxing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        App Sandboxing
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#cross-platform-services" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Cross-Platform Services
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#aegis-apis" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Aegis APIs
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Aegis APIs">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#security-monitoring" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Security Monitoring
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#logging-api" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Logging API
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Logging API">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#structured-logging" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Structured Logging
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#error-handling" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Error Handling
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#error-codes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Error Codes
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#data-types" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Data Types
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Data Types">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#beskarcore-types" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        BeskarCore Types
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#veridianos-types" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        VeridianOS Types
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#aegis-types" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Aegis Types
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#build-integration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Build Integration
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#examples" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Examples
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#security-notes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Security Notes
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -945,7 +1292,7 @@
   <span class="md-ellipsis">
     
   
-    API Reference
+    Project Docs
   
 
     
@@ -958,93 +1305,6 @@
         
         <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_5">
-            <span class="md-nav__icon md-icon"></span>
-            
-  
-    API Reference
-  
-
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../docs/api/README.md" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    API Docs
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-          </ul>
-        </nav>
-      
-    </li>
-  
-
-    
-      
-      
-  
-  
-  
-  
-    
-    
-    
-    
-      
-      
-        
-      
-    
-    
-    <li class="md-nav__item md-nav__item--nested">
-      
-        
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
-        
-          
-          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
-            
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Project Docs
-  
-
-    
-  </span>
-  
-  
-
-            <span class="md-nav__icon md-icon"></span>
-          </label>
-        
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_6">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -1153,6 +1413,121 @@
     
   
     Pre-Upload Checklist
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Support
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Support
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../troubleshooting/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Troubleshooting
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../security/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Security Overview
   
 
     
