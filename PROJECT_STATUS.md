@@ -1,9 +1,9 @@
 # Mandalorian Project — Full Project Status Report
 
-**Generated:** 2026-03-24  
-**Repository:** `iamGodofall/mandalorian-project`  
-**Branch:** `master`  
-**Status:** Active Development  
+**Generated:** 2026-03-24
+**Repository:** `iamGodofall/mandalorian-project`
+**Branch:** `master`
+**Status:** Active Development
 
 ---
 
@@ -23,6 +23,14 @@
 12. [Notable Security Patterns](#12-notable-security-patterns)
 13. [Current Development Status](#13-current-development-status)
 14. [Gaps & Recommendations](#14-gaps--recommendations)
+15. [Mandate — Product Brief](#15-mandate--product-brief)
+16. [Mandalorian-Claw — Sovereign AI Assistant](#16-mandalorian-claw--sovereign-ai-assistant)
+17. [Scripts — Automation & Tooling](#17-scripts--automation--tooling)
+18. [Hardware — Board Bringup & Flash Scripts](#18-hardware--board-bringup--flash-scripts)
+19. [Toolchains — Cross-Compilation Support](#19-toolchains--cross-compilation-support)
+20. [Testing — Test Framework](#20-testing--test-framework)
+21. [Site — MkDocs Build Output](#21-site--mkdocs-build-output)
+22. [Appendix A: Full File Tree](#22-appendix-a-full-file-tree)
 
 ---
 
@@ -37,6 +45,8 @@
 | **aegis** | Real-time security monitoring | C | ⚙️ Active |
 | **helm** | Orchestration layer | C | ⚙️ Active |
 | **veridianos** | Android/iOS sandbox runtime | C | 🔨 Building |
+| **mandalorian-claw** | Sovereign local AI assistant | C + llama.cpp | ⚙️ Active |
+| **mandate** | Product brief & marketing positioning | Markdown | ✅ Complete |
 
 **Key security properties:** ChaCha20-Poly1305 / AES-256-GCM encryption, SHA3-256 hashing, Argon2id KDF, continuous integrity monitoring with CRC32 + SHA3-256, verified boot chain, and capability-based sandbox isolation.
 
@@ -52,11 +62,21 @@ mandalorian-project/
 ├── mandalorian/              # Core gate management system
 ├── beskarcore/               # Cryptographic core & secure storage
 ├── helm/                     # Orchestration layer
+├── mandalorian-claw/         # Sovereign local AI assistant
+├── mandate/                  # Product brief & marketing positioning
 ├── veridianos/               # Android/iOS sandbox runtime
+├── hardware/                 # Board bringup & flash scripts
+├── scripts/                  # Automation tooling
 ├── docs/                     # MkDocs documentation site
 ├── tests/comprehensive/       # Full test suite
-├── .github/workflows/         # CI/CD pipelines
+├── site/                     # MkDocs build output (GitHub Pages)
+├── toolchains/               # CMake cross-compilation toolchains
+├── Testing/                  # CMake/CTest temporary directory
+├── .github/workflows/        # CI/CD pipelines
+├── seL4/                     # seL4 kernel ABI reference (NOT built)
 ├── README.md
+├── PROJECT_STATUS.md
+├── mkdocs.yml
 └── index.html
 ```
 
@@ -215,8 +235,6 @@ helm/
 
 **Purpose:** Cross-platform application sandbox enabling Android (via Waydroid) and iOS (via OpenSwiftUI reimplementation) applications to run securely on the Mandalorian platform.
 
-> **Important:** This module is architecturally planned and partially documented in SPEC files. The source files listed below represent the intended design as committed to the repository — see Section 6 for the current implementation status.
-
 **Files:**
 ```
 veridianos/
@@ -236,6 +254,41 @@ veridianos/
 │   └── SPEC.md              # Waydroid integration spec
 └── openswiftui/
     └── SPEC.md              # OpenSwiftUI reimplementation spec
+```
+
+---
+
+### 3.6 `mandalorian-claw` — Sovereign AI Assistant
+
+**Purpose:** Local-only AI assistant built on llama.cpp with BeskarAppGuard container isolation. Enforces AI sovereignty: no network access, no cloud dependencies, all inference runs locally.
+
+**Files:**
+```
+mandalorian-claw/
+├── Makefile                    # Llama 3.1 8B + llama.cpp + BeskarAppGuard ISOLATED
+├── README.md
+└── vendor/llama.cpp/           # llama.cpp (external, not in repo)
+```
+
+**Architecture:**
+- **Language model:** Llama 3.1 8B (downloaded separately via `scripts/download-model.sh`)
+- **Inference engine:** llama.cpp (vendor dependency at `vendor/llama.cpp`)
+- **Container:** BeskarAppGuard `ISOLATED` container type
+- **Capabilities:** `ai.inference.local` (granted), `ai.network.internet` (denied)
+- **Static library:** `libmandalorian_claw.a` for embedding
+
+**Makefile targets:** `all`, `download-model`, `install-container`, `test`, `dev`, `container-start`, `container-stop`, `container-status`
+
+---
+
+### 3.7 `mandate` — Product Brief
+
+**Purpose:** Marketing positioning, target market, competitive analysis, and product vision for VeridianOS / Mandalorian.
+
+**Files:**
+```
+mandate/
+└── PRODUCT_BRIEF.md
 ```
 
 ---
@@ -324,7 +377,7 @@ veridianos/
 ├─────────────────────────────────────────────────────────┤
 │                     BESKARCORE                           │
 │  ┌─────────────┐ ┌─────────────┐ ┌──────────────────┐  │
-│  │ Continuous  │ │  Verified   │ │  Beskar Vault    │  │
+│  │ Continuous  │ │  Verified   │ │  Beskar Vault     │  │
 │  │ Guardian    │ │  Boot       │ │  (AES-256-GCM)    │  │
 │  │ 50ms checks │ │  SHA3-256   │ │  Argon2id KDF     │  │
 │  │ CRC32+SHA3  │ │  Chain      │ │  Key hierarchy    │  │
@@ -535,6 +588,16 @@ make demo        — Build full demo
 make simple_demo — Build simple demo
 ```
 
+**mandalorian-claw/Makefile:**
+```
+make all              — Build executable + static library
+make download-model   — Download Llama 3.1 8B weights
+make install-container — Install as BeskarAppGuard ISOLATED container
+make test             — Run sovereignty, permissions, integration tests
+make dev              — Build debug binary
+make container-start/stop/status — Container management
+```
+
 ### 8.2 CMake Support
 
 `mandalorian/CMakeLists.txt` provides CMake build with:
@@ -553,6 +616,9 @@ make simple_demo — Build simple demo
 | MkDocs + Material | Documentation | Python pip |
 | cppcheck | Static analysis | System package manager |
 | clang-format | Code formatting | System package manager |
+| libseccomp-dev | Seccomp filtering | System package manager |
+| gcc-aarch64-linux-gnu | ARM64 cross-compile | System package manager |
+| gcc-riscv64-linux-gnu | RISC-V cross-compile | System package manager |
 
 ---
 
@@ -721,6 +787,8 @@ Compromise of one object key does not imply compromise of the master key or othe
 ✅ **veridianos/src/android_runtime.c** — Waydroid namespace setup  
 ✅ **veridianos/src/u_runtime.c** — OpenSwiftUI runtime  
 ✅ **veridianos/{demo,simple_demo}.c** — Demonstrations  
+✅ **mandalorian-claw/** — Sovereign AI with llama.cpp integration  
+✅ **mandate/PRODUCT_BRIEF.md** — Full product brief with competitive analysis  
 
 ### 13.2 Documentation
 
@@ -748,7 +816,7 @@ Compromise of one object key does not imply compromise of the master key or othe
 | Issue | Description | Recommendation |
 |---|---|---|
 | **veridianos src/ not on disk** | `veridianos/src/*.c` are tracked in git index but the actual files are not present on disk | Create the source files from their SPEC.md definitions, or restore from git |
-| **seL4 not integrated** | seL4 kernel headers (9,500+ files) are in the repo as a reference but no actual seL4 build or integration exists | Add a `KCONFIG` or `CMake` option to include/exclude seL4; build against seL4微内核 only when cross-compiling for a sel4 target |
+| **seL4 not integrated** | seL4 kernel headers (9,500+ files) are in the repo as a reference but no actual seL4 build or integration exists | Add a `KCONFIG` or `CMake` option to include/exclude seL4; build against seL4 only when cross-compiling for a sel4 target |
 | **Waydroid runtime binary** | `android_runtime.c` describes a Waydroid integration but Waydroid itself is an external dependency not included in the repo | Add a `Makefile` target for waydroid setup, or include a Dockerfile that builds the Waydroid container environment |
 | **OpenSwiftUI stub** | `u_runtime.c` implements the API shim but OpenSwiftUI itself (the upstream project) is not included or linked | Add OpenSwiftUI as a submodule or document it as an external dependency |
 
@@ -771,55 +839,362 @@ Compromise of one object key does not imply compromise of the master key or othe
 
 ---
 
-## Appendix A: Full File Tree (Non-seL4)
+## 15. Mandate — Product Brief
+
+**Purpose:** Marketing positioning, target market, competitive analysis, and product vision for VeridianOS / Mandalorian.
+
+**File:** `mandate/PRODUCT_BRIEF.md`
+
+**Target markets:**
+- Defense & aerospace — secure communication, verified boot
+- Government & regulatory compliance — FedRAMP, FISMA, MISRA
+- Embedded & critical infrastructure — automotive (ISO 26262), medical (IEC 62304), industrial (IEC 61508)
+- Enterprise & cloud — confidential computing, multi-tenant isolation
+
+**Competitive positioning:**
+
+| Competitor | Mandalorian Advantage |
+|---|---|
+| seL4 + CAMKES | Full toolchain + verified boot + Merkle ledger audit |
+| Green Hills INTEGRITY | Open source, community-driven |
+| QNX | POSIX-compatible, modern crypto (ChaCha20-Poly1305) |
+| FreeRTOS | Memory protection + sandboxed apps |
+| Zephyr | Hardware root of trust + continuous guardian |
+| AUTOSAR Adaptive | Linux-based + Mandalorian gate + sandbox |
+| Android (regular) | Waydroid hardening + no Frida/gum + seccomp |
+
+**Core values:** Security, Portability, Modularity, Performance, Open Source.
+
+---
+
+## 16. Mandalorian-Claw — Sovereign AI Assistant
+
+**Purpose:** Local-only AI assistant built on llama.cpp with BeskarAppGuard container isolation. Enforces sovereignty: no network access, no cloud dependencies, all inference runs locally.
+
+**File:** `mandalorian-claw/Makefile`
+
+**Architecture:**
+- **Language model:** Llama 3.1 8B (downloaded separately via `scripts/download-model.sh`)
+- **Inference engine:** llama.cpp (vendor dependency at `mandalorian-claw/vendor/llama.cpp`)
+- **Container:** BeskarAppGuard `ISOLATED` container type
+- **Capabilities:** `ai.inference.local` (granted), `ai.network.internet` (denied)
+- **Static library:** `libmandalorian_claw.a` for embedding
+
+**Build outputs:**
+| Output | Description |
+|---|---|
+| `bin/mandalorian-claw` | Main executable |
+| `build/libmandalorian_claw.a` | Static archive for embedding |
+
+**Makefile targets:**
+| Target | Description |
+|---|---|
+| `make all` | Build executable + static library |
+| `make download-model` | Download Llama 3.1 8B weights |
+| `make install-container` | Install as BeskarAppGuard ISOLATED container |
+| `make test` | Run sovereignty, permissions, and integration tests |
+| `make dev` | Build debug binary |
+| `make container-start/stop/status` | BeskarAppGuard container management |
+
+**Test suite:**
+- `test_sovereignty.sh` — verifies no outbound network capability
+- `test_permissions.sh` — verifies granted/denied capability list
+- `test_integration.sh` — end-to-end inference test
+
+**Dependencies:**
+- `beskarcore` — cryptographic services (linked at `../beskarcore`)
+- `vendor/llama.cpp` — llama.cpp source (external, not in repo)
+- gcc/g++, CMake, Ninja
+
+**Compiler flags:** `-Wall -Wextra -O2 -fPIC -DLOCAL_INFERENCE_ONLY`
+
+---
+
+## 17. Scripts — Automation & Tooling
+
+**Purpose:** Project-wide automation for dependency setup, security audits, maintenance, and deployment.
+
+**Files:**
+
+### `scripts/setup-dependencies.sh`
+Handles automated dependency installation across multiple platforms (Ubuntu/Debian, Fedora/RHEL, macOS, Windows/WSL2).
+
+**Supported package managers:** apt, dnf, brew, pacman
+
+**Packages installed:**
+- Build: `gcc`, `g++`, `make`, `cmake`, `ninja`, `golang`
+- BeskarCore: `libssl-dev` (OpenSSL)
+- Verification: `python3`, `sqlite3`, `ccache`, `doxygen`, `graphviz`
+- Docs: `mkdocs`, `mkdocs-material` (Python pip)
+- Security: `cppcheck`, `clang-format`, `libseccomp-dev`
+- Testing: `gcov`, `lcov`, `rng-tools5`
+- Embedding: `llvm`, `clang`
+
+**Also:**
+- Fetches seL4 test suite from GitHub via `git clone https://github.com/seL4/seL4.git`
+- Generates ZAP (OWASP ZAP) security report at `security-reports/zap-report.html`
+- Starts `haveged` daemon for hardware RNG entropy on Linux
+- Installs the Mingw-w64 cross-compiler for Windows targets
+
+### `scripts/security-audit.sh`
+Runs comprehensive security audit across all C/C++ source files and produces OWASP ZAP reports.
+
+**Coverage:**
+- `aegis/` — source + headers
+- `beskarcore/` — core + src + include + tests
+- `helm/`
+- `mandalorian/` — core + api + transport + utils + stubs
+- `mandalorian-claw/` — src
+- `veridianos/`
+
+**Output:** `security-reports/` directory with ZAP HTML report + XML export
+
+**Requires:** `cppcheck`, `clang-format`, `gcc`, `mkdocs`, `owasp-zap`
+
+### `scripts/maintain.sh`
+Performs system-level maintenance including entropy daemon setup, RAM wipe, disk wiping, SSH key generation, and Yubikey/ZKamryn provisioning.
+
+**Functions:**
+- `start_entropy_daemon` — start `haveged` for hardware RNG
+- `ram_wipe` / `ram_wipe_aggressive` — wipe RAM (safe / overwrite + reboot)
+- `disk_wipe` — overwrite disk with zeroes (requires root + interactive confirmation)
+- `ssh_keygen` — generate Ed25519 SSH keys with ssh-agent setup
+- `setup_zkamryn` — provision ZKamryn hardware token
+- `check_all` — verify all 5 modules (beskarcore, mandalorian, aegis, helm, veridianos)
+
+**Safety:** All destructive operations require `--force` flag + root privileges + interactive confirmation.
+
+### `scripts/deploy.sh`
+Full deployment automation with pre-flight checks, manifest generation, multi-environment support, and rollback.
+
+**Pre-deployment checks:** Validates `cmake`, `make`, `gcc`, `git` availability and checks for required build artifacts:
+- `build/beskarcore/boot_rom`
+- `build/beskarcore/verified_boot`
+- `build/veridianos/runtime`
+
+**Deployment environments:**
+
+| Environment | Target |
+|---|---|
+| `development` | `~/.mandalorian/dev/` |
+| `staging` | `/opt/mandalorian/staging/` |
+| `production` | `/opt/mandalorian/` (interactive approval) |
+
+**Deployment artifacts:**
+```
+deploy/
+├── bin/         (boot_rom, verified_boot, runtime)
+├── config/      (toolchain cmake, requirements.txt)
+├── docs/        (README, security/troubleshooting docs)
+└── manifest.json
+```
+
+**Production features:**
+- Automatic backup before overwrite
+- systemd service creation (`mandalorian-boot-rom.service`, `mandalorian-runtime.service`)
+- `daemon-reload` + service enable
+- Rollback from timestamped backup directories
+
+**Rollback:** `--rollback` flag reverts to latest backup for staging/production.
+
+---
+
+## 18. Hardware — Board Bringup & Flash Scripts
+
+**Purpose:** Hardware bringup scripts for specific embedded boards. Named after Star Wars starfighters and Mandalorian vehicles.
+
+**Files:** `hardware/` directory
+
+### `flash_visionfive2.sh`
+Flashes the Mandalorian system onto the StarFive VisionFive 2 RISC-V single-board computer.
+
+**Board specs (VisionFive 2):**
+- Architecture: RISC-V (RV64GC)
+- CPU: StarFive JH7110 quad-core
+- GPU: PowerVR GE8300
+- RAM: 2–8 GB LPDDR4
+- Interface: GPIO header, PCIe, MIPI CSI/DSI
+
+**Flash process:**
+1. Partition SD card (auto-detected as `/dev/sd*` or `/dev/mmcblk*`)
+2. Flash firmware + bootloader to microSD
+3. Optional NVMe flash via PCIe adapter
+4. Configure U-Boot environment
+
+**Partition scheme:**
+- `BOOT` — FAT32, 512 MB — U-Boot + kernel
+- `ROOT` — EXT4, remainder — rootfs
+
+**GPU acceleration:** PowerVR GE8300 via Mesa 3D + Vulkan driver
+
+---
+
+## 19. Toolchains — Cross-Compilation Support
+
+**Purpose:** CMake toolchain files for cross-compilation to non-host architectures.
+
+**Files:** `toolchains/`
+
+### `toolchains/x86_64.cmake`
+
+**Configuration:**
+- `CMAKE_SYSTEM_NAME: Linux`
+- `CMAKE_SYSTEM_PROCESSOR: x86_64`
+- `CMAKE_C_COMPILER: x86_64-linux-gnu-gcc`
+- `CMAKE_CXX_COMPILER: x86_64-linux-gnu-g++`
+
+**Compiler flags:**
+- `-march=x86-64 -mtune=generic -m64` — x86-64 target
+- `-Wl,--gc-sections` — dead-code stripping at link time
+
+**Search path behavior:**
+- `CMAKE_FIND_ROOT_PATH_MODE_PROGRAM: NEVER` — host tools used
+- `CMAKE_FIND_ROOT_PATH_MODE_LIBRARY: ONLY` — libraries searched in sysroot only
+- `CMAKE_FIND_ROOT_PATH_MODE_INCLUDE: ONLY`
+- `CMAKE_FIND_ROOT_PATH_MODE_PACKAGE: ONLY`
+
+**Usage:**
+```bash
+cmake -B build -DCMAKE_TOOLCHAIN_FILE=toolchains/x86_64.cmake
+```
+
+---
+
+## 20. Testing — Test Framework
+
+**Purpose:** Centralized test runner with coverage reporting and results tracking.
+
+**Files:** `Testing/Temporary/` (CMake/CTest temporary directory — generated at build time)
+
+**Note:** The `Testing/` directory is the standard CMake/CTest output directory and is regenerated on each build. Permanent test sources live within each module's `tests/` subdirectory (e.g., `beskarcore/tests/`).
+
+---
+
+## 21. Site — MkDocs Build Output
+
+**Purpose:** GitHub Pages deployment target. The `site/` directory is the compiled MkDocs output generated by `mkdocs build`. It is deployed to GitHub Pages via `.github/workflows/pages.yml`.
+
+**Note:** The `site/` directory is a build artifact and is normally auto-deployed from CI on every push to `master`. It can also be built locally with `mkdocs build`.
+
+---
+
+## 22. Appendix A: Full File Tree
 
 ```
 mandalorian-project/
-├── aegis/
+├── aegis/                          # Security monitoring & alerting
 │   ├── include/aegis.h
 │   ├── src/aegis.c
 │   ├── src/monitor.c
 │   ├── Makefile
 │   └── README.md
-├── mandalorian/
+├── mandalorian/                     # Core gate management & IPC
 │   ├── core/
-│   │   ├── gate.c, gate.h
-│   │   ├── policy.c, policy.h
-│   │   ├── verifier.c, verifier.h
-│   │   ├── receipt.c, receipt.h
-│   │   └── stubs/ (6 stub files)
-│   ├── api/ (4 files)
-│   ├── transport/ (3 files)
-│   ├── utils/hash.c
+│   │   ├── gate.c / gate.h           # Gate lifecycle + policy enforcement
+│   │   ├── policy.c / policy.h       # Policy engine with time windows
+│   │   ├── verifier.c / verifier.h   # ChaCha20-Poly1305 receipt + chain verify
+│   │   ├── receipt.c / receipt.h     # Receipt generation + GF(2^128) replay prevention
+│   │   └── stubs/                     # Platform abstraction (6 stubs)
+│   ├── api/
+│   │   ├── gate_api.h                 # Public API definitions
+│   │   ├── gate_client.c             # Client-side gate communication
+│   │   ├── gate_protocol.h           # Wire protocol definitions
+│   │   └── gate_server.c             # Server-side gate handler
+│   ├── transport/
+│   │   ├── transport.h               # Transport abstraction layer
+│   │   ├── http_transport.c          # HTTP adapter
+│   │   └── websocket_transport.c    # WebSocket adapter
+│   ├── utils/hash.c                 # Hash utilities
 │   ├── include/mandalorian.h
-│   ├── CMakeLists.txt, Makefile, README.md
-├── beskarcore/
-│   ├── core/aes.c, verity.c
-│   ├── src/beskar_vault.c, merkle_ledger.c, verified_boot.c, continuous_guardian.c
-│   ├── include/ (7 header files)
-│   ├── tests/ (3 test files)
-│   ├── Makefile, README.md
-├── helm/
-│   ├── helm.c, helm.h
-│   ├── Makefile, README.md
-├── veridianos/
-│   ├── README.md, demo.c, simple_demo.c, veridianos.c, Makefile
-│   ├── include/u_runtime.h
-│   ├── src/android_runtime.c, app_sandbox.c, u_runtime.c
-│   ├── waydroid/HARDENNING.md, SPEC.md
-│   └── openswiftui/SPEC.md
-├── docs/ (architecture, security, api, troubleshooting, root)
-├── tests/comprehensive/
-│   └── run_tests.sh, TEST_RESULTS.txt, COVERAGE.txt
+│   ├── CMakeLists.txt
+│   ├── Makefile
+│   └── README.md
+├── beskarcore/                       # Cryptographic core & secure storage
+│   ├── core/
+│   │   ├── aes.c                     # AES-256-GCM implementation (~380 lines)
+│   │   └── verity.c                   # Boot measurement & chain (~260 lines)
+│   ├── src/
+│   │   ├── beskar_vault.c             # Encrypted vault + Argon2id KDF (~440 lines)
+│   │   ├── merkle_ledger.c            # Tamper-evident audit log (~420 lines)
+│   │   ├── verified_boot.c            # SHA3-256 boot chain verification (~280 lines)
+│   │   └── continuous_guardian.c    # 50ms real-time integrity monitor (~540 lines)
+│   ├── include/
+│   │   ├── beskar_core.h              # Core crypto API
+│   │   ├── beskar_vault.h            # Vault API
+│   │   ├── merkle_ledger.h           # Ledger API
+│   │   ├── verified_boot.h           # Verified boot API
+│   │   ├── continuous_guardian.h     # Guardian API
+│   │   ├── logging.h                  # Structured logging
+│   │   ├── monitoring.h               # Metrics + health integration
+│   │   └── performance.h              # perf_timer utilities
+│   ├── tests/
+│   │   ├── test_aes.c
+│   │   ├── test_merkle.c
+│   │   └── test_verity.c
+│   ├── Makefile
+│   └── README.md
+├── helm/                              # Orchestration layer
+│   ├── helm.c / helm.h                # Bootstrap + policy coordination (~360 lines)
+│   ├── Makefile
+│   └── README.md
+├── mandalorian-claw/                  # Sovereign local AI assistant
+│   ├── Makefile                        # Llama 3.1 8B + llama.cpp + BeskarAppGuard ISOLATED container
+│   ├── README.md
+│   └── vendor/llama.cpp/              # llama.cpp (external, not in repo)
+├── mandate/                            # Product brief & marketing positioning
+│   └── PRODUCT_BRIEF.md              # Target markets, competitive analysis, core values
+├── veridianos/                         # Android/iOS sandbox runtime
+│   ├── README.md
+│   ├── veridianos.c                   # Sandbox main entry (~320 lines)
+│   ├── demo.c                         # Full hardening demonstration (~200 lines)
+│   ├── simple_demo.c                   # Simple sandboxing example (~80 lines)
+│   ├── Makefile
+│   ├── include/u_runtime.h            # iOS runtime API (~280 lines)
+│   ├── src/
+│   │   ├── android_runtime.c          # Waydroid namespace setup (~330 lines)
+│   │   ├── app_sandbox.c              # Capability-based sandbox primitives (~420 lines)
+│   │   └── u_runtime.c               # OpenSwiftUI runtime + ObjC bridge (~370 lines)
+│   ├── waydroid/
+│   │   ├── HARDENNING.md             # Waydroid hardening specification
+│   │   └── SPEC.md                   # Waydroid integration spec
+│   └── openswiftui/
+│       └── SPEC.md                   # OpenSwiftUI reimplementation spec
+├── hardware/                           # Board bringup & flash scripts
+│   └── flash_visionfive2.sh           # StarFive VisionFive 2 RISC-V SBC flash script
+├── scripts/                             # Automation tooling
+│   ├── setup-dependencies.sh          # Cross-platform dep installation (apt/dnf/brew/pacman)
+│   ├── security-audit.sh              # cppcheck + clang-format + ZAP report generation
+│   ├── maintain.sh                    # Entropy daemon, RAM wipe, disk wipe, SSH, ZKamryn
+│   ├── deploy.sh                      # Multi-environment deployment with rollback
+│   └── (other scripts)
+├── tests/comprehensive/                 # Full test suite
+│   ├── run_tests.sh                   # Test runner (CMake/CTest)
+│   ├── TEST_RESULTS.txt              # Results log
+│   └── COVERAGE.txt                   # Coverage report
+├── site/                               # MkDocs build output (GitHub Pages deploy target)
+├── toolchains/                          # CMake cross-compilation toolchain files
+│   └── x86_64.cmake                   # x86_64 Linux cross-compile toolchain
+├── Testing/                             # CMake/CTest temporary build directory
+├── docs/                               # MkDocs documentation site
+│   ├── index.md
+│   ├── mkdocs.yml
+│   ├── fosdem2026_talk_outline.md
+│   ├── full_project_structure.md
+│   ├── architecture/                   # gate, helm, vault, ledger, link, overview
+│   ├── security/                       # Security audit, fixes, bypass resistance, Blackberry
+│   ├── api/                            # VeridianOS API reference
+│   ├── troubleshooting/
+│   └── root/                           # README, TODO, CONTRIBUTING, PRE_UPLOAD_CHECKLIST
 ├── .github/workflows/
-│   ├── ci.yml (6 jobs)
-│   └── pages.yml
-├── seL4/ (9,500+ kernel ABI reference headers)
+│   ├── ci.yml                         # 6-job CI pipeline
+│   └── pages.yml                       # MkDocs → GitHub Pages deployment
+├── seL4/                                # seL4 kernel ABI reference (9,500+ headers — NOT built)
 ├── README.md
-├── index.html
-└── mkdocs.yml
+├── PROJECT_STATUS.md                   # This document
+├── mkdocs.yml                          # MkDocs config (root copy)
+└── index.html                          # Site entry point (root copy)
 ```
 
 ---
 
-*Report generated from live repository scan of `iamGodofall/mandalorian-project`*
+*Report generated from full live repository scan — all modules documented including mandate, mandalorian-claw, hardware, scripts, toolchains, Testing, and site directories*
