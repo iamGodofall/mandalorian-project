@@ -1,6 +1,52 @@
 # Mandalorian Project API Documentation
 
-This directory contains comprehensive API documentation for all components of the Mandalorian Project.
+> **Sandbox is the main trick.** Every app — Android or iOS — runs in an seL4-isolated domain with deny-by-default capabilities and Aegis-mediated permissions. See [Architecture Overview](../architecture/overview.md) for the full story.
+
+---
+
+## VeridianOS Runtime APIs
+
+### App Sandboxing (seL4 Capabilities)
+
+Every app (Android `.apk` or iOS `.ipa`) runs inside a sandboxed domain. Deny-by-default. User grants capabilities per-session.
+
+```c
+#include <veridianos/app_sandbox.h>
+
+// Initialize the sandbox subsystem
+int app_sandbox_init(void);
+
+// Create an isolated domain for an app
+// Default quotas: 100MB RAM, 1s CPU time
+// Default capabilities: storage + notifications only
+int app_sandbox_create_domain(const char *package_id, app_capabilities_t *requested_caps);
+
+// Check if an app holds a specific capability
+int app_sandbox_check_capability(const char *package_id, app_capability_t cap);
+
+// Request a capability (triggers Aegis user prompt)
+int app_sandbox_request_capability(const char *package_id, app_capability_t cap);
+
+// Destroy an app's sandbox domain (clean teardown)
+int app_sandbox_destroy_domain(const char *package_id);
+
+// Enforce memory/CPU quotas — apps over limit are terminated
+int app_sandbox_enforce_quotas(void);
+
+// IPC between apps — only allowed if they share capability grants
+int app_sandbox_ipc_send(const char *from_package, const char *to_package,
+                         const void *message, size_t size);
+
+// Per-app resource usage
+int app_sandbox_get_resource_usage(const char *package_id,
+                                    uint64_t *memory_used, uint32_t *cpu_used);
+```
+
+**Android runtime** (Waydroid + AOSP + microG): `u_runtime_init()` → `android_app_load()` → `android_app_launch()`
+**iOS runtime** (OpenSwiftUI clean-room): `u_runtime_init()` → `ios_app_load()` → `ios_app_launch()`
+**Both** route permission checks through Aegis — not the Android/iOS permission model.
+
+---
 
 ## BeskarCore APIs
 

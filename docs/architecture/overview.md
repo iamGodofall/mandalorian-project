@@ -185,6 +185,71 @@ This means: **AI agents operating on Mandalorian are themselves capability-bound
 
 ---
 
+## The Sandbox: One Runtime, Any App
+
+**Sandbox is the main trick.** VeridianOS doesn't trust Android or iOS permission models — it replaces them entirely.
+
+### How It Works
+
+Every app (Android `.apk` or iOS `.ipa`) runs inside a **seL4-isolated sandbox domain** with:
+
+| Capability | Default | User Control |
+|---|---|---|
+| Network | ❌ Denied | Grant per-session |
+| Camera | ❌ Denied | Grant per-session |
+| Microphone | ❌ Denied | Grant per-session |
+| Storage | ✅ App-only | Revocable |
+| Notifications | ✅ App-only | Revocable |
+| Location | ❌ Denied | Grant per-session |
+
+### Android Apps (Waydroid Container)
+
+Android runs in a **Waydroid container** on top of VeridianOS/seL4:
+
+```
+Android App → Waydroid Container → VeridianOS → seL4 Microkernel
+                     ↓
+              microG (open GMS)
+              Aegis permission mediator
+              Network blocklist (Facebook, Mixpanel, etc.)
+```
+
+- Pure AOSP image, no Google Play Services
+- microG replaces Google Services (open-source reimplementation)
+- All tracker domains firewalled by default via Aegis
+- Permission prompts go through Aegis — not Android's built-in (untrusted) system
+
+### iOS Apps (OpenSwiftUI)
+
+iOS apps don't run in a emulator — their **UI layer is reimplemented** from public Apple Developer documentation:
+
+```
+iOS App Source → OpenSwiftUI SDK → VeridianOS renderer (Skia)
+                      ↓
+              Hardened NSURLSession (blocklist active)
+              Encrypted UserDefaults (BeskarCore key)
+              No iCloud, no App Store APIs
+```
+
+OpenSwiftUI reimplements only **public UIKit/SwiftUI APIs** (Apache 2.0, no Apple code). Apps built for iOS can be recompiled against OpenSwiftUI instead of Apple's frameworks.
+
+### seL4 Sandbox Core (`app_sandbox.c`)
+
+Each sandbox domain gets its own seL4 capabilities:
+
+- **Endpoint** — IPC with other domains (policy-enforced)
+- **TCB** — Thread control block (CPU quota enforcement)
+- **VSpace** — Virtual address space (memory isolation)
+- **CSpace** — Capability space (least-privilege derivation)
+
+Quota enforcement runs continuously — apps that exceed memory/CPU limits are terminated or throttled automatically.
+
+### Cross-App IPC
+
+Apps can only communicate if Aegis approves — based on shared capability grants. No silent app-to-app talking.
+
+---
+
 ## Phase Roadmap
 
 ```
