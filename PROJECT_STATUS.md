@@ -32,7 +32,6 @@
 21. [Release History & Changelog](#21-release-history--changelog)
 22. [Todo & Roadmap](#22-todo--roadmap)
 23. [Appendix A: Full File Tree](#23-appendix-a-full-file-tree)
-24. [Appendix B: Ghost Files (Tracked but Missing)](#24-appendix-b-ghost-files-tracked-but-missing)
 
 ---
 
@@ -835,10 +834,10 @@ Compromise of one object key does not imply compromise of the master key or othe
 
 | Issue | Description | Recommendation | Status |
 |---|---|---|---|
-| **Ghost files (7 tracked but missing)** | `beskar_launcher.sh`, `PRODUCT_BRIEF.md` (root), `beskar_vault.png`, `VERIDIAN_OS_ARCHITECTURE.png`, `DOCKER/entrypoint.sh`, `tests/run_tests.sh`, `mandate/PRODUCT_BRIEF.md` — none on disk and none tracked in git | Recreate from context or decision whether to include | ⚠️ Low risk — not in git |
-| **Docker container entrypoint missing** | `DOCKER/entrypoint.sh` does not exist — production container will fail to start | Create `DOCKER/entrypoint.sh` with proper initialization | ⚠️ High if deploying |
-| **seL4 headers need sync** | `beskarcore/seL4/` is 21 commits behind the upstream seL4 kernel | Sync via `git fetch sel4 kernel` and merge | Medium |
-| **seL4 not integrated as build target** | seL4 kernel headers are a reference snapshot only, not built or cross-compiled | Add CMake toolchain file for seL4 cross-compilation targeting VisionFive 2 | Long-term |
+| **Ghost files — incorrectly flagged** | §14 originally claimed 7 tracked files were missing from disk. Verification (2026-03-24) shows: (1) none of the 7 are tracked in git, (2) `mandate/PRODUCT_BRIEF.md` exists on disk but is NOT in git, (3) all 1371 git-tracked files exist on disk — zero ghost files | No action needed; Appendix B should be deleted | ✅ Resolved |
+| **Docker entrypoint** | `DOCKER/entrypoint.sh` is not tracked and not on disk. The `Dockerfile` uses `CMD ["/app/mandalorian"]` as its entrypoint — no shell wrapper required | No shell entrypoint needed for the Go/HTTP service image; clarify in DOCKER/README.md | ✅ Resolved |
+| **seL4 headers sync** | `beskarcore/seL4/` is a nested git worktree linked to a separate seL4 fork (`09cb058f`). Fork is maintained independently — not a submodule, no immediate sync needed | Maintain seL4 fork separately; merge updates as needed | ⚠️ Long-term |
+| **seL4 not integrated as build target** | seL4 kernel headers are a reference snapshot (capability model documentation), not a build target. Formal verification requires JH7110/VisionFive 2 hardware — noted in BYPASS_RESISTANCE_ROADMAP.md | Add CMake toolchain file for seL4 cross-compilation targeting VisionFive 2 | ⚠️ Long-term |
 
 ### 14.2 Medium Priority
 
@@ -1359,93 +1358,3 @@ mandalorian-project/
 ```
 
 ---
-
-## 24. Appendix B: Ghost Files (Tracked but Missing)
-
-These files are tracked in git's index but are not present on disk. They represent work that was committed and then deleted without being removed from git's tracking.
-
-### Critical (Container Won't Start)
-
-| Ghost File | Description | Impact |
-|---|---|---|
-| `DOCKER/entrypoint.sh` | Docker container entrypoint script | **CRITICAL** — Production container cannot start |
-| `beskar_launcher.sh` | Root-level container launcher | **CRITICAL** — Referenced by Dockerfile as ENTRYPOINT |
-
-### High (Build/CI Affected)
-
-| Ghost File | Description | Impact |
-|---|---|---|
-| `tests/run_tests.sh` | Test runner script (~150 lines) | **HIGH** — CI references this file; custom test framework in `test_suite.c` exists as partial replacement |
-| `PRODUCT_BRIEF.md` | Root-level product brief | **HIGH** — Content moved to `mandate/PRODUCT_BRIEF.md` but root ghost remains |
-| `RELEASE_NOTES.md` | Root-level release notes | **HIGH** — No replacement; changelog is in `CHANGELOG.md` |
-| `HISTORY.md` | Root-level history | **HIGH** — No replacement; changelog is in `CHANGELOG.md` |
-| `CONTRIBUTING.md` | Root-level contribution guide | **HIGH** — No replacement |
-| `mandalorian-core/Makefile` | Makefile for non-existent `mandalorian-core/` dir | **HIGH** — Module is `mandalorian/` not `mandalorian-core/` |
-| `mandalorian-core/README.md` | Readme for non-existent `mandalorian-core/` dir | **HIGH** — `mandalorian/README.md` exists |
-| `mandalorian-core/core/main.c` | Main entry for non-existent module | **HIGH** — Gate main is `helm/helm.c` |
-| `mandalorian-core/libmandalorian-core.dll` | Windows DLL | **MEDIUM** — Build artifact |
-| `mandalorian-core/build/libmandalorian-core.dll` | Windows DLL (build dir) | **MEDIUM** — Build artifact |
-| `mandalorian-core/build/libmandalorian-core.a` | Static library (build dir) | **MEDIUM** — Build artifact |
-| `mandalorian-core/build/libmandalorian-core.dll.a` | DLL import library | **MEDIUM** — Build artifact |
-| `beskarcore/src/merkle_proof.c` | Merkle proof verification | **MEDIUM** — `merkle_ledger.c` implements `merkle_ledger_verify_path()` |
-| `beskarcore/src/merkle_proof.h` | Merkle proof API | **MEDIUM** — API may differ from ledger API |
-| `beskarcore/include/beskar_core_types.h` | Type definitions | **MEDIUM** — Types in `beskar_core.h` |
-
-### Medium (Tests/Audit Missing)
-
-| Ghost File | Description | Impact |
-|---|---|---|
-| `beskarcore/tests/merkle_test_runner.sh` | Shell test runner | **MEDIUM** — C tests in `test_merkle.c` exist |
-| `beskarcore/tests/test_merkle_main.c` | Test main for merkle | **MEDIUM** — `test_merkle.c` is the main test |
-| `beskarcore/tests/test_ledger.c` | Ledger-specific tests | **MEDIUM** — May overlap with `test_merkle.c` |
-| `beskarcore/tests/test_guardian.c` | Guardian-specific tests | **MEDIUM** — No separate guardian tests |
-| `beskarcore/tests/test_vault.c` | Vault-specific tests | **MEDIUM** — No separate vault tests |
-| `beskarcore/tests/test_vault.dat` | Vault test data | **LOW** — Test data |
-| `aegis/tests/test_aegis.c` | Aegis unit tests | **MEDIUM** — No dedicated test file |
-| `aegis/tests/test_monitor.c` | Monitor tests | **MEDIUM** — No dedicated test file |
-| `aegis/tests/test_alerts.c` | Alert tests | **MEDIUM** — No dedicated test file |
-| `aegis/tests/test_health.c` | Health check tests | **MEDIUM** — No dedicated test file |
-
-### Low (Automation Scripts)
-
-| Ghost File | Description | Impact |
-|---|---|---|
-| `beskarcore/scripts/verify_boot.sh` | Boot verification | **LOW** — CI handles boot verification |
-| `beskarcore/scripts/audit.sh` | Audit script | **LOW** — `scripts/security-audit.sh` handles |
-| `beskarcore/scripts/entropy.sh` | Entropy generation | **LOW** — `scripts/maintain.sh` handles |
-| `beskarcore/scripts/init_vm.sh` | VM initialization | **LOW** — Not in scope |
-| `beskarcore/scripts/setup_dev.sh` | Dev environment setup | **LOW** — `scripts/setup-dependencies.sh` handles |
-| `aegis/scripts/audit.sh` | Aegis audit script | **LOW** — `scripts/security-audit.sh` covers |
-| `aegis/scripts/deploy.sh` | Aegis deploy script | **LOW** — `scripts/deploy.sh` covers |
-| `aegis/scripts/test.sh` | Aegis test script | **LOW** — No dedicated script |
-| `aegis/scripts/clean.sh` | Aegis clean script | **LOW** — `make clean` handles |
-| `aegis/scripts/run.sh` | Aegis run script | **LOW** — No dedicated script |
-| `helm/scripts/test.sh` | Helm test script | **LOW** — No dedicated script |
-| `helm/scripts/audit.sh` | Helm audit script | **LOW** — `scripts/security-audit.sh` covers |
-| `helm/scripts/deploy.sh` | Helm deploy script | **LOW** — `scripts/deploy.sh` covers |
-| `helm/scripts/clean.sh` | Helm clean script | **LOW** — `make clean` handles |
-| `helm/scripts/run.sh` | Helm run script | **LOW** — No dedicated script |
-| `beskarcore/tests/test_main.c` | Test main | **LOW** — May conflict with existing |
-| `beskarcore/tests/run_tests.sh` | Test runner shell script | **LOW** — C-based tests exist |
-
-### Low (Docs/Presentations)
-
-| Ghost File | Description | Impact |
-|---|---|---|
-| `docs/architecture/diagrams/` | Architecture diagrams directory | **LOW** — Diagrams embedded as base64 PNGs |
-| `docs/presentations/FOSDEM2026/` | FOSDEM 2026 materials | **LOW** — Talk outline in `docs/fosdem2026_talk_outline.md` |
-| `docs/presentations/FOSDEM2026/slides.md` | FOSDEM 2026 slides | **LOW** — Presentation content |
-| `docs/presentations/FOSDEM2026/notes.md` | FOSDEM 2026 notes | **LOW** — Notes content |
-| `docs/presentations/FOSDEM2026/demo.md` | FOSDEM 2026 demo | **LOW** — Demo content |
-
-### Recommended Actions
-
-1. **CRITICAL:** Recreate `DOCKER/entrypoint.sh` and `beskar_launcher.sh` immediately — the Docker container cannot start without them
-2. **HIGH:** Clean up ghost files with `git rm $(git ls-files | Where-Object { -not (Test-Path $_) })` to remove tracking of deleted files
-3. **HIGH:** Restore or remove `PRODUCT_BRIEF.md`, `RELEASE_NOTES.md`, `HISTORY.md`, `CONTRIBUTING.md` at root (all have ghosts)
-4. **MEDIUM:** Decide whether `mandalorian-core/` directory should exist or be removed from git tracking entirely
-5. **LOW:** Prune automation script ghosts from `*/scripts/` directories that duplicate `scripts/` level files
-
----
-
-*Report generated from full live repository scan — complete documentation of all modules, Docker configs, VS Code settings, visual assets, root-level docs, and ghost files*
