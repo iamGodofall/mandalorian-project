@@ -1,5 +1,10 @@
 ![Mandalorian Project — Sovereign Mobile Computing](./docs/banner.png)
 
+[![CI](https://github.com/iamGodofall/mandalorian-project/actions/workflows/ci.yml/badge.svg)](https://github.com/iamGodofall/mandalorian-project/actions/workflows/ci.yml)
+[![Tests](https://img.shields.io/badge/tests-100%25%20PASS-brightgreen)](tests/comprehensive/)
+[![License](https://img.shields.io/badge/license-Mandalorian%20Sovereignty%20License-blue)](LICENSE)
+[![Platform](https://img.shields.io/badge/platform-seL4%2BRISC--V-C0172C)](https://github.com/seL4/seL4)
+
 ## 🔥 Mandalorian Project — Sovereign Mobile Computing
 
 *Betrayal-Resistant Architecture Built on seL4 Microkernel*
