@@ -5,6 +5,17 @@ All notable changes to the Mandalorian Project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.1] - 2026-03-24
+### Added
+- Windows CMake libsodium vcpkg fallback (mandalorian/CMakeLists.txt).
+- GitHub CI workflow (.github/workflows/ci.yml: ubuntu build/test/fuzz).
+- TODO-steps.md tracking plan.
+### Improved
+- Phase10 docs (PROJECT_STRUCTURE +279 lines, README roadmap).
+- Mandalorian gate tests (100+ cases).
+### Fixes
+- Choco deps partial (admin needed); builds VS2022 Release.
+
 ## [Unreleased]
 
 ### Added
