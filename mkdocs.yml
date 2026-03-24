@@ -67,7 +67,6 @@ nav:
     - README: root/README.md
     - Roadmap: root/TODO.md
     - Contributing: root/CONTRIBUTING.md
-    - Pre-Upload Checklist: root/PRE_UPLOAD_CHECKLIST.md
   - Support:
     - Troubleshooting: troubleshooting/README.md
     - Security Overview: security/README.md
