@@ -1,0 +1,75 @@
+site_name: Mandalorian Project
+site_url: https://iamgodofall.github.io/mandalorian-project/
+site_description: Sovereign Mobile Computing — Betrayal-Resistant Architecture on seL4
+site_author: Themba Mpehle
+
+docs_dir: docs
+
+repo_name: iamGodofall/mandalorian-project
+repo_url: https://github.com/iamGodofall/mandalorian-project
+
+theme:
+  name: material
+  palette:
+    - scheme: slate
+      primary: deep orange
+      accent: orange
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+    - scheme: default
+      primary: deep orange
+      accent: orange
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+  features:
+    - navigation.instant
+    - navigation.tracking
+    - navigation.tabs
+    - navigation.sections
+    - toc.integrate
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+
+plugins:
+  - search
+
+markdown_extensions:
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.snippets
+  - pymdownx.superfences
+  - admonition
+  - attr_list
+  - md_in_html
+  - tables
+  - pymdownx.details
+
+nav:
+  - Home: index.md
+  - Architecture:
+    - Overview: architecture/overview.md
+    - Mandalorian Gate: architecture/gate.md
+    - Helm Attestation: architecture/helm.md
+    - BeskarVault: architecture/vault.md
+    - BeskarLink: architecture/link.md
+    - Shield Ledger: architecture/ledger.md
+  - Security:
+    - Security Audit: security/SECURITY_AUDIT_CRITICAL_FINDINGS.md
+    - Critical Fixes: security/CRITICAL_SECURITY_FIXES.md
+    - BlackBerry Enhancements: security/BLACKBERRY_ENHANCEMENTS.md
+    - Bypass Resistance: security/BYPASS_RESISTANCE_ROADMAP.md
+  - API Reference:
+    - API Docs: docs/api/README.md
+  - API Reference:
+    - API Docs: docs/api/README.md
+  - Project Docs:
+    - README: root/README.md
+    - Roadmap: root/TODO.md
+    - Contributing: root/CONTRIBUTING.md
+    - Pre-Upload Checklist: root/PRE_UPLOAD_CHECKLIST.md
+  - Resources:
+    - FOSDEM 2026 Talk: fosdem2026_talk_outline.md
+    - Full Structure: full_project_structure.md

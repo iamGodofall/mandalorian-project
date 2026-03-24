@@ -2,20 +2,20 @@ name: Deploy GitHub Pages
 
 on:
   push:
-    branches:
-      - master
+    branches: [main, master]
+  workflow_dispatch:
 
 permissions:
   contents: read
   pages: write
   id-token: write
-
 concurrency:
-  group: "pages"
+  group: pages
   cancel-in-progress: false
 
 jobs:
-  deploy:
+  build-and-deploy:
+    name: MkDocs Build & Deploy
     runs-on: ubuntu-latest
     environment:
       name: github-pages
@@ -24,18 +24,28 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          ref: master
           fetch-depth: 0
-          submodules: false
-        
-      - name: Setup Pages
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install mkdocs-material
+
+      - name: Build site
+        run: mkdocs build --strict
+        working-directory: .
+
+      - name: Configure Pages
         uses: actions/configure-pages@v4
-        
-      - name: Upload artifact
+
+      - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: '.'
-          
+          path: site
+
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
