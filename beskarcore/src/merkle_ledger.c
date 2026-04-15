@@ -1,7 +1,7 @@
+#include "../include/security_hardening.h"
 #include <stdint.h>
 #include <string.h>
 #include <stdio.h>
-#include <time.h>
 
 // Shield Ledger - Immutable Merkle tree for receipts/audits
 // BeskarCore component for Mandalorian integration

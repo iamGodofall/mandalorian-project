@@ -1,3 +1,4 @@
+#include "../include/security_hardening.h"
 #include "../include/beskar_enterprise.h"
 #include "../include/beskar_vault.h"
 #include "../include/beskar_link.h"

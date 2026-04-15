@@ -6,6 +6,26 @@
 #include <stdio.h>
 #include <time.h>
 
+// ============================================================================
+// PRODUCTION SECURITY HARDENING
+// ============================================================================
+// In production builds (PRODUCTION_MODE defined), direct printf() calls are
+// disabled at compile-time to prevent information leakage vulnerabilities.
+// All logging MUST go through the secure LOG_* macros which provide:
+// - Audit trail capability
+// - Log level filtering
+// - Secure output destinations
+// - Timestamp and context tracking
+// ============================================================================
+
+#ifdef PRODUCTION_MODE
+    // CRITICAL: Prevent printf() in production code - causes compilation error
+    #define printf(...) _Static_assert(0, "printf() is forbidden in production mode - use LOG_INFO/LOG_DEBUG/LOG_ERROR instead")
+    // Prevent puts(), putchar() as well
+    #define puts(...) _Static_assert(0, "puts() is forbidden in production mode - use LOG_INFO instead")
+    #define putchar(...) _Static_assert(0, "putchar() is forbidden in production mode")
+#endif
+
 // Log levels
 typedef enum {
     LOG_LEVEL_DEBUG = 0,
@@ -18,7 +38,8 @@ typedef enum {
 // Output destinations
 typedef enum {
     LOG_OUTPUT_CONSOLE = 1,
-    LOG_OUTPUT_FILE = 2
+    LOG_OUTPUT_FILE = 2,
+    LOG_OUTPUT_SECURE = 4  // Encrypted audit log (future)
 } log_output_t;
 
 // Logger configuration structure

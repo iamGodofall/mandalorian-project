@@ -1,9 +1,9 @@
+#include "../include/security_hardening.h"
 #include "../include/monitoring.h"
 #include "../include/logging.h"
 #include <stdlib.h>
 #include <string.h>
 #include <pthread.h>
-#include <unistd.h>
 
 // Global monitoring state
 static monitoring_config_t monitoring_config = {0};

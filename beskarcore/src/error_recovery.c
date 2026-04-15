@@ -1,3 +1,4 @@
+#include "../include/security_hardening.h"
 #include "../include/logging.h"
 #include "../include/error_recovery.h"
 
