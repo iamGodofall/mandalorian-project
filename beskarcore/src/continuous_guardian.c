@@ -1,10 +1,10 @@
+#include "../include/security_hardening.h"
 #include "../include/continuous_guardian.h"
 #include "../include/logging.h"
 #include "../include/performance.h"
 #include "../include/monitoring.h"
 #include <stdlib.h>
 #include <string.h>
-#include <time.h>
 
 // Global state - similar to 10NES chip embedded in cartridge
 static guardian_config_t guardian_config = {0};

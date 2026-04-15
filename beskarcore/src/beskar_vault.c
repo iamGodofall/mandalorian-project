@@ -1,3 +1,4 @@
+#include "../include/security_hardening.h"
 #include "../include/beskar_vault.h"
 #include "../include/logging.h"
 #include "../include/continuous_guardian.h"
@@ -331,13 +332,18 @@ int vault_get_key_metadata(vault_key_type_t type, vault_key_metadata_t *metadata
 // Cryptographic Operations
 // ============================================================================
 
-// SIMULATION ONLY: XOR encryption is NOT secure - for demonstration only
-// Production must use AES-256-GCM in hardware secure enclave
-#if defined(PRODUCTION_BUILD)
-#warning "XOR encryption detected - use AES-256-GCM for production"
+// CRITICAL SECURITY WARNING:
+// XOR encryption is NOT secure and MUST NOT be used in production.
+// Production builds MUST integrate with hardware secure enclave using:
+// - AES-256-GCM for encryption/decryption
+// - Ed25519 or P-384 for signing/verification
+// - Hardware TRNG for all randomness
+//
+// This simulation code will cause compilation failure if PRODUCTION_MODE is defined.
+
+#ifdef PRODUCTION_MODE
+#error "XOR encryption forbidden in production - integrate AES-256-GCM hardware enclave"
 #endif
-
-
 
 int vault_sign(vault_key_type_t key, const uint8_t *data, size_t data_len,
                uint8_t *signature, size_t *sig_len) {

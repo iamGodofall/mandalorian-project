@@ -46,9 +46,11 @@
     #define rand() _Static_assert(0, "rand() forbidden in production - use vault_hal_get_random()")
     #define srand(...) _Static_assert(0, "srand() forbidden in production")
     
-    // Prevent time(NULL) for security-critical operations
-    #undef time
-    #define time(...) _Static_assert(0, "time() forbidden for crypto - use secure timestamp API")
+    // Replace time(NULL) with secure_timestamp for all uses
+    #ifdef time
+        #undef time
+    #endif
+    #define time(...) secure_timestamp()
 #endif
 
 // ============================================================================

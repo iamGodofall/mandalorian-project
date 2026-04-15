@@ -2,41 +2,26 @@
 # Compiled and build artifacts
 *.o
 *.obj
-*.a
-*.so
-*.dll
+*.out
 *.exe
-build/
-dist/
+*.dll
+*.so
+*.a
 
-# Dependencies
-venv/
-.venv/
-__pycache__/
-*.pyc
-*.pyo
-*.pyd
+# Debug and test binaries
+*debug*
+*test*
 
 # Logs and temp files
 *.log
 *.tmp
-*.swp
 
 # Editors
-.vscode/
-.idea/
+*.swp
+*.swo
 
 # Environment
 .env
 .env.local
 *.env.*
-
-# Coverage
-.coverage
-coverage/
-htmlcov/
-
-# System
-.DS_Store
-Thumbs.db
 ```
