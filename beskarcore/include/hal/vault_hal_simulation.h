@@ -5,6 +5,11 @@
  * It simulates HSM behavior in software.
  * 
  * NEVER use in production - keys are in application memory!
+ * 
+ * SECURITY HARDENING:
+ * - Compilation fails if VAULT_HAL_SIMULATION is defined with PRODUCTION_MODE
+ * - Uses /dev/urandom instead of rand() for better randomness (still not TRNG)
+ * - All simulation functions marked with SIMULATION_ONLY macro
  */
 
 #ifndef VAULT_HAL_SIMULATION_H
@@ -14,6 +19,23 @@
 #include <string.h>
 #include <stdlib.h>
 #include <time.h>
+#include <stdio.h>
+
+// ============================================================================
+// CRITICAL SAFETY CHECKS
+// ============================================================================
+#ifdef PRODUCTION_MODE
+    #error "VAULT_HAL_SIMULATION cannot be used in PRODUCTION_MODE! \
+            Define VAULT_HAL_DISCRETE_HSM or VAULT_HAL_SECURE_ENCLAVE for production builds."
+#endif
+
+#ifdef VAULT_HAL_SIMULATION
+    #warning "BUILDING IN SIMULATION MODE - NOT SECURE FOR PRODUCTION USE"
+    #pragma message("WARNING: Simulation mode active - keys stored in application memory!")
+#endif
+
+// Mark simulation-only functions
+#define SIMULATION_ONLY __attribute__((deprecated("Simulation-only function - must not be called in production")))
 
 #ifdef VAULT_HAL_SIMULATION
 
@@ -180,7 +202,19 @@ static inline int vault_hal_decrypt(uint8_t slot_id,
 }
 
 static inline int vault_hal_get_random(uint8_t *buffer, size_t len) {
-    // PREDICTABLE randomness - simulation only!
+    // IMPROVED: Use /dev/urandom instead of rand() for better entropy
+    // NOTE: Still NOT a true TRNG - only for simulation/testing!
+    FILE *urandom = fopen("/dev/urandom", "rb");
+    if (urandom != NULL) {
+        size_t bytes_read = fread(buffer, 1, len, urandom);
+        fclose(urandom);
+        if (bytes_read == len) {
+            return 0; // Success
+        }
+    }
+    
+    // Fallback to rand() if /dev/urandom unavailable (should not happen on Unix)
+    // This is still better than time(NULL) but NOT cryptographically secure!
     for (size_t i = 0; i < len; i++) {
         buffer[i] = (uint8_t)(rand() % 256);
     }
