@@ -205,10 +205,14 @@ jobs:
             git grep -nE "$1" -- '*.c' '*.h' \
               | grep -vE ':[0-9]+:[[:space:]]*(\*|//|/\*)' || true
           }
+          # Only patterns that can never appear in correct C. A bare (\" was
+          # tried here and removed: it fires on any string literal containing a
+          # quoted term after a parenthesis, e.g. expect("SHA3-256(\"abc\")").
+          # The corrupted-statement case it was meant to catch does not compile,
+          # so the build job already rejects it.
           fail=0
           for pattern in \
             '#include[[:space:]]*\\"' \
-            '\(\\"' \
             '&(amp|lt|gt|quot);' \
             '\{[^}]*,[[:space:]]*\.\.\.[[:space:]]*\}'
           do
