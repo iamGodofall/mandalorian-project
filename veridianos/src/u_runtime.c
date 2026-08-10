@@ -240,34 +240,11 @@ int u_runtime_get_stats(uint64_t *total_memory, uint64_t *used_memory,
 }
 
 // Full implementations for platform-specific runtimes
-int android_runtime_init(void) {
-    printf("Initializing Android Runtime (ART) port...\n");
-
-    // Initialize ART VM components for seL4
-    // 1. Set up ART heap management using seL4 untyped memory
-    printf("Setting up ART heap with seL4 untyped memory allocation...\n");
-
-    // 2. Initialize class loader hierarchy
-    printf("Initializing ART class loader hierarchy...\n");
-
-    // 3. Configure JIT compiler for seL4 environment
-    printf("Configuring JIT compiler for seL4 microkernel constraints...\n");
-
-    // 4. Set up ART thread management integrated with seL4 TCBs
-    printf("Integrating ART thread management with seL4 Thread Control Blocks...\n");
-
-    // 5. Initialize IPC layer for inter-process communication
-    printf("Setting up ART IPC layer using seL4 endpoints...\n");
-
-    // 6. Load core Android libraries
-    printf("Loading core Android framework libraries...\n");
-
-    // 7. Initialize garbage collector
-    printf("Initializing ART garbage collector with seL4 memory management...\n");
-
-    printf("Android Runtime (ART) fully initialized for seL4 environment\n");
-    return 0;
-}
+/* The Android entry points that stood here are also defined in
+ * android_runtime.c, which is where they belong. Two definitions of the
+ * same symbol in one library means the linker picks whichever object it
+ * pulls in first, so which implementation ran depended on link order.
+ * They only differ in behaviour, not signature, so nothing complained. */
 
 int ios_runtime_init(void) {
     printf("Initializing iOS Runtime Engine...\n");
@@ -295,157 +272,6 @@ int ios_runtime_init(void) {
     printf("Setting up CoreFoundation with toll-free bridging...\n");
 
     printf("iOS Runtime Engine fully initialized for seL4 environment\n");
-    return 0;
-}
-
-int android_app_load(const char *apk_path, void **art_context) {
-    printf("Loading Android APK: %s\n", apk_path);
-
-    // Full APK parsing and ART context creation
-    // 1. Open and validate APK file
-    FILE *apk_file = fopen(apk_path, "rb");
-    if (!apk_file) {
-        printf("[ART ERROR] Cannot open APK file: %s\n", apk_path);
-        return -1;
-    }
-
-    // 2. Parse APK structure (ZIP format)
-    // Read End of Central Directory record to locate Central Directory
-    fseek(apk_file, -22, SEEK_END); // Minimum EOCD size
-    uint8_t eocd[22];
-    fread(eocd, 1, 22, apk_file);
-
-    // 3. Extract AndroidManifest.xml
-    printf("Extracting AndroidManifest.xml...\n");
-    // In full implementation: parse manifest for permissions, activities, etc.
-
-    // 4. Load DEX files
-    printf("Loading DEX bytecode...\n");
-    // In full implementation: parse DEX format, load classes
-
-    // 5. Load native libraries (.so files)
-    printf("Loading native libraries...\n");
-    // In full implementation: extract and load JNI libraries
-
-    // 6. Create ART context
-    android_app_context_t *context = malloc(sizeof(android_app_context_t));
-    if (!context) {
-        fclose(apk_file);
-        return -1;
-    }
-
-    // Initialize context
-    strncpy(context->package_name, "com.example.app", 
-            sizeof(context->package_name) - 1);
-    context->package_name[sizeof(context->package_name) - 1] = '\0';
-    strncpy(context->main_activity, "MainActivity", 
-            sizeof(context->main_activity) - 1);
-    context->main_activity[sizeof(context->main_activity) - 1] = '\0';
-
-    context->version_code = 1;
-    context->dex_size = 1024; // Actual DEX size
-    context->lib_count = 0;
-
-    // Allocate DEX data buffer
-    context->dex_data = malloc(context->dex_size);
-    if (!context->dex_data) {
-        free(context);
-        fclose(apk_file);
-        return -1;
-    }
-
-    // Read DEX data (simplified)
-    // In full implementation: properly extract from APK
-    memset(context->dex_data, 0, context->dex_size);
-
-    fclose(apk_file);
-    *art_context = context;
-
-    printf("Android APK loaded successfully: %s\n", context->package_name);
-    return 0;
-}
-
-int android_app_launch(void *art_context) {
-    printf("Launching Android app via ART\n");
-
-    android_app_context_t *context = (android_app_context_t *)art_context;
-    if (!context) {
-        printf("[ART ERROR] Invalid ART context\n");
-        return -1;
-    }
-
-    // Full ART app execution implementation
-    // 1. Initialize ART VM instance for this app
-    printf("Initializing ART VM instance for %s...\n", context->package_name);
-
-    // 2. Load DEX bytecode into VM
-    printf("Loading DEX bytecode (%zu bytes)...\n", context->dex_size);
-
-    // 3. Set up class loader with Android framework classes
-    printf("Setting up class loader with Android framework...\n");
-
-    // 4. Initialize JNI environment
-    printf("Initializing JNI environment...\n");
-
-    // 5. Create main thread and set up thread-local storage
-    printf("Creating main application thread...\n");
-
-    // 6. Call Application.onCreate() or Activity.onCreate()
-    printf("Calling application lifecycle methods...\n");
-
-    // 7. Start message loop for UI events
-    printf("Starting Android message loop...\n");
-
-    // 8. Set up permission checking hooks
-    printf("Setting up permission checking with Aegis...\n");
-
-    // 9. Initialize notification forwarding
-    printf("Initializing notification forwarding to system...\n");
-
-    // 10. Start app execution
-    printf("Android app %s launched successfully\n", context->package_name);
-
-    return 0;
-}
-
-int android_app_terminate(void *art_context) {
-    printf("Terminating Android app via ART\n");
-
-    android_app_context_t *context = (android_app_context_t *)art_context;
-    if (!context) {
-        printf("[ART ERROR] Invalid ART context for termination\n");
-        return -1;
-    }
-
-    // Full ART app termination implementation
-    // 1. Call Application.onTerminate() or Activity.onDestroy()
-    printf("Calling application termination lifecycle methods...\n");
-
-    // 2. Stop message loop and clean up UI threads
-    printf("Stopping Android message loop and UI threads...\n");
-
-    // 3. Clean up JNI environment
-    printf("Cleaning up JNI environment...\n");
-
-    // 4. Unload DEX bytecode from VM
-    printf("Unloading DEX bytecode from VM...\n");
-
-    // 5. Clean up ART VM instance
-    printf("Cleaning up ART VM instance...\n");
-
-    // 6. Free allocated resources
-    if (context->dex_data) {
-        free(context->dex_data);
-        context->dex_data = NULL;
-    }
-
-    // 7. Clean up notification forwarding
-    printf("Cleaning up notification forwarding...\n");
-
-    // 8. Free ART context
-    free(context);
-
-    printf("Android app terminated and resources cleaned up\n");
     return 0;
 }
 
@@ -542,27 +368,6 @@ static universal_notification_t notification_queue[MAX_NOTIFICATIONS];
 static int notification_count = 0;
 
 // Forward Android notification to universal system
-int android_show_notification(const char *title, const char *text) {
-    if (notification_count >= MAX_NOTIFICATIONS) {
-        return -1; // Queue full
-    }
-
-    universal_notification_t *notif = &notification_queue[notification_count++];
-    strcpy(notif->app_name, "Android App");
-    strcpy(notif->title, title);
-    strcpy(notif->message, text);
-    notif->timestamp = (uint64_t)time(NULL);
-    notif->priority = 1; // Normal priority
-
-    printf("[NOTIFICATION] Android: %s - %s\n", title, text);
-
-    // In real system: forward to system notification daemon
-    // For demo: just log and store
-
-    return 0;
-}
-
-// Forward iOS notification to universal system
 int ios_show_notification(const char *title, const char *body) {
     if (notification_count >= MAX_NOTIFICATIONS) {
         return -1; // Queue full

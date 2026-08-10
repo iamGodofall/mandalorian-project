@@ -77,6 +77,8 @@ typedef void (*vault_tamper_callback_t)(vault_tamper_type_t type, void *context)
 // Initialization and lifecycle
 int vault_init(vault_security_level_t level);
 void vault_shutdown(void);
+/** Alias of vault_shutdown() used by the demos. */
+void vault_cleanup(void);
 bool vault_is_initialized(void);
 
 // Key management (BlackBerry-inspired hierarchy)

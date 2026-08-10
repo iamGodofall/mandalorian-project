@@ -4,11 +4,20 @@
  * Part of The Mandate: "Armor First"
  */
 
+/* seL4 headers only exist inside a configured seL4 build. Off-target — unit
+ * tests, static analysis, CI — everything except handle_ipc_request() still
+ * compiles and runs, so guard the dependency rather than the whole file. */
+#ifdef CONFIG_SEL4
 #include <sel4/sel4.h>
+#endif
+
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
-#include "shield_ledger.h" // Your Merkle log API
+
+#include "aegis.h"
+#include "helm.h"
+#include "shield_ledger.h"
 
 // App IDs (mapped from seL4 CNode)
 #define APP_SIGNAL      1
@@ -210,6 +219,7 @@ int aegis_request_permission(const char* app_name, const char* capability) {
 }
 
 // Example hook (called from seL4 IPC handler)
+#ifdef CONFIG_SEL4
 void handle_ipc_request(seL4_CPtr client, seL4_Word msg) {
     // In real system: parse msg to get app_id and capability
     int app_id = extract_app_id(msg);
@@ -234,9 +244,10 @@ void handle_ipc_request(seL4_CPtr client, seL4_Word msg) {
         // In real system: send denial response
     }
 }
+#endif /* CONFIG_SEL4 */
 
 // Initialize Aegis system
-void aegis_init(void) {
+int aegis_init(void) {
     printf("[AEGIS] Initializing Privacy Sentinel...\n");
     printf("[AEGIS] All capability requests will be logged and user-approved\n");
     printf("[AEGIS] Privacy mandate: 'Armor First'\n");
@@ -244,4 +255,81 @@ void aegis_init(void) {
     // Initialize policy cache
     memset(user_policies, 0, sizeof(user_policies));
     policy_count = 0;
+
+    return 0;
+}
+
+/*
+ * These two were declared in aegis.h and used by veridianos/demo.c, but never
+ * implemented — the demo referenced them and could not link. They are the
+ * IPC-observation half of the sentinel, which the header always promised.
+ */
+
+// Trust score cache, keyed by app identifier.
+typedef struct {
+    char app_id[64];
+    int score;          // 0-100
+    int observations;
+} aegis_trust_t;
+
+static aegis_trust_t trust_scores[64];
+static int trust_count = 0;
+
+#define AEGIS_TRUST_INITIAL 50
+#define AEGIS_TRUST_MAX     100
+
+static aegis_trust_t *aegis_find_trust(const char *app_id) {
+    for (int i = 0; i < trust_count; i++) {
+        if (strncmp(trust_scores[i].app_id, app_id,
+                    sizeof(trust_scores[i].app_id)) == 0) {
+            return &trust_scores[i];
+        }
+    }
+
+    if (trust_count >= (int)(sizeof(trust_scores) / sizeof(trust_scores[0]))) {
+        return NULL;
+    }
+
+    aegis_trust_t *slot = &trust_scores[trust_count++];
+    memset(slot, 0, sizeof(*slot));
+    strncpy(slot->app_id, app_id, sizeof(slot->app_id) - 1);
+    slot->score = AEGIS_TRUST_INITIAL;
+    return slot;
+}
+
+int aegis_get_trust_score(const char *app_id) {
+    if (app_id == NULL) {
+        return 0;
+    }
+
+    aegis_trust_t *t = aegis_find_trust(app_id);
+    return t ? t->score : 0;
+}
+
+int aegis_monitor_ipc(const char *from, const char *to, const void *data,
+                      size_t size) {
+    char event[256];
+
+    if (from == NULL || to == NULL) {
+        return -1;
+    }
+
+    snprintf(event, sizeof(event), "IPC %s -> %s (%zu bytes)", from, to, size);
+    shield_ledger_append(event);
+
+    /* Cross-app IPC is the interesting case: it is how data leaves the app the
+     * user granted a capability to. Observing it lowers the sender's score,
+     * because volume of cross-app traffic is the signal the sentinel has. */
+    aegis_trust_t *sender = aegis_find_trust(from);
+    if (sender != NULL) {
+        sender->observations++;
+        if (sender->score > 0 && (sender->observations % 4) == 0) {
+            sender->score--;
+        }
+    }
+
+    (void)data;
+
+    printf("[AEGIS] Observed IPC: %s\n", event);
+    return 0;
 }

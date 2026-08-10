@@ -1,4 +1,4 @@
-/** 
+/**
  * Mandalorian Gate - Single Enforcement Point Header
  * All requests pass through this gate. No bypass paths.
  */
@@ -7,24 +7,18 @@
 
 #include <stdint.h>
 #include <time.h>
- // #include "../stubs.h"  // exec_result_t etc. - stubs in test
 
+/* mandalorian_cap_t used to be duplicated here and in gate.c. One definition,
+ * in the schema header where the capability format belongs. */
+#include "../capabilities/schema.h"
 
-typedef struct {
-    char subject[64];     // agent identifier
-    char action[32];      // e.g. \"write\", \"read\"
-    char resource[256];   // e.g. \"/tmp/*\"
-    char constraints[256]; // e.g. \"maxSize=10KB\"
-    uint64_t expiry;      // timestamp
-    uint8_t signature[64]; // Ed25519/HMAC
-    char cap_id[32];
-} mandalorian_cap_t;
+#define MANDALORIAN_MAX_PAYLOAD 1024
 
 typedef struct {
     uint32_t agent_id;
-    char action[32];
-    char resource[256];
-    char payload[1024];  // file data etc.
+    char action[MANDALORIAN_ACTION_SIZE];
+    char resource[MANDALORIAN_RESOURCE_SIZE];
+    char payload[MANDALORIAN_MAX_PAYLOAD];  /* file data etc. */
 } mandalorian_request_t;
 
 typedef enum {
@@ -39,8 +33,21 @@ typedef enum {
     GATE_EXEC_FAIL
 } gate_result_t;
 
-// Single entry point - verifies cap + executes
-gate_result_t mandalorian_execute(mandalorian_request_t *req, mandalorian_cap_t *cap);
+/**
+ * @brief Single entry point — verifies capability, applies policy, executes.
+ *
+ * The nine steps are: signature, expiry, subject binding, action, resource,
+ * constraints, policy, execution, receipt. A failure at any step returns
+ * without reaching the next.
+ *
+ * @return GATE_OK when the request was executed and receipted.
+ */
+gate_result_t mandalorian_execute(mandalorian_request_t *req,
+                                  mandalorian_cap_t *cap);
 
-#endif // MANDALORIAN_GATE_H
+/**
+ * @brief Human-readable name for a gate result, for logs and receipts.
+ */
+const char *gate_result_to_string(gate_result_t result);
 
+#endif /* MANDALORIAN_GATE_H */

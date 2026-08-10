@@ -1,8 +1,8 @@
-#include "include/logging.h"
-#include "include/verified_boot.h"
-#include "include/continuous_guardian.h"
-#include "include/monitoring.h"
-#include "include/performance.h"
+#include "../include/logging.h"
+#include "../include/verified_boot.h"
+#include "../include/continuous_guardian.h"
+#include "../include/monitoring.h"
+#include "../include/performance.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>

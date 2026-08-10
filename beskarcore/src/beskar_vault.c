@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#include "sha3.h"
 
 // ============================================================================
 // BESKAR VAULT - Hardware Security Module Implementation
@@ -110,7 +111,6 @@ int vault_init(vault_security_level_t level) {
     }
 
     // Store public key hash
-    extern int sha3_256(uint8_t *digest, const uint8_t *data, size_t len);
     sha3_256(key_slots[VAULT_KEY_DEVICE_MASTER].metadata.public_key_hash, pub_key, pub_len);
     key_slots[VAULT_KEY_DEVICE_MASTER].is_present = true;
     key_slots[VAULT_KEY_DEVICE_MASTER].metadata.is_present = true;
@@ -198,7 +198,6 @@ int vault_generate_key(vault_key_type_t type, uint8_t *public_key, size_t *pub_l
     key_slots[type].metadata.use_count = 0;
 
     // Store public key hash
-    extern int sha3_256(uint8_t *digest, const uint8_t *data, size_t len);
     sha3_256(key_slots[type].metadata.public_key_hash, public_key, *pub_len);
 
     // Copy public key to output
@@ -245,7 +244,6 @@ int vault_derive_key(vault_key_type_t parent, vault_key_type_t child,
     uint8_t derived_key[64];
     
     // Simple derivation: parent_key XOR context_hash
-    extern int sha3_256(uint8_t *digest, const uint8_t *data, size_t len);
     uint8_t context_hash[32];
     sha3_256(context_hash, context, context_len);
 
@@ -364,7 +362,6 @@ int vault_sign(vault_key_type_t key, const uint8_t *data, size_t data_len,
     }
 
     // Simple simulation: hash(data || private_key)
-    extern int sha3_256(uint8_t *digest, const uint8_t *data, size_t len);
     uint8_t hash_input[data_len + 64];
     memcpy(hash_input, data, data_len);
     memcpy(hash_input + data_len, key_slots[key].private_key, 64);
@@ -407,7 +404,6 @@ int vault_verify(vault_key_type_t key, const uint8_t *data, size_t data_len,
     size_t expected_len = 64;
     
     // Re-create signature to verify
-    extern int sha3_256(uint8_t *digest, const uint8_t *data, size_t len);
     uint8_t hash_input[data_len + 64];
     memcpy(hash_input, data, data_len);
     memcpy(hash_input + data_len, key_slots[key].private_key, 64);
@@ -897,7 +893,6 @@ int vault_get_device_unique_id(uint8_t *device_id, size_t *len) {
 static int generate_device_unique_id(void) {
     // In real hardware, this would read from secure fuses
     // For simulation, generate random ID
-    extern int sha3_256(uint8_t *digest, const uint8_t *data, size_t len);
 
     // CRITICAL SECURITY WARNING: time(NULL) + rand() is PREDICTABLE
     // This is SIMULATION ONLY - production requires hardware TRNG
@@ -926,25 +921,61 @@ static int generate_device_unique_id(void) {
 }
 
 
+/*
+ * Simulated key generation.
+ *
+ * This function used to overflow its caller's buffer. It set *pub_len = 32 and
+ * then wrote a further 32 bytes at pub_key + 32 "to pad to 64 bytes for
+ * consistency" — while every caller in the tree passes a 32-byte array. Running
+ * the BeskarLink demo far enough to reach it terminated the process with
+ * "stack smashing detected"; under ASan it is a 32-byte stack-buffer-overflow
+ * in link_generate_identity().
+ *
+ * Two further problems came with it: the padding copied private_key[32..63],
+ * which sha3_256 never wrote, so uninitialised heap/BSS bytes were handed out
+ * as part of a public key; and *pub_len was treated as output only, so there
+ * was no way for a caller to declare how much space it actually had.
+ *
+ * *pub_len is now in/out: capacity on entry, bytes written on exit.
+ *
+ * The key material remains derived from time(NULL) and is therefore
+ * predictable — see the warning in generate_device_id() above. This is
+ * simulation only and must not be used to protect anything.
+ */
 static int simulate_key_generation(vault_key_type_t type, uint8_t *pub_key, size_t *pub_len) {
-    // Simulate key generation (in real hardware, this happens in secure enclave)
-    // Generate deterministic "random" key based on type and time
-
     time_t now = time(NULL);
     uint8_t seed[sizeof(time_t) + sizeof(vault_key_type_t)];
+    uint8_t full_public[64];
+
+    if (pub_key == NULL || pub_len == NULL) {
+        return -1;
+    }
+    if (*pub_len < 32) {
+        LOG_ERROR("Public key buffer too small: %zu bytes, need at least 32",
+                  *pub_len);
+        return -1;
+    }
+
     memcpy(seed, &now, sizeof(time_t));
     memcpy(seed + sizeof(time_t), &type, sizeof(vault_key_type_t));
 
-    extern int sha3_256(uint8_t *digest, const uint8_t *data, size_t len);
+    /* Fill the whole 64-byte private key slot, not just the first half, so
+     * nothing downstream reads bytes that were never written. */
     sha3_256(key_slots[type].private_key, seed, sizeof(seed));
+    sha3_256(key_slots[type].private_key + 32, key_slots[type].private_key, 32);
 
-    // Generate public key (simplified - just hash of private key)
-    sha3_256(pub_key, key_slots[type].private_key, 32);
-    *pub_len = 32;
+    sha3_256(full_public, key_slots[type].private_key, 32);
+    sha3_256(full_public + 32, key_slots[type].private_key + 32, 32);
 
-    // Pad to 64 bytes for consistency
-    memcpy(pub_key + 32, key_slots[type].private_key + 32, 32);
+    /* Write only what the caller said it could hold. */
+    {
+        size_t to_copy = (*pub_len < sizeof(full_public)) ? *pub_len
+                                                          : sizeof(full_public);
+        memcpy(pub_key, full_public, to_copy);
+        *pub_len = to_copy;
+    }
 
+    memset(full_public, 0, sizeof(full_public));
     return 0;
 }
 
@@ -1019,4 +1050,10 @@ const char* vault_security_level_to_string(vault_security_level_t level) {
         case VAULT_SECURITY_LEVEL_4: return "MULTI_FACTOR_TIME";
         default: return "UNKNOWN";
     }
+}
+
+/* The enterprise demo calls vault_cleanup(); the API is vault_shutdown(). */
+void vault_cleanup(void)
+{
+    vault_shutdown();
 }

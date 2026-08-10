@@ -1,7 +1,3 @@
-provides RPCInterface boot_interface;
-  uses RPCInterface shield_interface;
-}
-=======
 component boot_rom {
   provides RPCInterface boot_interface;
   uses RPCInterface shield_interface;

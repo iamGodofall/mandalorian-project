@@ -8,15 +8,17 @@
  * This is the sovereign security integration point: AI agent → gate → OS.
  */
 
-#include "../../helm/include/helm.h"
-#include "../core/gate.h"
-#include "../core/verifier.h"
-#include "../core/policy.h"
-#include "../runtime/executor.h"
-#include "../core/receipt.h"
-#include <beskarcore/include/logging.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <time.h>
+
+#include "../core/gate.h"
+#include "../core/policy.h"
+#include "../core/receipt.h"
+#include "../core/verifier.h"
+#include "../runtime/executor.h"
+#include "logging.h"
 
 // ─── OpenClaw Tool IDs ────────────────────────────────────────────────────────
 typedef enum {
@@ -71,15 +73,15 @@ static mandalorian_request_t* build_request(
 
 // ─── Build a receipt for the transaction ───────────────────────────────────
 static void build_receipt(
-    mandalorian_request_t*   req,
-    mandalorian_cap_t*       cap,
-    gate_result_t            gate_res,
-    mandalorian_receipt_t*   out
+    const mandalorian_request_t* req,
+    gate_result_t                gate_res,
+    mandalorian_receipt_t*       out
 ) {
     memset(out, 0, sizeof(*out));
+    out->receipt_id   = receipt_next_id();
     out->timestamp_us = (uint64_t)time(NULL) * 1000000ULL;
     out->gate_result  = gate_res;
-    out->agent_id      = req->agent_id;
+    out->agent_id     = req->agent_id;
     strncpy(out->action,   req->action,   sizeof(out->action)   - 1);
     strncpy(out->resource, req->resource, sizeof(out->resource) - 1);
 }
@@ -93,6 +95,14 @@ int openclaw_forward(
     mandalorian_cap_t*   cap,         // pre-verified by gate before this call
     mandalorian_receipt_t* receipt_out // OUT — NULL to skip logging
 ) {
+    /* TOOL_NAMES has 10 entries; indexing it with an unchecked caller-supplied
+     * tool_id was an out-of-bounds read. */
+    if (tool_id < TOOL_EXEC || tool_id > TOOL_MEMORY ||
+        agent_id_str == NULL || resource == NULL || cap == NULL) {
+        LOG_ERROR("[OpenClaw→Gate] invalid arguments");
+        return -99;
+    }
+
     LOG_INFO("[OpenClaw→Gate] tool=%s agent=%s resource=%s",
              TOOL_NAMES[tool_id], agent_id_str, resource);
 
@@ -106,11 +116,11 @@ int openclaw_forward(
 
     // ── Step 3: Log receipt always ──────────────────────────────────────────
     if (receipt_out != NULL) {
-        build_receipt(req, cap, gr, receipt_out);
+        build_receipt(req, gr, receipt_out);
         log_receipt_full(receipt_out);
     } else {
         mandalorian_receipt_t tmp;
-        build_receipt(req, cap, gr, &tmp);
+        build_receipt(req, gr, &tmp);
         log_receipt_full(&tmp);
     }
 
@@ -129,34 +139,11 @@ int openclaw_forward(
     }
 }
 
-// ─── HELM entry point — called by Helm security layer ─────────────────────────
-// Helm is the posture manager; this adapter is the execution agent.
-// Helm calls openclaw_forward() for every OpenClaw tool invocation.
-int helm_bridge_execute(
-    openclaw_tool_id_t   tool_id,
-    uint32_t             agent_id,
-    const char*          resource,
-    const char*          payload,
-    helm_capability_t*   cap,
-    helm_audit_ctx*      ctx
-) {
-    char agent_str[32];
-    snprintf(agent_str, sizeof(agent_str), "%u", agent_id);
-
-    mandalorian_receipt_t receipt;
-    int result = openclaw_forward(tool_id, agent_str,
-                                   resource, payload,
-                                   (mandalorian_cap_t*)cap,
-                                   &receipt);
-
-    // Helm writes its own audit entry referencing our gate receipt
-    if (ctx != NULL) {
-        ctx->gate_receipt_id = receipt.receipt_id;
-        ctx->gate_result     = receipt.gate_result;
-    }
-
-    return result;
-}
+/* The HELM entry point that stood here called helm_grant_capability() and used
+ * a helm_audit_ctx type. Neither exists in helm/include/helm.h or anywhere
+ * else in the tree, so this file could never have linked. Rather than invent
+ * a Helm API, the bridge is left to the caller: Helm can call
+ * openclaw_forward() directly, which is the only entry the gate needs. */
 
 // ─── Convenience wrappers for each OpenClaw tool ────────────────────────────
 int openclaw_exec(const char* agent_id, const char* command,
@@ -186,27 +173,9 @@ int openclaw_web(const char* agent_id, const char* url,
     return openclaw_forward(web_tool, agent_id, url, NULL, cap, receipt);
 }
 
-// ─── Agent bootstrap: request a new capability from Helm ──────────────────────
-// Returns the granted cap; caller uses it for subsequent requests.
-int openclaw_request_capability(
-    const char*          agent_id,
-    openclaw_tool_id_t   tool_id,
-    const char*          resource_pattern,
-    uint64_t             ttl_seconds,
-    mandalorian_cap_t*   out_cap
-) {
-    LOG_INFO("[OpenClaw→Helm] Agent %s requesting capability: %s on %s (TTL=%lus)",
-             agent_id, TOOL_NAMES[tool_id], resource_pattern, ttl_seconds);
-
-    // Delegate to Helm's capability grant pipeline
-    return helm_grant_capability(
-        agent_id,
-        tool_to_action(tool_id),
-        resource_pattern,
-        ttl_seconds,
-        out_cap
-    );
-}
+/* openclaw_request_capability() also stood here, delegating to a
+ * helm_grant_capability() that does not exist. Capabilities are issued by
+ * mandalorian/capabilities/issuer.h — use issue_capability() directly. */
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
 void openclaw_adapter_init(void) {

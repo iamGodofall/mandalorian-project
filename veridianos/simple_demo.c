@@ -5,48 +5,55 @@
 // Shows Android + iOS app compatibility concepts
 
 // Stub implementations for manual testing
-int u_runtime_init(void) {
+/*
+ * Self-contained demo: these are local stand-ins, not the real runtime.
+ * They were non-static, so linking this file alongside the real veridianos and
+ * aegis sources gave two definitions of each symbol — the linker silently
+ * picked one, and which behaviour you got depended on link order. Marking them
+ * static keeps the demo standalone and makes the collision impossible.
+ */
+static int u_runtime_init(void) {
     printf("✓ Universal Runtime initialized\n");
     return 0;
 }
 
-int u_runtime_shutdown(void) {
+static int u_runtime_shutdown(void) {
     printf("✓ Universal Runtime shutdown\n");
     return 0;
 }
 
-int u_app_install(const char *app_path, int type) {
+static int u_app_install(const char *app_path, int type) {
     const char *platform = (type == 0) ? "Android APK" : "iOS IPA";
     printf("✓ %s installed: %s\n", platform, app_path);
     return 0;
 }
 
-int u_app_launch(const char *package_id) {
+static int u_app_launch(const char *package_id) {
     printf("✓ App launched in seL4 sandbox: %s\n", package_id);
     return 0;
 }
 
-int u_app_terminate(const char *package_id) {
+static int u_app_terminate(const char *package_id) {
     printf("✓ App terminated: %s\n", package_id);
     return 0;
 }
 
-int app_sandbox_init(void) {
+static int app_sandbox_init(void) {
     printf("✓ App sandboxing initialized with seL4 capabilities\n");
     return 0;
 }
 
-int aegis_init(void) {
+static int aegis_init(void) {
     printf("✓ Aegis privacy agent initialized\n");
     return 0;
 }
 
-int aegis_monitor_ipc(const char *from, const char *to, const void *data, size_t size) {
+static int aegis_monitor_ipc(const char *from, const char *to, const void *data, size_t size) {
     printf("✓ IPC monitored: %s → %s (%zu bytes)\n", from, to, size);
     return 1; // Allowed
 }
 
-int aegis_get_trust_score(const char *app_id) {
+static int aegis_get_trust_score(const char *app_id) {
     // Return mock trust scores
     if (strcmp(app_id, "com.whatsapp") == 0) return 85;
     if (strcmp(app_id, "com.apple.messages") == 0) return 95;

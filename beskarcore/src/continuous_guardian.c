@@ -5,6 +5,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include "merkle_ledger.h"
+#include "sha3.h"
 
 // Global state - similar to 10NES chip embedded in cartridge
 static guardian_config_t guardian_config = {0};
@@ -59,7 +61,6 @@ uint32_t guardian_compute_crc32(uintptr_t addr, size_t size) {
 // SHA3-256 for full verification (military-grade like 10NES)
 int guardian_compute_region_hash(uintptr_t addr, size_t size, uint8_t *hash) {
     // Use existing SHA3 implementation from verified_boot.c
-    extern int sha3_256(uint8_t *digest, const uint8_t *data, size_t len);
     return sha3_256(hash, (const uint8_t *)addr, size);
 }
 
@@ -321,7 +322,6 @@ static void handle_violation(const char *region_name, const char *violation_type
     LOG_ERROR("INTEGRITY VIOLATION: %s in region %s", violation_type, region_name);
 
     // Log to Shield Ledger
-    extern int shield_ledger_log_event(const char *event_type, const char *details);
     char details[256];
     snprintf(details, sizeof(details), "Guardian violation: %s in %s", violation_type, region_name);
     shield_ledger_log_event("GUARDIAN_VIOLATION", details);
@@ -398,7 +398,6 @@ void guardian_emergency_halt(const char *reason) {
     LOG_ERROR("EMERGENCY HALT: %s", reason);
 
     // Log final entry to Shield Ledger
-    extern int shield_ledger_log_event(const char *event_type, const char *details);
     char details[256];
     snprintf(details, sizeof(details), "Emergency halt: %s", reason);
     shield_ledger_log_event("EMERGENCY_HALT", details);
@@ -413,4 +412,38 @@ void guardian_emergency_halt(const char *reason) {
 
     // For demo purposes, just log and set status
     LOG_ERROR("System would halt here in production");
+}
+
+/**
+ * @brief Record an integrity violation against a named region.
+ *
+ * Declared in continuous_guardian.h and called from main.c, but never defined,
+ * so anything linking main.c failed. Escalates to an emergency halt once the
+ * configured violation threshold is reached, matching the behaviour of the
+ * inline violation path in guardian_check_integrity().
+ */
+void guardian_violation_handler(const char *region_name,
+                                const char *violation_type)
+{
+    char details[256];
+
+    if (region_name == NULL || violation_type == NULL) {
+        return;
+    }
+
+    snprintf(details, sizeof(details), "region=%s type=%s", region_name,
+             violation_type);
+    LOG_ERROR("Guardian violation: %s", details);
+
+    violation_count++;
+    current_status = GUARDIAN_STATUS_VIOLATION_DETECTED;
+
+    shield_ledger_log_event("GUARDIAN_VIOLATION", details);
+    monitoring_update_counter("guardian_violations_total", 1);
+
+    if (violation_count >= guardian_config.max_violations) {
+        current_status = GUARDIAN_STATUS_SYSTEM_HALT;
+        LOG_ERROR("Maximum violations exceeded - EMERGENCY HALT");
+        guardian_emergency_halt(details);
+    }
 }

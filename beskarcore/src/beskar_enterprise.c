@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#include "sha3.h"
 
 // ============================================================================
 // BESKAR ENTERPRISE - Decentralized Enterprise Management Implementation
@@ -161,7 +162,6 @@ int enterprise_create_organization(const char *name, const uint8_t *master_key,
     memset(o, 0, sizeof(enterprise_organization_t));
 
     // Generate org ID
-    extern int sha3_256(uint8_t *digest, const uint8_t *data, size_t len);
     uint8_t seed[256];
     int seed_len = snprintf((char*)seed, sizeof(seed), "%s_%lu", name, (unsigned long)time(NULL));
     if (seed_len < 0 || (size_t)seed_len >= sizeof(seed)) {
@@ -308,7 +308,6 @@ int enterprise_enroll_device(const uint8_t *org_id, const char *device_name,
     memset(d, 0, sizeof(enterprise_device_t));
 
     // Generate device ID
-    extern int sha3_256(uint8_t *digest, const uint8_t *data, size_t len);
     uint8_t seed[256];
     int seed_len = snprintf((char*)seed, sizeof(seed), "%s_%s_%lu", device_name, user_email, 
              (unsigned long)time(NULL));
@@ -886,7 +885,6 @@ int enterprise_check_compliance(const uint8_t *device_id,
     }
 
     // Generate report hash
-    extern int sha3_256(uint8_t *digest, const uint8_t *data, size_t len);
     sha3_256(report->report_hash, (uint8_t*)report, sizeof(enterprise_compliance_report_t));
 
     // Update device compliance status
@@ -1013,7 +1011,6 @@ int enterprise_log_audit_event(const char *event_type, const char *details,
     }
 
     // Generate action hash
-    extern int sha3_256(uint8_t *digest, const uint8_t *data, size_t len);
     char data[512];
     int data_len = snprintf(data, sizeof(data), "%s_%s_%lu", event_type, details, 
              (unsigned long)entry->timestamp);
@@ -1149,4 +1146,99 @@ static int log_enterprise_event(const char *event_type, const char *details) {
 static uint64_t generate_command_id(void) {
     static uint64_t next_id = 1;
     return next_id++;
+}
+
+/* ------------------------------------------------------------------------ */
+/* These three were declared in beskar_enterprise.h and called from the demo */
+/* but defined nowhere, so anything linking them failed.                      */
+/* ------------------------------------------------------------------------ */
+
+const char* enterprise_command_type_to_string(enterprise_command_type_t value) {
+    switch (value) {
+    case ENT_CMD_NONE: return "NONE";
+    case ENT_CMD_LOCK: return "LOCK";
+    case ENT_CMD_UNLOCK: return "UNLOCK";
+    case ENT_CMD_WIPE: return "WIPE";
+    case ENT_CMD_WIPE_WORK: return "WIPE_WORK";
+    case ENT_CMD_INSTALL_APP: return "INSTALL_APP";
+    case ENT_CMD_REMOVE_APP: return "REMOVE_APP";
+    case ENT_CMD_UPDATE_POLICY: return "UPDATE_POLICY";
+    case ENT_CMD_REBOOT: return "REBOOT";
+    case ENT_CMD_COLLECT_LOGS: return "COLLECT_LOGS";
+    case ENT_CMD_ENROLL: return "ENROLL";
+    case ENT_CMD_UNENROLL: return "UNENROLL";
+    case ENT_CMD_QUARANTINE: return "QUARANTINE";
+    case ENT_CMD_BACKUP: return "BACKUP";
+    case ENT_CMD_RESTORE: return "RESTORE";
+    case ENT_CMD_CUSTOM: return "CUSTOM";
+    default: return "UNKNOWN";
+    }
+}
+
+const char* enterprise_policy_category_to_string(enterprise_policy_category_t value) {
+    switch (value) {
+    case ENT_POLICY_SECURITY: return "SECURITY";
+    case ENT_POLICY_COMPLIANCE: return "COMPLIANCE";
+    case ENT_POLICY_NETWORK: return "NETWORK";
+    case ENT_POLICY_APP_CONTROL: return "APP_CONTROL";
+    case ENT_POLICY_DATA_PROTECTION: return "DATA_PROTECTION";
+    case ENT_POLICY_DEVICE_CONFIG: return "DEVICE_CONFIG";
+    case ENT_POLICY_CUSTOM: return "CUSTOM";
+    default: return "UNKNOWN";
+    }
+}
+
+const char* enterprise_device_state_to_string(enterprise_device_state_t value) {
+    switch (value) {
+    case ENT_DEVICE_ACTIVE: return "ACTIVE";
+    case ENT_DEVICE_INACTIVE: return "INACTIVE";
+    case ENT_DEVICE_SUSPENDED: return "SUSPENDED";
+    case ENT_DEVICE_WIPED: return "WIPED";
+    case ENT_DEVICE_COMPLIANT: return "COMPLIANT";
+    case ENT_DEVICE_NON_COMPLIANT: return "NON_COMPLIANT";
+    default: return "UNKNOWN";
+    }
+}
+
+const char* enterprise_compliance_result_to_string(enterprise_compliance_result_t result) {
+    switch (result) {
+    case ENT_COMPLIANCE_PASS:                  return "PASS";
+    case ENT_COMPLIANCE_FAIL_PASSWORD:         return "FAIL_PASSWORD";
+    case ENT_COMPLIANCE_FAIL_ENCRYPTION:       return "FAIL_ENCRYPTION";
+    case ENT_COMPLIANCE_FAIL_OS_VERSION:       return "FAIL_OS_VERSION";
+    case ENT_COMPLIANCE_FAIL_APP_INVENTORY:    return "FAIL_APP_INVENTORY";
+    case ENT_COMPLIANCE_FAIL_SECURITY_PATCH:   return "FAIL_SECURITY_PATCH";
+    case ENT_COMPLIANCE_FAIL_ROOTED:           return "FAIL_ROOTED";
+    case ENT_COMPLIANCE_FAIL_UNKNOWN:          return "FAIL_UNKNOWN";
+    default:                                   return "UNKNOWN";
+    }
+}
+
+/**
+ * @brief Copy out the enrolled organizations.
+ *
+ * Declared nowhere and defined nowhere, but called twice by the enterprise
+ * demo — so the demo could never have run.
+ *
+ * @param out       Destination array.
+ * @param max       Capacity of @p out.
+ * @param out_count Receives the number written.
+ * @return 0 on success, -1 on invalid arguments.
+ */
+int enterprise_list_organizations(enterprise_organization_t *out, uint32_t max,
+                                  uint32_t *out_count)
+{
+    uint32_t i;
+    uint32_t n;
+
+    if (out == NULL || out_count == NULL) {
+        return -1;
+    }
+
+    n = (org_count < max) ? org_count : max;
+    for (i = 0; i < n; i++) {
+        out[i] = organizations[i];
+    }
+    *out_count = n;
+    return 0;
 }

@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#include "sha3.h"
 
 // ============================================================================
 // BESKAR APP GUARD - Application Security Implementation
@@ -168,7 +169,6 @@ int app_guard_create_container(const char *name, app_container_type_t type,
     memset(c, 0, sizeof(app_container_t));
 
     // Generate container ID
-    extern int sha3_256(uint8_t *digest, const uint8_t *data, size_t len);
     uint8_t seed[64];
     int seed_len = snprintf((char*)seed, sizeof(seed), "%s_%lu", name, (unsigned long)time(NULL));
     if (seed_len < 0 || (size_t)seed_len >= sizeof(seed)) {
@@ -324,7 +324,6 @@ int app_guard_install_app(const char *package_path, const uint8_t *container_id,
     memset(new_app, 0, sizeof(app_info_t));
 
     // Generate app ID
-    extern int sha3_256(uint8_t *digest, const uint8_t *data, size_t len);
     sha3_256(new_app->app_id, (const uint8_t*)package_path, strlen(package_path));
 
     // Extract app name from package path

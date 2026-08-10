@@ -4,28 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
-
-// Active capability sessions
-#define MAX_ACTIVE_SESSIONS 1024
-static struct {
-    uint32_t session_id;
-    uint32_t app_id;
-    helm_capability_t capability;
-    time_t granted_time;
-    time_t expires_time;
-    bool active;
-} capability_sessions[MAX_ACTIVE_SESSIONS];
-
-static uint32_t next_session_id = 1;
-
-static int find_session_slot(uint32_t session_id) {
-    for (int i = 0; i < MAX_ACTIVE_SESSIONS; i++) {
-        if (capability_sessions[i].session_id == session_id && capability_sessions[i].active) {
-            return i;
-        }
-    }
-    return -1;
-}
+#include "helm_internal.h"
 
 static int create_capability_session(uint32_t app_id, helm_capability_t capability, uint32_t timeout_seconds) {
     int slot = -1;
@@ -152,7 +131,7 @@ helm_attest_result_t helm_request_capability(
     return HELM_ATTEST_OK;
 }
 
-static const char* capability_to_action(helm_capability_t cap) {
+const char *capability_to_action(helm_capability_t cap) {
     switch(cap) {
         case HELM_CAP_CAMERA: return "access_camera";
         case HELM_CAP_MICROPHONE: return "access_mic";

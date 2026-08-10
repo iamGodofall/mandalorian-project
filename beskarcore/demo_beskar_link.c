@@ -420,7 +420,22 @@ int main(int argc, char *argv[]) {
         return 1;
     }
     printf("✅ BeskarVault initialized\n\n");
-    
+
+    /* The vault comes up locked, and link_init() needs it to generate an
+     * identity key. Without this the demo failed at "Vault is locked -
+     * authentication required" — which is the vault behaving correctly; the
+     * demo simply never authenticated. */
+    printf("🔓 Authenticating to BeskarVault...\n");
+    {
+        const char *pin = "123456";
+        if (vault_authenticate_pin((const uint8_t *)pin, strlen(pin)) != 0) {
+            fprintf(stderr, "❌ Vault authentication failed\n");
+            vault_shutdown();
+            return 1;
+        }
+    }
+    printf("✅ Vault unlocked\n\n");
+
     // Initialize BeskarLink
     printf("📱 Initializing BeskarLink secure messaging...\n");
     

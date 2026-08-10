@@ -417,3 +417,21 @@ void security_log_violation(const char *violation_type, const char *details,
     AUDIT_LOG(AUDIT_SECURITY_VIOLATION, "system", violation_type, "violation",
              "detected", details);
 }
+
+/*
+ * Convenience wrappers.
+ *
+ * Every demo in the tree calls logging_init()/logging_cleanup(), but the API
+ * is logger_init(level, outputs, filename)/logger_cleanup(). Nothing defined
+ * the former, so no demo linked. These give the no-argument form a sensible
+ * default rather than editing the same two lines into six demos.
+ */
+int logging_init(void)
+{
+    return logger_init(LOG_LEVEL_INFO, LOG_OUTPUT_CONSOLE, NULL);
+}
+
+void logging_cleanup(void)
+{
+    logger_cleanup();
+}

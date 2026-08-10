@@ -2,18 +2,47 @@
 
 // BeskarEnterprise-enhanced with trust levels, quotas, env checks
 
-#include "gate.h" // for mandalorian_request_t, cap_t
-#include <time.h>
+#include "policy.h"
+
+#include <stdbool.h>
 #include <string.h>
-#include <beskarcore/include/logging.h>
+#include <time.h>
+
+#include "logging.h"
 
 static uint64_t agent_requests[256] = {0}; // Rate limit counter
 static uint64_t agent_quota_bytes[256] = {0}; // Daily byte quota
-static int agent_trust_level[256] = {1}; // Trust: 0=low, 3=high
+/* `= {1}` initialises only element 0; every other agent defaulted to trust 0,
+ * which makes the rate limit below `> 10 * 0` — i.e. denies their first
+ * request. Default all agents to trust level 1 explicitly. */
+#define POLICY_DEFAULT_TRUST 1
+static int agent_trust_level[256];
+static bool policy_initialised = false;
+
+static void policy_init_once(void) {
+    if (policy_initialised) {
+        return;
+    }
+    for (int i = 0; i < 256; i++) {
+        agent_trust_level[i] = POLICY_DEFAULT_TRUST;
+    }
+    policy_initialised = true;
+}
 
 bool policy_evaluate(const mandalorian_request_t *req, const mandalorian_cap_t *cap) {
-    uint64_t now = time(NULL);
-    uint32_t agent_idx = req->agent_id % 256;
+    time_t now;
+    struct tm tm_buf;
+    uint32_t agent_idx;
+
+    (void)cap;
+
+    if (req == NULL) {
+        return false;
+    }
+
+    policy_init_once();
+    now = time(NULL);
+    agent_idx = req->agent_id % 256;
     
     // 1. Rate limiting (trust-scaled: low-trust 10/min, high 30/min)
     if (agent_requests[agent_idx] > (10 * agent_trust_level[agent_idx])) {
@@ -23,17 +52,25 @@ bool policy_evaluate(const mandalorian_request_t *req, const mandalorian_cap_t *
     agent_requests[agent_idx]++;
     
     // 2. Quiet hours (no writes 2-6AM)
-    struct tm *tm_info = localtime((time_t*)&now);
-    if (strcmp(req->action, "write") == 0 && (tm_info->tm_hour >= 2 && tm_info->tm_hour < 6)) {
+    /* Was: localtime((time_t*)&now) on a uint64_t — a pointer cast between
+     * types of possibly different width, and localtime() shares a static
+     * buffer across threads. */
+    if (localtime_r(&now, &tm_buf) == NULL) {
+        LOG_WARN("Policy: could not resolve local time; denying");
+        return false;
+    }
+    if (strcmp(req->action, "write") == 0 && (tm_buf.tm_hour >= 2 && tm_buf.tm_hour < 6)) {
         LOG_WARN("Policy: Quiet hours block write");
         return false;
     }
     
     // 3. Byte quotas (1MB low-trust to 100MB high-trust daily)
-    size_t payload_size = strlen(req->payload);
+    size_t payload_size = strnlen(req->payload, sizeof(req->payload));
     uint64_t daily_quota = 1048576ULL * (agent_trust_level[agent_idx] * 25ULL); // Scale
     if (agent_quota_bytes[agent_idx] + payload_size > daily_quota) {
-        LOG_WARN("Policy: Quota exceed agent=%u used=%lu/%lu", req->agent_id, agent_quota_bytes[agent_idx], daily_quota);
+        LOG_WARN("Policy: Quota exceed agent=%u used=%llu/%llu", req->agent_id,
+                 (unsigned long long)agent_quota_bytes[agent_idx],
+                 (unsigned long long)daily_quota);
         return false;
     }
     agent_quota_bytes[agent_idx] += payload_size;
@@ -71,3 +108,12 @@ void policy_reset_daily_quota(uint32_t agent_id) {
     LOG_INFO("Policy: Daily quota reset agent %u", agent_id);
 }
 
+/* Reset every counter. Tests need a clean slate; without this the rate limit
+ * carries across cases and later tests fail for reasons unrelated to what
+ * they are checking. */
+void policy_reset_all(void) {
+    memset(agent_requests, 0, sizeof(agent_requests));
+    memset(agent_quota_bytes, 0, sizeof(agent_quota_bytes));
+    policy_initialised = false;
+    policy_init_once();
+}

@@ -4,6 +4,11 @@
 #include <stdint.h>
 #include <time.h>
 
+/* error_code_t is declared in logging.h and used in this header's prototypes,
+ * so it has to come in here rather than relying on the including .c file to
+ * have pulled it in first. */
+#include "logging.h"
+
 // Recovery states
 typedef enum {
     RECOVERY_STATE_NORMAL = 0,      // System operating normally
@@ -51,6 +56,9 @@ typedef struct {
 
 // Initialize error recovery system
 int error_recovery_init(const recovery_config_t *config);
+
+/** Release recovery state. */
+void error_recovery_cleanup(void);
 
 // Get current recovery state
 recovery_state_t error_recovery_get_state(void);

@@ -4,6 +4,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#include "merkle_ledger.h"
+#include "sha3.h"
 
 // ============================================================================
 // BESKAR LINK - Secure Messaging Implementation
@@ -937,7 +939,6 @@ int link_derive_message_key(const uint8_t *chain_key, uint32_t message_number,
     memcpy(input, chain_key, 32);
     memcpy(input + 32, &message_number, 4);
 
-    extern int sha3_256(uint8_t *digest, const uint8_t *data, size_t len);
     sha3_256(message_key, input, sizeof(input));
 
     return 0;
@@ -987,7 +988,6 @@ int link_generate_safety_number(const uint8_t *contact_id, char *safety_number, 
 
     // Hash
     uint8_t hash[32];
-    extern int sha3_256(uint8_t *digest, const uint8_t *data, size_t len);
     sha3_256(hash, combined, 64);
 
     // Format as safety number
@@ -1060,6 +1060,22 @@ static int derive_key(const uint8_t *input, size_t input_len,
     uint8_t combined[256];
     size_t combined_len = 0;
 
+    /* Both memcpys below used to be unbounded: any caller passing a salt and
+     * input summing over 256 bytes overflowed this stack buffer. */
+    if (input == NULL || output == NULL) {
+        return -1;
+    }
+    if (salt_len > sizeof(combined) || input_len > sizeof(combined) - salt_len) {
+        LOG_ERROR("derive_key: input too large (%zu + %zu > %zu)",
+                  salt_len, input_len, sizeof(combined));
+        return -1;
+    }
+    if (output_len > SHA3_256_DIGEST_SIZE) {
+        LOG_ERROR("derive_key: cannot produce %zu bytes from one SHA3-256",
+                  output_len);
+        return -1;
+    }
+
     if (salt && salt_len > 0) {
         memcpy(combined, salt, salt_len);
         combined_len += salt_len;
@@ -1068,8 +1084,16 @@ static int derive_key(const uint8_t *input, size_t input_len,
     memcpy(combined + combined_len, input, input_len);
     combined_len += input_len;
 
-    extern int sha3_256(uint8_t *digest, const uint8_t *data, size_t len);
-    sha3_256(output, combined, combined_len);
+    if (output_len == SHA3_256_DIGEST_SIZE) {
+        sha3_256(output, combined, combined_len);
+    } else {
+        uint8_t full[SHA3_256_DIGEST_SIZE];
+        sha3_256(full, combined, combined_len);
+        memcpy(output, full, output_len);
+        memset(full, 0, sizeof(full));
+    }
+
+    memset(combined, 0, combined_len);
 
     return 0;
 }
@@ -1087,13 +1111,286 @@ static int x3dh_key_agreement(const link_identity_key_t *identity,
     return 0;
 }
 
+/*
+ * Symmetric-chain ratchet step.
+ *
+ * This file was truncated mid-statement here, so beskar_link.c did not
+ * compile at all. What follows completes the symmetric half of the ratchet:
+ * each step derives a fresh chain key from the current one, so a chain key
+ * captured now cannot be walked backwards to recover earlier message keys.
+ *
+ * This is NOT the full Signal Double Ratchet. The DH ratchet is absent —
+ * x3dh_key_agreement() above still returns random bytes rather than
+ * performing any Diffie-Hellman — so there is no break-in recovery, and a
+ * compromise of the root key is not healed by subsequent messages. Treat the
+ * forward-secrecy property as covering the symmetric chain only until the DH
+ * ratchet lands.
+ */
 static int double_ratchet_step(link_ratchet_state_t *state, bool is_sender) {
-    // Simplified Double Ratchet step
-    // In real implementation, this performs the full ratchet algorithm
+    uint8_t next_chain_key[32];
+    /* Distinct constants keep the sending and receiving chains from ever
+     * deriving the same key from the same input. */
+    static const uint8_t send_info[] = "beskar-link-chain-send";
+    static const uint8_t recv_info[] = "beskar-link-chain-recv";
+
+    if (state == NULL) {
+        return -1;
+    }
 
     if (is_sender) {
-        // Sending chain
+        if (derive_key(state->chain_key_send, sizeof(state->chain_key_send),
+                       send_info, sizeof(send_info) - 1,
+                       next_chain_key, sizeof(next_chain_key)) != 0) {
+            LOG_ERROR("Ratchet: failed to advance sending chain");
+            return -1;
+        }
+        memcpy(state->chain_key_send, next_chain_key, sizeof(next_chain_key));
+
         state->previous_chain_length = state->message_number_send;
         state->message_number_send++;
+    } else {
+        if (derive_key(state->chain_key_recv, sizeof(state->chain_key_recv),
+                       recv_info, sizeof(recv_info) - 1,
+                       next_chain_key, sizeof(next_chain_key)) != 0) {
+            LOG_ERROR("Ratchet: failed to advance receiving chain");
+            return -1;
+        }
+        memcpy(state->chain_key_recv, next_chain_key, sizeof(next_chain_key));
 
-        //
+        state->message_number_recv++;
+    }
+
+    /* Do not leave the successor key on the stack for the next frame to find. */
+    memset(next_chain_key, 0, sizeof(next_chain_key));
+
+    return 0;
+}
+
+/* ------------------------------------------------------------------------ */
+/* The five functions below were forward-declared at the top of this file but */
+/* their definitions were lost when the file was truncated mid-statement.     */
+/* Without them nothing that referenced beskar_link.o could link.             */
+/* ------------------------------------------------------------------------ */
+
+static int find_contact(const uint8_t *contact_id, link_contact_t **contact) {
+    uint32_t i;
+
+    if (contact_id == NULL || contact == NULL) {
+        return -1;
+    }
+
+    for (i = 0; i < contact_count; i++) {
+        if (memcmp(contacts[i].contact_id, contact_id,
+                   sizeof(contacts[i].contact_id)) == 0) {
+            *contact = &contacts[i];
+            return 0;
+        }
+    }
+
+    return -1;
+}
+
+static int find_group(const uint8_t *group_id, link_group_t **group) {
+    uint32_t i;
+
+    if (group_id == NULL || group == NULL) {
+        return -1;
+    }
+
+    for (i = 0; i < group_count; i++) {
+        if (memcmp(groups[i].group_id, group_id,
+                   sizeof(groups[i].group_id)) == 0) {
+            *group = &groups[i];
+            return 0;
+        }
+    }
+
+    return -1;
+}
+
+static int log_link_event(const char *event_type, const char *details) {
+    uint8_t digest[32];
+    char record[512];
+    int len;
+
+    if (event_type == NULL) {
+        return -1;
+    }
+
+    len = snprintf(record, sizeof(record), "%s|%s", event_type,
+                   details ? details : "");
+    if (len < 0 || (size_t)len >= sizeof(record)) {
+        return -1;
+    }
+
+    if (sha3_256(digest, (const uint8_t *)record, (size_t)len) != 0) {
+        return -1;
+    }
+
+    return add_ledger_entry("BESKAR_LINK", digest);
+}
+
+/*
+ * Message confidentiality.
+ *
+ * NOT AES-GCM despite the name, which is kept because the call sites use it.
+ * This is a SHA3-based keystream with a SHA3 MAC — enough to keep the message
+ * path working end to end and to make tampering detectable, but it is not a
+ * reviewed AEAD and must not be described as one. Replacing this with a real
+ * AES-256-GCM or ChaCha20-Poly1305 implementation is the next piece of work
+ * on this file; see the note in the project README about what is claimed.
+ */
+static int keystream_xor(const uint8_t *in, size_t len, const uint8_t *key,
+                         const uint8_t *nonce, uint8_t *out) {
+    uint8_t block[32];
+    uint8_t seed[32 + 12 + 4];
+    size_t produced = 0;
+    uint32_t counter = 0;
+
+    while (produced < len) {
+        size_t chunk = len - produced;
+        size_t i;
+
+        if (chunk > sizeof(block)) {
+            chunk = sizeof(block);
+        }
+
+        memcpy(seed, key, 32);
+        memcpy(seed + 32, nonce, 12);
+        seed[44] = (uint8_t)(counter >> 24);
+        seed[45] = (uint8_t)(counter >> 16);
+        seed[46] = (uint8_t)(counter >> 8);
+        seed[47] = (uint8_t)counter;
+
+        if (sha3_256(block, seed, sizeof(seed)) != 0) {
+            return -1;
+        }
+
+        for (i = 0; i < chunk; i++) {
+            out[produced + i] = in[produced + i] ^ block[i];
+        }
+
+        produced += chunk;
+        counter++;
+    }
+
+    memset(block, 0, sizeof(block));
+    memset(seed, 0, sizeof(seed));
+    return 0;
+}
+
+static int message_tag(const uint8_t *ciphertext, size_t ct_len,
+                       const uint8_t *key, const uint8_t *nonce,
+                       uint8_t *tag) {
+    sha3_ctx_t ctx;
+
+    if (sha3_256_init(&ctx) != 0 ||
+        sha3_update(&ctx, key, 32) != 0 ||
+        sha3_update(&ctx, nonce, 12) != 0 ||
+        sha3_update(&ctx, ciphertext, ct_len) != 0 ||
+        sha3_final(&ctx, tag) != 0) {
+        return -1;
+    }
+    return 0;
+}
+
+static int encrypt_message_aes_gcm(const uint8_t *plaintext, size_t pt_len,
+                                   const uint8_t *key, const uint8_t *nonce,
+                                   uint8_t *ciphertext, size_t *ct_len) {
+    uint8_t tag[32];
+
+    if (plaintext == NULL || key == NULL || nonce == NULL ||
+        ciphertext == NULL || ct_len == NULL) {
+        return -1;
+    }
+    if (pt_len > BESKAR_LINK_MAX_MESSAGE_SIZE - sizeof(tag)) {
+        LOG_ERROR("BeskarLink: message too large to encrypt (%zu)", pt_len);
+        return -1;
+    }
+
+    if (keystream_xor(plaintext, pt_len, key, nonce, ciphertext) != 0) {
+        return -1;
+    }
+    if (message_tag(ciphertext, pt_len, key, nonce, tag) != 0) {
+        return -1;
+    }
+
+    memcpy(ciphertext + pt_len, tag, sizeof(tag));
+    *ct_len = pt_len + sizeof(tag);
+    return 0;
+}
+
+static int decrypt_message_aes_gcm(const uint8_t *ciphertext, size_t ct_len,
+                                   const uint8_t *key, const uint8_t *nonce,
+                                   uint8_t *plaintext, size_t *pt_len) {
+    uint8_t expected[32];
+    size_t body_len;
+    uint8_t diff = 0;
+    size_t i;
+
+    if (ciphertext == NULL || key == NULL || nonce == NULL ||
+        plaintext == NULL || pt_len == NULL || ct_len < sizeof(expected)) {
+        return -1;
+    }
+
+    body_len = ct_len - sizeof(expected);
+
+    if (message_tag(ciphertext, body_len, key, nonce, expected) != 0) {
+        return -1;
+    }
+
+    /* Constant-time tag comparison, and check it before touching plaintext. */
+    for (i = 0; i < sizeof(expected); i++) {
+        diff |= (uint8_t)(expected[i] ^ ciphertext[body_len + i]);
+    }
+    if (diff != 0) {
+        LOG_WARN("BeskarLink: message authentication failed; discarding");
+        return -1;
+    }
+
+    if (keystream_xor(ciphertext, body_len, key, nonce, plaintext) != 0) {
+        return -1;
+    }
+
+    *pt_len = body_len;
+    return 0;
+}
+
+/* ------------------------------------------------------------------------ */
+/* Declared in beskar_link.h, called from the demo, defined nowhere.          */
+/* ------------------------------------------------------------------------ */
+
+const char* link_message_type_to_string(link_message_type_t value) {
+    switch (value) {
+    case LINK_MESSAGE_TEXT: return "TEXT";
+    case LINK_MESSAGE_IMAGE: return "IMAGE";
+    case LINK_MESSAGE_FILE: return "FILE";
+    case LINK_MESSAGE_LOCATION: return "LOCATION";
+    case LINK_MESSAGE_CONTACT: return "CONTACT";
+    case LINK_MESSAGE_REACTION: return "REACTION";
+    case LINK_MESSAGE_CALL_SIGNAL: return "CALL_SIGNAL";
+    case LINK_MESSAGE_GROUP_CONTROL: return "GROUP_CONTROL";
+    default: return "UNKNOWN";
+    }
+}
+
+const char* link_verification_level_to_string(link_verification_level_t value) {
+    switch (value) {
+    case LINK_VERIFICATION_NONE: return "NONE";
+    case LINK_VERIFICATION_SCANNED: return "SCANNED";
+    case LINK_VERIFICATION_NUMBER: return "NUMBER";
+    case LINK_VERIFICATION_TRUSTED: return "TRUSTED";
+    default: return "UNKNOWN";
+    }
+}
+
+const char* link_call_state_to_string(link_call_state_t state) {
+    switch (state) {
+    case LINK_CALL_NONE:     return "NONE";
+    case LINK_CALL_OUTGOING: return "OUTGOING";
+    case LINK_CALL_INCOMING: return "INCOMING";
+    case LINK_CALL_ACTIVE:   return "ACTIVE";
+    case LINK_CALL_ENDED:    return "ENDED";
+    default:                 return "UNKNOWN";
+    }
+}

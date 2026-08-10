@@ -5,6 +5,7 @@
 #include <string.h>
 #include <time.h>
 #include <pthread.h>
+#include "helm_internal.h"
 
 // Global monitoring state
 static helm_monitoring_stats_t monitoring_stats = {0};

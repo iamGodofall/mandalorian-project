@@ -1,44 +1,43 @@
-// Compilation Stubs for Demo - Replace with real impl later
+/**
+ * @file stubs.h
+ * @brief Small platform shims for the Mandalorian core.
+ *
+ * What used to be here was neither compilable nor safe:
+ *
+ *   - Function bodies lived in the header, so every translation unit that
+ *     included it got its own copy and the link failed on duplicate symbols.
+ *   - agent_id_to_str() called `_snprintf`, the MSVC spelling, unguarded.
+ *   - hmac_sha256() called libsodium, which is not a dependency of this
+ *     project and was not present, so nothing including this header built.
+ *   - The stubs.c implementation of hmac_sha256() copied the *key* into the
+ *     output buffer and called it a MAC. Any caller could read the key
+ *     straight out of the tag, and forging one was trivial.
+ *
+ * Real capability authentication now lives in crypto/hmac_sha3.h. This header
+ * keeps only genuine platform shims, declared here and defined once in
+ * stubs.c.
+ */
 
-#ifndef STUBS_H
-#define STUBS_H
+#ifndef MANDALORIAN_STUBS_H
+#define MANDALORIAN_STUBS_H
 
-/* Stub: capabilities/schema.h */
-/* Stub: runtime/executor.h */
-#define EXEC_OK 0
-#define EXEC_DENIED 1
+#include <stddef.h>
+#include <stdint.h>
 
-char *agent_id_to_str(uint32_t id) {
-    static char buf[16];
-_snprintf(buf, sizeof(buf), "agent_%u", id);
-    return buf;
-}
+/**
+ * @brief Render an agent id as the subject string a capability binds to.
+ *
+ * Returns a pointer to a static buffer: not reentrant, and the result is
+ * invalidated by the next call.
+ */
+const char *agent_id_to_str(uint32_t id);
 
-// Real libsodium crypto_poly1305 (constant-time MAC)
-// #include <sodium.h>
+/**
+ * @brief Placeholder for seL4 capability transfer.
+ *
+ * Returns 0 without doing anything. Off-target there is no CNode to transfer
+ * into; on-target this is replaced by the real seL4 call.
+ */
+int seL4_CapTransfer(int dest, int cap);
 
-void hmac_sha256(uint8_t *out, const uint8_t *key, const uint8_t *msg, size_t len) {
-    if (sodium_init() < 0) return; // Init once
-    
-    uint8_t subkey[32];
-    crypto_generichash_blake2b(subkey, sizeof(subkey), key, 32, NULL, 0); // Derive subkey
-    
-    // Poly1305 MAC (production-grade constant-time)
-    crypto_onetimeauth_poly1305(out, msg, len, subkey);
-    
-    sodium_memzero(subkey, sizeof(subkey));
-}
-
-// Full enum types matching gate.c
-typedef enum { 
-    EXEC_OK, EXEC_DENIED, EXEC_ERROR 
-} exec_result_t;
-
-// Enums already in gate.h
-
-// seL4 stubs (production: real libsel4)
-int seL4_CapTransfer(int dest, int cap) { return 0; } // Stub cap transfer
-
-int sodium_init(void) { return 0; }
-
-#endif
+#endif /* MANDALORIAN_STUBS_H */

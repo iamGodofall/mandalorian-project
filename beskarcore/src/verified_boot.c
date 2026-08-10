@@ -3,9 +3,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
+#include "../include/verified_boot.h"
 #include "../include/logging.h"
 #include "../include/performance.h"
 #include "../include/monitoring.h"
+#include "../include/merkle_ledger.h"
+#include "../include/sha3.h"
 
 // Security hardening: Secure defaults and constants
 #define MAX_SIGNATURE_SIZE 1024
@@ -36,125 +39,9 @@ static void fe_pow22523(fe out, const fe z);
 static uint32_t load_3(const uint8_t *in);
 static uint32_t load_4(const uint8_t *in);
 
-// SHA3-256 implementation (Keccak-f[1600])
-#define KECCAK_ROUNDS 24
-#define ROTL64(x, y) (((x) << (y)) | ((x) >> (64 - (y))))
-
-static const uint64_t keccakf_rndc[24] = {
-    0x0000000000000001ULL, 0x0000000000008082ULL, 0x800000000000808aULL,
-    0x8000000080008000ULL, 0x000000000000808bULL, 0x0000000080000001ULL,
-    0x8000000080008081ULL, 0x8000000000008009ULL, 0x000000000000008aULL,
-    0x0000000000000088ULL, 0x0000000080008009ULL, 0x000000008000000aULL,
-    0x000000008000808bULL, 0x800000000000008bULL, 0x8000000000008089ULL,
-    0x8000000000008003ULL, 0x8000000000008002ULL, 0x8000000000000080ULL,
-    0x000000000000800aULL, 0x800000008000000aULL, 0x8000000080008081ULL,
-    0x8000000000008080ULL, 0x0000000080000001ULL, 0x8000000080008008ULL
-};
-
-static const int keccakf_rotc[24] = {
-    1, 3, 6, 10, 15, 21, 28, 36, 45, 55, 2, 14, 27, 41, 56, 8, 25, 43, 62,
-    18, 39, 61, 20, 44
-};
-
-static const int keccakf_piln[24] = {
-    10, 7, 11, 17, 18, 3, 5, 16, 8, 21, 24, 4, 15, 23, 19, 13, 12, 2, 20,
-    14, 22, 9, 6, 1
-};
-
-void keccakf(uint64_t st[25]) {
-    int i, j, r;
-    uint64_t t, bc[5];
-
-    for (r = 0; r < KECCAK_ROUNDS; r++) {
-        // Theta
-        for (i = 0; i < 5; i++)
-            bc[i] = st[i] ^ st[i + 5] ^ st[i + 10] ^ st[i + 15] ^ st[i + 20];
-
-        for (i = 0; i < 5; i++) {
-            t = bc[(i + 4) % 5] ^ ROTL64(bc[(i + 1) % 5], 1);
-            for (j = 0; j < 25; j += 5)
-                st[j + i] ^= t;
-        }
-
-        // Rho Pi
-        t = st[1];
-        for (i = 0; i < 24; i++) {
-            j = keccakf_piln[i];
-            bc[0] = st[j];
-            st[j] = ROTL64(t, keccakf_rotc[i]);
-            t = bc[0];
-        }
-
-        // Chi
-        for (j = 0; j < 25; j += 5) {
-            for (i = 0; i < 5; i++)
-                bc[i] = st[j + i];
-            for (i = 0; i < 5; i++)
-                st[j + i] ^= (~bc[(i + 1) % 5]) & bc[(i + 2) % 5];
-        }
-
-        // Iota
-        st[0] ^= keccakf_rndc[r];
-    }
-}
-
-int sha3_256(uint8_t *digest, const uint8_t *data, size_t len) {
-    uint64_t st[25] = {0};
-    size_t i, j;
-    uint8_t *p = (uint8_t *)st;
-
-    // Absorb
-    for (i = 0; i < len; i++) {
-        p[i % 200] ^= data[i];
-        if ((i % 200) == 199) {
-            keccakf(st);
-        }
-    }
-
-    // Padding
-    p[i % 200] ^= 0x06;
-    p[199] ^= 0x80;
-    keccakf(st);
-
-    // Squeeze
-    for (i = 0; i < 32; i++) {
-        digest[i] = p[i];
-    }
-
-    return 0;
-}
-
-int sha3_512(uint8_t *digest, const uint8_t *data, size_t len) {
-    uint64_t st[25] = {0};
-    size_t i, j;
-    uint8_t *p = (uint8_t *)st;
-
-    // Absorb
-    for (i = 0; i < len; i++) {
-        p[i % 72] ^= data[i];
-        if ((i % 72) == 71) {
-            keccakf(st);
-        }
-    }
-
-    // Padding
-    p[i % 72] ^= 0x06;
-    p[71] ^= 0x80;
-    keccakf(st);
-
-    // Squeeze
-    for (i = 0; i < 64; i++) {
-        digest[i] = p[i];
-    }
-
-    return 0;
-}
-
 // Full ed25519 verification implementation
 // Based on the Ed25519 specification (RFC 8032)
-
-// Field element operations for Curve25519
-typedef int32_t fe[10];
+// (fe is typedef'd once, above.)
 
 static const fe fe_zero = {0};
 static const fe fe_one = {1};
@@ -933,5 +820,181 @@ int verify_kernel_integrity() {
                              "Kernel verification failed - system integrity compromised",
                              ALERT_CRITICAL, "verified_boot", "component=boot");
         return -1;
+    }
+}
+
+/* ==========================================================================
+ * Measured boot API
+ *
+ * verified_boot.h has declared these since the header was written, and
+ * boot_rom.c calls them, but none of them were ever defined — so the boot
+ * component could not link.
+ *
+ * What is implemented is measured boot: each stage is hashed with SHA3-256,
+ * the measurements are chained into a single value, and that value goes to the
+ * Shield Ledger. What is NOT implemented is secure boot — there is no
+ * hardware root of trust and no fused key to anchor a signature chain to, so
+ * boot_init() refuses to claim it.
+ * ========================================================================== */
+
+typedef struct {
+    boot_component_t component;
+    uint8_t hash[32];
+    int measured;
+} boot_measurement_t;
+
+static boot_config_t active_boot_config;
+static boot_measurement_t measurements[4];
+static uint8_t chained_measurement[32];
+static int boot_initialised = 0;
+
+int boot_init(const boot_config_t *config)
+{
+    if (config == NULL) {
+        return BOOT_ERROR_HARDWARE_FAILURE;
+    }
+
+    if (config->enable_secure_boot) {
+        /* Fail loudly rather than reporting success for a guarantee this
+         * build cannot provide. */
+        LOG_ERROR("Verified boot: secure boot requested but no hardware root "
+                  "of trust is available on this target");
+        return BOOT_ERROR_HARDWARE_FAILURE;
+    }
+
+    active_boot_config = *config;
+    memset(measurements, 0, sizeof(measurements));
+    memset(chained_measurement, 0, sizeof(chained_measurement));
+    boot_initialised = 1;
+
+    LOG_INFO("Verified boot: measured boot initialised");
+    return BOOT_SUCCESS;
+}
+
+int boot_verify_component(boot_component_t component, const uint8_t *data,
+                          size_t len, boot_verification_result_t *result)
+{
+    uint8_t digest[32];
+    sha3_ctx_t ctx;
+    size_t index = (size_t)component;
+
+    if (!boot_initialised || data == NULL || index >= 4) {
+        return BOOT_ERROR_HARDWARE_FAILURE;
+    }
+
+    if (sha3_256(digest, data, len) != 0) {
+        return BOOT_ERROR_INVALID_HASH;
+    }
+
+    measurements[index].component = component;
+    memcpy(measurements[index].hash, digest, sizeof(digest));
+    measurements[index].measured = 1;
+
+    /* Extend the running measurement: chained = H(chained || digest), the
+     * same shape as a TPM PCR extend, so the order of stages is committed to
+     * and a later stage cannot rewrite an earlier one. */
+    if (sha3_256_init(&ctx) != 0 ||
+        sha3_update(&ctx, chained_measurement, sizeof(chained_measurement)) != 0 ||
+        sha3_update(&ctx, digest, sizeof(digest)) != 0 ||
+        sha3_final(&ctx, chained_measurement) != 0) {
+        return BOOT_ERROR_INVALID_HASH;
+    }
+
+    if (result != NULL) {
+        memset(result, 0, sizeof(*result));
+        result->result = BOOT_SUCCESS;
+        memcpy(result->measured_hash, digest, sizeof(digest));
+    }
+
+    return BOOT_SUCCESS;
+}
+
+int boot_verify_chain(void)
+{
+    if (!boot_initialised) {
+        return BOOT_ERROR_HARDWARE_FAILURE;
+    }
+
+    /* Nothing measured yet means nothing to attest to. Reporting success for
+     * an empty chain would let a caller believe a boot was verified when no
+     * stage was ever presented. */
+    if (!measurements[BOOT_COMPONENT_BOOTLOADER].measured &&
+        !measurements[BOOT_COMPONENT_KERNEL].measured) {
+        LOG_WARN("Verified boot: no stages measured; chain is empty");
+        return BOOT_ERROR_CHAIN_BROKEN;
+    }
+
+    LOG_INFO("Verified boot: measurement chain intact");
+    return BOOT_SUCCESS;
+}
+
+int boot_get_measurement(uint8_t *measurement, size_t *len)
+{
+    if (!boot_initialised || measurement == NULL || len == NULL) {
+        return BOOT_ERROR_HARDWARE_FAILURE;
+    }
+    if (*len < sizeof(chained_measurement)) {
+        return BOOT_ERROR_INVALID_HASH;
+    }
+
+    memcpy(measurement, chained_measurement, sizeof(chained_measurement));
+    *len = sizeof(chained_measurement);
+    return BOOT_SUCCESS;
+}
+
+int boot_log_measurement(const char *component_name, const uint8_t *hash)
+{
+    if (component_name == NULL || hash == NULL) {
+        return BOOT_ERROR_HARDWARE_FAILURE;
+    }
+    return add_ledger_entry(component_name, hash) == 0
+               ? BOOT_SUCCESS
+               : BOOT_ERROR_CHAIN_BROKEN;
+}
+
+int boot_attest_system(const char *challenge, uint8_t *attestation,
+                       size_t *len)
+{
+    sha3_ctx_t ctx;
+
+    if (challenge == NULL || attestation == NULL || len == NULL) {
+        return BOOT_ERROR_HARDWARE_FAILURE;
+    }
+    if (*len < 32) {
+        return BOOT_ERROR_INVALID_HASH;
+    }
+
+    /* Binds the challenge to the measurement so a reply cannot be replayed
+     * against a different challenge. This is NOT remote attestation: there is
+     * no device key signing it, so it proves nothing to a remote party. */
+    if (sha3_256_init(&ctx) != 0 ||
+        sha3_update(&ctx, chained_measurement, sizeof(chained_measurement)) != 0 ||
+        sha3_update(&ctx, (const uint8_t *)challenge, strlen(challenge)) != 0 ||
+        sha3_final(&ctx, attestation) != 0) {
+        return BOOT_ERROR_INVALID_HASH;
+    }
+
+    *len = 32;
+    return BOOT_SUCCESS;
+}
+
+void boot_cleanup(void)
+{
+    memset(measurements, 0, sizeof(measurements));
+    memset(chained_measurement, 0, sizeof(chained_measurement));
+    memset(&active_boot_config, 0, sizeof(active_boot_config));
+    boot_initialised = 0;
+}
+
+const char *boot_error_to_string(int error_code)
+{
+    switch (error_code) {
+    case BOOT_SUCCESS:                     return "SUCCESS";
+    case BOOT_ERROR_INVALID_SIGNATURE:     return "INVALID_SIGNATURE";
+    case BOOT_ERROR_INVALID_HASH:          return "INVALID_HASH";
+    case BOOT_ERROR_INVALID_CERTIFICATE:   return "INVALID_CERTIFICATE";
+    case BOOT_ERROR_CHAIN_BROKEN:          return "CHAIN_BROKEN";
+    case BOOT_ERROR_HARDWARE_FAILURE:      return "HARDWARE_FAILURE";
+    default:                               return "UNKNOWN";
     }
 }

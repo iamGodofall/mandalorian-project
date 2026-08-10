@@ -1,0 +1,3 @@
+[submodule "beskarcore/seL4"]
+	path = beskarcore/seL4
+	url = https://github.com/iamGodofall/seL4.git
