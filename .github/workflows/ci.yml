@@ -228,6 +228,27 @@ jobs:
           fi
           echo "No escape-sequence corruption."
 
+      - name: No weak randomness in security paths
+        run: |
+          # Every secret in this system — HSM keys, device identity, BeskarLink
+          # message keys, Helm attestation nonces — was once derived from
+          # rand() seeded by time(NULL). secure_random.h is now the only
+          # sanctioned source; this stops the old pattern coming back.
+          #
+          # helm/src/monitoring.c is exempt: its rand() picks a simulated
+          # failure rate for the demo and guards no secret.
+          hits=$(git grep -nE '\brand\s*\(|\bsrand\s*\(' \
+                   -- 'beskarcore/**/*.c' 'beskarcore/**/*.h' \
+                      'helm/**/*.c' 'aegis/**/*.c' 'mandalorian/**/*.c' \
+                 | grep -vE '^helm/src/monitoring\.c:' \
+                 | grep -vE ':[0-9]+:[[:space:]]*(\*|//|/\*)' || true)
+          if [ -n "$hits" ]; then
+            echo "$hits"
+            echo 'rand()/srand() in a security path. Use secure_random_bytes().'
+            exit 1
+          fi
+          echo "No weak randomness in security paths."
+
       - name: No compiled artifacts committed
         run: |
           # Object files, executables and a 55KB test binary have each been

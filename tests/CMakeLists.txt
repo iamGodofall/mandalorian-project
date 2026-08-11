@@ -16,6 +16,10 @@ add_executable(test_sha3_vectors unit/test_sha3_vectors.c)
 target_link_libraries(test_sha3_vectors PRIVATE beskarcore)
 add_test(NAME Sha3Vectors COMMAND test_sha3_vectors)
 
+add_executable(test_secure_random unit/test_secure_random.c)
+target_link_libraries(test_secure_random PRIVATE beskarcore)
+add_test(NAME SecureRandom COMMAND test_secure_random)
+
 add_executable(test_gate_enforcement unit/test_gate_enforcement.c)
 target_link_libraries(test_gate_enforcement PRIVATE mandalorian_core)
 add_test(NAME GateEnforcement COMMAND test_gate_enforcement)

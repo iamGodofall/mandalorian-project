@@ -20,6 +20,7 @@
 
 #include "../core/verifier.h"
 #include "hmac_sha3.h"
+#include "secure_random.h"
 #include "logging.h"
 
 static uint8_t issuer_key[MANDALORIAN_CAP_KEY_SIZE];
@@ -63,8 +64,21 @@ int issue_capability(mandalorian_cap_t *cap, const char *subject,
         strncpy(cap->constraints, constraints, sizeof(cap->constraints) - 1);
     }
     cap->expiry = (uint64_t)time(NULL) + ttl_sec;
-    snprintf(cap->cap_id, sizeof(cap->cap_id), "cap_%llu",
-             (unsigned long long)time(NULL));
+
+    /* Was "cap_<unix seconds>": two capabilities issued in the same second
+     * shared an id, and the next id was trivially predictable. 64 bits of
+     * randomness, hex-encoded, fits the 32-byte field. */
+    {
+        uint8_t id_bytes[8];
+        if (secure_random_bytes(id_bytes, sizeof(id_bytes)) != 0) {
+            LOG_ERROR("Issuer: no entropy for capability id");
+            return -1;
+        }
+        snprintf(cap->cap_id, sizeof(cap->cap_id),
+                 "cap_%02x%02x%02x%02x%02x%02x%02x%02x",
+                 id_bytes[0], id_bytes[1], id_bytes[2], id_bytes[3],
+                 id_bytes[4], id_bytes[5], id_bytes[6], id_bytes[7]);
+    }
 
     len = verifier_serialise_cap(cap, serialised, sizeof(serialised));
     if (len < 0) {

@@ -5,6 +5,7 @@
 #include <string.h>
 #include <time.h>
 #include "helm_internal.h"
+#include "secure_random.h"
 
 // ============================================================================
 // THE HELM - Core Implementation
@@ -67,10 +68,14 @@ int helm_init(void) {
 helm_nonce_t helm_generate_nonce(void) {
     helm_nonce_t nonce;
 
-    // Generate cryptographically secure random nonce
-    // In real implementation, this would use hardware RNG
-    for (int i = 0; i < 32; i++) {
-        nonce.data[i] = (uint8_t)(rand() % 256);
+    /* The comment here used to say "cryptographically secure" above a loop of
+     * `rand() % 256`. An attestation nonce that an attacker can predict lets
+     * them precompute a valid response, which defeats the point of the
+     * challenge. */
+    if (secure_random_bytes(nonce.data, sizeof(nonce.data)) != 0) {
+        LOG_ERROR("Helm: no entropy for attestation nonce; returning zeroed "
+                  "nonce, attestation will fail");
+        memset(nonce.data, 0, sizeof(nonce.data));
     }
 
     nonce.timestamp = time(NULL);

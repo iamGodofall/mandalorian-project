@@ -5,6 +5,7 @@
 #include <string.h>
 #include <stdio.h>
 #include "merkle_ledger.h"
+#include "secure_random.h"
 #include "sha3.h"
 
 // ============================================================================
@@ -1046,11 +1047,11 @@ int link_import_conversation(const char *filepath) {
 // ============================================================================
 
 static int generate_random_bytes(uint8_t *buffer, size_t len) {
-    // In real implementation, use hardware TRNG via BeskarVault
-    for (size_t i = 0; i < len; i++) {
-        buffer[i] = (uint8_t)(rand() % 256);
-    }
-    return 0;
+    /* Was `rand() % 256`. This function produces the shared secrets and
+     * ephemeral material for every BeskarLink session, so predictable output
+     * here meant predictable message keys. Returns failure rather than weak
+     * bytes; callers already check. */
+    return secure_random_bytes(buffer, len);
 }
 
 static int derive_key(const uint8_t *input, size_t input_len,

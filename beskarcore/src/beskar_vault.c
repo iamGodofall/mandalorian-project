@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#include "secure_random.h"
 #include "sha3.h"
 
 // ============================================================================
@@ -891,32 +892,29 @@ int vault_get_device_unique_id(uint8_t *device_id, size_t *len) {
 }
 
 static int generate_device_unique_id(void) {
-    // In real hardware, this would read from secure fuses
-    // For simulation, generate random ID
+    /* In real hardware this reads from secure fuses. Off-target it comes from
+     * the OS CSPRNG.
+     *
+     * It used to be SHA3(time(NULL) || 32 bytes of rand()), with a comment
+     * accurately describing that as predictable and a LOG_WARN saying so —
+     * and then doing it anyway. An attacker who knows the approximate
+     * manufacturing time could enumerate every possible device identity. */
+    uint8_t seed[32];
 
-    // CRITICAL SECURITY WARNING: time(NULL) + rand() is PREDICTABLE
-    // This is SIMULATION ONLY - production requires hardware TRNG
-    // An attacker can pre-compute all possible device IDs
-    #if defined(PRODUCTION_BUILD)
-    #warning "Predictable randomness detected - use hardware TRNG for production"
-    #endif
-
-
-    
-    LOG_WARN("Using PREDICTABLE randomness (time+rand) - SIMULATION ONLY");
-
-    // Use time + random data to generate unique ID
-    time_t now = time(NULL);
-    uint8_t seed[sizeof(time_t) + 32];
-    memcpy(seed, &now, sizeof(time_t));
-
-    // Add some "random" data (in real hardware, from TRNG)
-    // WARNING: rand() is NOT cryptographically secure
-    for (int i = 0; i < 32; i++) {
-        seed[sizeof(time_t) + i] = (uint8_t)(rand() % 256);
+    if (secure_random_bytes(seed, sizeof(seed)) != 0) {
+        LOG_ERROR("Vault: no entropy source; refusing to generate a "
+                  "predictable device identity");
+        return -1;
     }
 
-    sha3_256(vault_state.device_unique_id, seed, sizeof(seed));
+    if (sha3_256(vault_state.device_unique_id, seed, sizeof(seed)) != 0) {
+        secure_zero(seed, sizeof(seed));
+        return -1;
+    }
+
+    secure_zero(seed, sizeof(seed));
+    LOG_INFO("Vault: device identity generated from %s",
+             secure_random_source_name());
     return 0;
 }
 
@@ -943,8 +941,6 @@ static int generate_device_unique_id(void) {
  * simulation only and must not be used to protect anything.
  */
 static int simulate_key_generation(vault_key_type_t type, uint8_t *pub_key, size_t *pub_len) {
-    time_t now = time(NULL);
-    uint8_t seed[sizeof(time_t) + sizeof(vault_key_type_t)];
     uint8_t full_public[64];
 
     if (pub_key == NULL || pub_len == NULL) {
@@ -956,13 +952,17 @@ static int simulate_key_generation(vault_key_type_t type, uint8_t *pub_key, size
         return -1;
     }
 
-    memcpy(seed, &now, sizeof(time_t));
-    memcpy(seed + sizeof(time_t), &type, sizeof(vault_key_type_t));
-
-    /* Fill the whole 64-byte private key slot, not just the first half, so
-     * nothing downstream reads bytes that were never written. */
-    sha3_256(key_slots[type].private_key, seed, sizeof(seed));
-    sha3_256(key_slots[type].private_key + 32, key_slots[type].private_key, 32);
+    /* The private key was previously SHA3(time(NULL) || key_type) — one
+     * second of clock granularity and five possible key types, so the entire
+     * keyspace for a given day was roughly 86,400 x 5 candidates. Every key
+     * this vault ever produced was recoverable by anyone who knew the
+     * approximate time. It now comes from the OS CSPRNG. */
+    if (secure_random_bytes(key_slots[type].private_key,
+                            sizeof(key_slots[type].private_key)) != 0) {
+        LOG_ERROR("Vault: no entropy source; refusing to generate a "
+                  "predictable key in slot %d", type);
+        return -1;
+    }
 
     sha3_256(full_public, key_slots[type].private_key, 32);
     sha3_256(full_public + 32, key_slots[type].private_key + 32, 32);
