@@ -720,7 +720,29 @@ static const uint8_t kernel_image[1024] = {0};
 // Placeholder signature (64 bytes for ed25519)
 static const uint8_t kernel_signature[64] = {0};
 
-int verify_kernel_integrity() {
+/*
+ * Verify a kernel image against a signature.
+ *
+ * This took no parameters and operated on three file-static arrays, which
+ * made two of its "security" checks dead code the compiler had been warning
+ * about:
+ *
+ *   if (!kernel_image || !kernel_signature || !test_public_key)
+ *       -> the address of an array is never NULL; -Waddress said so.
+ *   if (sizeof(kernel_image) > MAX_MESSAGE_SIZE)
+ *       -> sizeof an array is a compile-time constant (1024 > 1048576),
+ *          so this could never fire either.
+ *
+ * Both read as input validation and validated nothing. Taking the image as a
+ * parameter makes the same checks real.
+ *
+ * The built-in kernel_image and kernel_signature are still all zeros — this
+ * remains a placeholder that fails, which is why main.c halts at boot. That is
+ * correct fail-closed behaviour for a system with no signed kernel to verify,
+ * and it should stay that way until there is one.
+ */
+int verify_kernel_image(const uint8_t *image, size_t image_len,
+                        const uint8_t *signature, const uint8_t *public_key) {
     time_t current_time = time(NULL);
 
     // Update monitoring metrics
@@ -756,8 +778,10 @@ int verify_kernel_integrity() {
     verification_attempts++;
     last_verification_time = current_time;
 
-    // Security: Input validation
-    if (!kernel_image || !kernel_signature || !test_public_key) {
+    // Security: Input validation. Now checks the caller's arguments, which
+    // can actually be NULL, rather than the address of a static array.
+    if (image == NULL || signature == NULL || public_key == NULL ||
+        image_len == 0) {
         LOG_ERROR("Invalid input parameters for kernel verification");
         monitoring_raise_alert("verification_input_validation",
                              "Invalid input parameters for kernel verification",
@@ -765,7 +789,7 @@ int verify_kernel_integrity() {
         return -1;
     }
 
-    if (sizeof(kernel_image) > MAX_MESSAGE_SIZE) {
+    if (image_len > MAX_MESSAGE_SIZE) {
         LOG_ERROR("Kernel image size exceeds maximum allowed size");
         monitoring_raise_alert("verification_size_limit",
                              "Kernel image size exceeds maximum allowed size",
@@ -776,7 +800,7 @@ int verify_kernel_integrity() {
     uint8_t kernel_hash[32];
     perf_timer_t hash_timer;
     perf_start_timer(&hash_timer);
-    sha3_256(kernel_hash, kernel_image, sizeof(kernel_image));
+    sha3_256(kernel_hash, image, image_len);
     perf_stop_timer(&hash_timer);
 
     // Record performance metrics
@@ -797,7 +821,7 @@ int verify_kernel_integrity() {
 
     perf_timer_t verify_timer;
     perf_start_timer(&verify_timer);
-    int result = ed25519_verify(kernel_signature, kernel_hash, 32, test_public_key);
+    int result = ed25519_verify(signature, kernel_hash, 32, public_key);
     perf_stop_timer(&verify_timer);
 
     // Record performance metrics
@@ -997,4 +1021,18 @@ const char *boot_error_to_string(int error_code)
     case BOOT_ERROR_HARDWARE_FAILURE:      return "HARDWARE_FAILURE";
     default:                               return "UNKNOWN";
     }
+}
+
+/**
+ * @brief Verify the built-in kernel image.
+ *
+ * Kept so main.c's boot sequence still has a single call. The built-in image
+ * and signature are all zeros, so this fails — which is why main.c halts. That
+ * is the correct outcome for a system with no signed kernel: the alternative
+ * is booting something unverified and reporting success.
+ */
+int verify_kernel_integrity(void)
+{
+    return verify_kernel_image(kernel_image, sizeof(kernel_image),
+                               kernel_signature, test_public_key);
 }

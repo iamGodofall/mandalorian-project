@@ -46,6 +46,18 @@ int boot_log_measurement(const char *component_name, const uint8_t *hash);
 int boot_attest_system(const char *challenge, uint8_t *attestation, size_t *len);
 void boot_cleanup(void);
 
+/**
+ * @brief Verify a kernel image against an Ed25519 signature.
+ * @return 0 when the signature verifies, -1 otherwise.
+ */
+int verify_kernel_image(const uint8_t *image, size_t image_len,
+                        const uint8_t *signature, const uint8_t *public_key);
+
+/**
+ * @brief Verify the built-in kernel image. Fails until a signed kernel exists.
+ */
+int verify_kernel_integrity(void);
+
 // Utility functions
 const char *boot_error_to_string(int error_code);
 

@@ -144,6 +144,11 @@ void helm_update_monitoring_stats(helm_attest_result_t result) {
         case HELM_ATTEST_FAIL_TIMEOUT:
         case HELM_ATTEST_FAIL_TAMPER:
         case HELM_ATTEST_FAIL_HARDWARE:
+        /* A gate denial is a failed attestation too. Leaving it out of the
+         * switch meant every policy denial went uncounted, so the failure
+         * statistics under-reported exactly the denials the gate exists to
+         * produce. -Wswitch flagged it. */
+        case HELM_ATTEST_FAIL_POLICY:
             monitoring_stats.attestations_failed++;
             break;
     }

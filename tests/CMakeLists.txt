@@ -24,6 +24,12 @@ add_executable(test_gate_enforcement unit/test_gate_enforcement.c)
 target_link_libraries(test_gate_enforcement PRIVATE mandalorian_core)
 add_test(NAME GateEnforcement COMMAND test_gate_enforcement)
 
+# Gate fuzzing, running as a fixed-corpus test so the properties are checked
+# everywhere. The libFuzzer build is opt-in below.
+add_executable(fuzz_gate_corpus fuzz/fuzz_gate.c)
+target_link_libraries(fuzz_gate_corpus PRIVATE mandalorian_core)
+add_test(NAME GateFuzzCorpus COMMAND fuzz_gate_corpus)
+
 # simple_test.c links no project code at all — every assertion in it compares
 # literals (`int guardian = 0; TEST_ASSERT(guardian == 0, ...)`) with the real
 # call commented out. It is kept because it exercises the harness itself, but
@@ -73,6 +79,13 @@ option(ENABLE_FUZZING "Build libFuzzer targets (requires clang)" OFF)
 
 if(ENABLE_FUZZING)
     if(CMAKE_C_COMPILER_ID MATCHES "Clang")
+        add_executable(fuzz_gate fuzz/fuzz_gate.c)
+        target_link_libraries(fuzz_gate PRIVATE mandalorian_core)
+        target_compile_definitions(fuzz_gate PRIVATE FUZZ_GATE_LIBFUZZER)
+        target_compile_options(fuzz_gate PRIVATE -fsanitize=fuzzer,address)
+        target_link_options(fuzz_gate PRIVATE -fsanitize=fuzzer,address)
+        add_test(NAME FuzzGate COMMAND fuzz_gate -max_total_time=30)
+
         add_executable(fuzz_vault fuzz/fuzz_vault.c)
         target_link_libraries(fuzz_vault PRIVATE beskarcore)
         target_compile_options(fuzz_vault PRIVATE -fsanitize=fuzzer,address)
