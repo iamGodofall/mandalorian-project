@@ -86,8 +86,17 @@ int check_user_policy(const char* app_name, const char* capability) {
 // Store user decision for future reference
 void store_user_policy(const char* app_name, const char* capability, int decision) {
     if (policy_count < 100) {
-        strcpy(user_policies[policy_count].app_name, app_name);
-        strcpy(user_policies[policy_count].capability, capability);
+        /* Unbounded strcpy into char[64] and char[32] from caller-supplied
+         * strings. An app name longer than 63 bytes overflowed the policy
+         * cache entry and everything after it in the array. */
+        strncpy(user_policies[policy_count].app_name, app_name,
+                sizeof(user_policies[policy_count].app_name) - 1);
+        user_policies[policy_count].app_name[
+            sizeof(user_policies[policy_count].app_name) - 1] = '\0';
+        strncpy(user_policies[policy_count].capability, capability,
+                sizeof(user_policies[policy_count].capability) - 1);
+        user_policies[policy_count].capability[
+            sizeof(user_policies[policy_count].capability) - 1] = '\0';
         user_policies[policy_count].decision = decision;
         user_policies[policy_count].timestamp = time(NULL);
         policy_count++;

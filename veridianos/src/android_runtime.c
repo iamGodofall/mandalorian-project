@@ -64,8 +64,11 @@ int android_app_load(const char *apk_path, void **art_context) {
     // 4. Load native libraries
     // 5. Set up class loader
 
-    strcpy(app->package_name, "com.example.app"); // Placeholder
-    strcpy(app->main_activity, "MainActivity");   // Placeholder
+    /* Placeholders, but bounded on principle. */
+    strncpy(app->package_name, "com.example.app", sizeof(app->package_name) - 1);
+    app->package_name[sizeof(app->package_name) - 1] = '\0';
+    strncpy(app->main_activity, "MainActivity", sizeof(app->main_activity) - 1);
+    app->main_activity[sizeof(app->main_activity) - 1] = '\0';
     app->version_code = 1;
     app->dex_data = malloc(1024); // Placeholder DEX data
     app->dex_size = 1024;

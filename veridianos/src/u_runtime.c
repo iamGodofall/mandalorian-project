@@ -374,9 +374,14 @@ int ios_show_notification(const char *title, const char *body) {
     }
 
     universal_notification_t *notif = &notification_queue[notification_count++];
-    strcpy(notif->app_name, "iOS App");
-    strcpy(notif->title, title);
-    strcpy(notif->message, body);
+    /* title and body are caller-supplied; these were unbounded copies into
+     * fixed-size fields. */
+    strncpy(notif->app_name, "iOS App", sizeof(notif->app_name) - 1);
+    notif->app_name[sizeof(notif->app_name) - 1] = '\0';
+    strncpy(notif->title, title, sizeof(notif->title) - 1);
+    notif->title[sizeof(notif->title) - 1] = '\0';
+    strncpy(notif->message, body, sizeof(notif->message) - 1);
+    notif->message[sizeof(notif->message) - 1] = '\0';
     notif->timestamp = (uint64_t)time(NULL);
     notif->priority = 1; // Normal priority
 

@@ -47,7 +47,9 @@ int app_sandbox_create_domain(const char *package_id, app_capabilities_t *reques
     sandbox_domain_t *domain = &sandboxes[sandbox_count];
 
     // Copy package ID
-    strcpy(domain->package_id, package_id);
+    /* package_id is caller-supplied and the field is char[256]. */
+    strncpy(domain->package_id, package_id, sizeof(domain->package_id) - 1);
+    domain->package_id[sizeof(domain->package_id) - 1] = '\0';
 
     // Set default quotas
     domain->memory_quota = 100 * 1024 * 1024; // 100MB

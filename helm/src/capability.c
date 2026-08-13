@@ -111,8 +111,11 @@ helm_attest_result_t helm_request_capability(
 
     // Map Helm cap to Mandalorian + Gate call
     mandalorian_cap_t mand_cap = {0}; // Derive from helm_capability
-    strcpy(mand_cap.action, capability_to_action(capability)); // e.g. "read_sensor"
-    strcpy(mand_cap.resource, "helm_internal");
+    /* Sources are internal literals today, but bound them so a future
+     * capability_to_action() returning something longer cannot overflow. */
+    strncpy(mand_cap.action, capability_to_action(capability),
+            sizeof(mand_cap.action) - 1);
+    strncpy(mand_cap.resource, "helm_internal", sizeof(mand_cap.resource) - 1);
     
     // Gate the capability grant itself
     gate_result_t gate_res = helm_mandalorian_gate(app_id, mand_cap.action, mand_cap.resource, "", &mand_cap);
