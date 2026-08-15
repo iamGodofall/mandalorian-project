@@ -479,7 +479,9 @@ int main(void) {
     
     // Initialize components
     printf("Initializing BeskarVault...\n");
-    vault_init(NULL);
+    /* vault_init() takes a security level, not a pointer; passing NULL here
+     * meant this demo had never been compiled. */
+    vault_init(VAULT_SECURITY_LEVEL_2);
     
     printf("Initializing BeskarEnterprise...\n");
     enterprise_config_t config = {

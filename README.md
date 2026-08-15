@@ -1,7 +1,6 @@
 ![Mandalorian Project — Sovereign Mobile Computing](./docs/banner.png)
 
 [![CI](https://github.com/iamGodofall/mandalorian-project/actions/workflows/ci.yml/badge.svg)](https://github.com/iamGodofall/mandalorian-project/actions/workflows/ci.yml)
-[![Tests](https://img.shields.io/badge/tests-100%25%20PASS-brightgreen)](tests/comprehensive/)
 [![License](https://img.shields.io/badge/license-Mandalorian%20Sovereignty%20License-blue)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-seL4%2BRISC--V-C0172C)](https://github.com/seL4/seL4)
 [![Docs](https://img.shields.io/badge/docs-live-brightgreen)](https://iamgodofall.github.io/mandalorian-project/)
@@ -72,14 +71,23 @@ graph TB
 
 ### Security Guarantees
 
-| Guarantee | Implementation |
-|---|---|
-| **No backdoors** | Zero central servers; all policy enforced on-device via seL4 capabilities |
-| **Key destruction on tamper** | 6 sensor types trigger immediate HSM key zeroization |
-| **Forward secrecy** | Signal Protocol Double Ratchet — past messages safe even if keys compromised |
-| **Post-quantum resistance** | CRYSTALS-Dilithium signatures on identity keys (Phase 3) |
-| **Continuous integrity** | 50ms CRC32 checks + 1s SHA3-256 full verification via Continuous Guardian |
-| **Immutable audit log** | Shield Ledger — Merkle tree of all security decisions, queryable offline |
+These are design goals. The right-hand column says what the code in this
+repository does *today*, which is not the same thing — see the status column
+before relying on any row.
+
+| Goal | Status | What is actually implemented |
+|---|---|---|
+| **No backdoors** | Design | No central servers and no remote-access path exists in the code. On-device enforcement via seL4 capabilities is architectural; the gate runs on the host today. |
+| **Capability enforcement** | Working | Nine-step gate with HMAC-SHA3-256 capability authentication, wildcard resource matching with traversal rejection, size constraints, policy, and a receipt for every decision including denials. Covered by `tests/unit/test_gate_enforcement.c`. |
+| **Immutable audit log** | Working | Shield Ledger chains each entry into the previous root with SHA3-256. Append-only in memory; there is no on-disk or replicated store yet. |
+| **Hash integrity** | Working | SHA3-256/512 pass the FIPS 202 known-answer vectors (`tests/unit/test_sha3_vectors.c`) and match an independent implementation across every length up to several blocks. |
+| **Key destruction on tamper** | Not implemented | Requires the tamper mesh and custom PCB described under Hardware Reality Check. |
+| **Secret hygiene** | Partial | Key material is wiped with `secure_zero()`, which the compiler cannot optimise away. Keys still live in ordinary application RAM — a real HSM never exposes them, which needs the hardware in Phase 2. |
+| **Forward secrecy** | Partial | The symmetric chain ratchet advances per message, so a captured chain key does not recover earlier message keys. The **DH ratchet and X3DH are not implemented** — `x3dh_key_agreement()` returns random bytes rather than performing any Diffie-Hellman — so there is no break-in recovery and this is *not* the Signal Double Ratchet. |
+| **Message encryption** | Placeholder | BeskarLink uses a SHA3-based keystream with a SHA3 MAC, not a reviewed AEAD. Do not use it to protect real messages. |
+| **Post-quantum resistance** | Not implemented | No CRYSTALS-Dilithium, Kyber, or any PQC primitive exists in this repository. |
+| **Continuous integrity** | Working (simulated) | 50ms CRC32 with periodic SHA3-256 full verification. Measures simulated regions; there is no hardware watchdog behind it. |
+| **Random number generation** | Working | All key, nonce and identifier material comes from the OS CSPRNG (`getrandom(2)`, `arc4random_buf`, `BCryptGenRandom`, or `/dev/urandom`) via `secure_random.h`, which **fails closed** — no entropy source means an error, never a weak fallback. Covered by `tests/unit/test_secure_random.c`, which fails against the previous clock-seeded implementation. |
 
 ---
 
@@ -113,38 +121,52 @@ graph TB
 ### Prerequisites
 
 ```bash
-sudo apt install libsodium-dev cmake pkg-config
+sudo apt install build-essential cmake
 ```
 
-### Mandalorian Core (Production-Ready)
+### Build and test
+
+The host build covers BeskarCore, Helm, Aegis, VeridianOS and the Mandalorian
+gate, with their demos and tests. It needs only a C compiler and CMake — there
+is no libsodium or cmocka dependency for the default build.
 
 ```bash
-cd mandalorian
-make
-./constrained-agent-demo   # Tests 10 gate steps
+git clone --recurse-submodules https://github.com/iamGodofall/mandalorian-project.git
+cd mandalorian-project
+cmake -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build --parallel
+ctest --test-dir build --output-on-failure
 ```
 
-### BeskarCore
+To build with AddressSanitizer and UBSan:
 
 ```bash
-git clone https://github.com/iamGodofall/mandalorian-project.git
-cd mandalorian-project/beskarcore
-make deps
-make simulate
-make run_simulate
+cmake -B build-asan -DCMAKE_BUILD_TYPE=Debug -DENABLE_SANITIZERS=ON
+cmake --build build-asan --parallel
+ctest --test-dir build-asan --output-on-failure
 ```
 
-### Run Security Demos
+### Run the demos
+
+```bash
+./build/mandalorian/constrained-agent-demo   # gate enforcement, nine steps
+./build/beskarcore/demo                      # SHA3-256 + Merkle ledger
+./build/beskarcore/demo_continuous_guardian  # Continuous Guardian
+./build/beskarcore/demo_beskar_vault         # HSM key lifecycle
+./build/beskarcore/demo_beskar_link          # secure messaging
+./build/beskarcore/demo_beskar_enterprise    # decentralised policy
+./build/helm/demo_helm                       # attestation
+```
+
+### Target build (seL4 + CAmkES)
+
+The RISC-V/seL4 image is built separately and needs the seL4 toolchain:
 
 ```bash
 cd beskarcore
-
-make demo
-./demo_continuous_guardian   # Continuous Guardian demonstration
-./demo_beskar_vault          # HSM key lifecycle demonstration
-./demo_beskar_link           # Secure messaging demonstration
-./demo_beskar_enterprise     # Decentralized policy demonstration
-./demo                       # Main functional demo (SHA3-256 + Merkle ledger)
+make deps
+make simulate
+make run_simulate
 ```
 
 ---

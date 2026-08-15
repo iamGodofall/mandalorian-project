@@ -251,6 +251,10 @@ int enterprise_create_organization(const char *name, const uint8_t *master_key,
 int enterprise_join_organization(const uint8_t *org_id, const uint8_t *invitation);
 int enterprise_leave_organization(const uint8_t *org_id);
 int enterprise_get_organization(const uint8_t *org_id, enterprise_organization_t *org);
+
+/** Copy out enrolled organizations; writes at most max entries. */
+int enterprise_list_organizations(enterprise_organization_t *out, uint32_t max,
+                                  uint32_t *out_count);
 int enterprise_add_admin_device(const uint8_t *org_id, const uint8_t *device_id);
 int enterprise_remove_admin_device(const uint8_t *org_id, const uint8_t *device_id);
 

@@ -64,8 +64,11 @@ int android_app_load(const char *apk_path, void **art_context) {
     // 4. Load native libraries
     // 5. Set up class loader
 
-    strcpy(app->package_name, "com.example.app"); // Placeholder
-    strcpy(app->main_activity, "MainActivity");   // Placeholder
+    /* Placeholders, but bounded on principle. */
+    strncpy(app->package_name, "com.example.app", sizeof(app->package_name) - 1);
+    app->package_name[sizeof(app->package_name) - 1] = '\0';
+    strncpy(app->main_activity, "MainActivity", sizeof(app->main_activity) - 1);
+    app->main_activity[sizeof(app->main_activity) - 1] = '\0';
     app->version_code = 1;
     app->dex_data = malloc(1024); // Placeholder DEX data
     app->dex_size = 1024;
@@ -161,25 +164,11 @@ int android_start_activity(const char *intent_uri) {
     return 0;
 }
 
-int android_app_terminate(void *art_context) {
-    android_app_context_t *app = (android_app_context_t *)art_context;
-
-    printf("Terminating Android app: %s\n", app->package_name);
-
-    // Clean up ART resources
-    if (app->dex_data) {
-        free(app->dex_data);
-    }
-
-    for (int i = 0; i < app->lib_count; i++) {
-        if (app->native_libs[i]) {
-            free(app->native_libs[i]);
-        }
-    }
-
-    free(app);
-    return 0;
-}
+/* A second, older definition of android_app_terminate() sat here. It was the
+ * reason this file did not compile. The surviving copy above is the one to
+ * keep: it clears the pointers it frees and removes the app from the global
+ * registry, both of which this one omitted — leaving dangling entries in
+ * android_apps[] pointing at freed memory. */
 
 int android_show_notification(const char *title, const char *text) {
     // Show notification

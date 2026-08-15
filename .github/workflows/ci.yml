@@ -1,21 +1,32 @@
 name: Mandalorian Project CI
 
+# This workflow was rewritten because every one of its 30 recorded runs had
+# failed while the README displayed a passing badge. The old version:
+#
+#   - ran `tests/comprehensive/run_tests.sh`, which does not exist
+#   - exited 1 on six missing `mandalorian/core/stubs/*.c` files that have
+#     never existed
+#   - ran `make` in helm/ and mandalorian/, neither of which has a Makefile
+#   - used `microsoft/setup-msvc@v3`, which is not a real action
+#   - swallowed the outcome of the checks it did run with `|| true`
+#
+# Everything below either passes or fails honestly. Nothing is masked.
+
 on:
   push:
-    branches: [main, master, develop]
+    branches: [main, master, develop, 'claude/**']
   pull_request:
     branches: [main, master]
 
-env:
-  RISCV_TOOLCHAIN_VERSION: "13.2.0"
-  SEL4_REF: "develop"
+permissions:
+  contents: read
 
 jobs:
-  # ─────────────────────────────────────────────────────────────────────────────
-  # Job 1: Unit Tests (no seL4 required)
-  # ─────────────────────────────────────────────────────────────────────────────
-  unit-tests:
-    name: Unit Tests
+  # ---------------------------------------------------------------------------
+  # Build and test. This is the job the badge should reflect.
+  # ---------------------------------------------------------------------------
+  build-and-test:
+    name: Build and test
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -24,46 +35,247 @@ jobs:
       - name: Install build tools
         run: |
           sudo apt-get update
-          sudo apt-get install -y \
-            gcc \
-            make \
-            cmake \
-            ninja-build \
-            cppcheck \
-            clang-format \
-            clang-tidy
+          sudo apt-get install -y gcc make cmake ninja-build
 
-      - name: Configure CMake
+      - name: Configure
         run: cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
 
       - name: Build
         run: cmake --build build --parallel
 
-      - name: Run mandalorian_gate tests
-        run: |
-          cd tests/comprehensive
-          ./run_tests.sh --quiet || true
-          cat tests/comprehensive/TEST_RESULTS.txt 2>/dev/null || echo "No test results file"
+      - name: Test
+        run: ctest --test-dir build --output-on-failure
 
-      - name: Static analysis (cppcheck)
+  # ---------------------------------------------------------------------------
+  # Crypto known-answer tests, called out separately because this is the check
+  # that would have caught the rate-200 SHA3: it produced 32 plausible bytes for
+  # every input and nothing but a NIST vector could tell.
+  # ---------------------------------------------------------------------------
+  crypto-vectors:
+    name: Crypto test vectors
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install build tools
+        run: sudo apt-get update && sudo apt-get install -y gcc cmake ninja-build
+
+      - name: Configure and build
         run: |
+          cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+          cmake --build build --parallel --target test_sha3_vectors test_gate_enforcement
+
+      - name: SHA3 against FIPS 202 vectors
+        run: ./build/tests/test_sha3_vectors
+
+      - name: Gate enforcement and HMAC vectors
+        run: ./build/tests/test_gate_enforcement
+
+      - name: Cross-check the pinned vectors against hashlib
+        run: |
+          # The digests hard-coded in tests/unit/test_sha3_vectors.c are the
+          # whole point of that test, so confirm they are themselves right
+          # rather than trusting the constant that was typed in. Python's
+          # hashlib is an independent implementation of the same standard.
+          python3 - <<'PY'
+          import hashlib, re, sys
+
+          src = open("tests/unit/test_sha3_vectors.c").read()
+          checks = [
+              ("sha3_256", b"", "a7ffc6f8bf1ed76651c14756a061d662f580ff4de43b49fa82d80a4b80f8434a"),
+              ("sha3_256", b"abc", "3a985da74fe225b2045c172d6bd390bd855f086e3e9d525b46bfe24511431532"),
+              ("sha3_256", b"abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq",
+               "41c0dba2a9d6240849100376a8235e2c82e1b9998a999e21db32dd97496d3376"),
+              ("sha3_256", b"a" * 136,
+               "3fc5559f14db8e453a0a3091edbd2bc25e11528d81c66fa570a4efdcc2695ee1"),
+          ]
+          bad = 0
+          for algo, msg, pinned in checks:
+              actual = hashlib.new(algo, msg).hexdigest()
+              if actual != pinned:
+                  print(f"PINNED VALUE WRONG for {algo}({msg[:16]!r}): {pinned} != {actual}")
+                  bad += 1
+              elif pinned not in src.replace('"\n          "', '').replace('"', ''):
+                  # Present in the test file (allowing for split string literals).
+                  if pinned not in re.sub(r'"\s*"', '', src):
+                      print(f"pinned value {pinned} not found in the test file")
+                      bad += 1
+          print(f"{len(checks)} pinned vectors confirmed against hashlib")
+          sys.exit(1 if bad else 0)
+          PY
+
+  # ---------------------------------------------------------------------------
+  # Sanitizers. Catches the class of bug that made the BeskarLink demo abort
+  # with "stack smashing detected".
+  # ---------------------------------------------------------------------------
+  sanitizers:
+    name: AddressSanitizer + UBSan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install build tools
+        run: sudo apt-get update && sudo apt-get install -y gcc cmake ninja-build
+
+      - name: Configure with sanitizers
+        run: cmake -B build-asan -G Ninja -DCMAKE_BUILD_TYPE=Debug -DENABLE_SANITIZERS=ON
+
+      - name: Build
+        run: cmake --build build-asan --parallel
+
+      - name: Test under sanitizers
+        env:
+          ASAN_OPTIONS: detect_leaks=0
+          UBSAN_OPTIONS: halt_on_error=1:print_stacktrace=1
+        run: ctest --test-dir build-asan --output-on-failure
+
+  # ---------------------------------------------------------------------------
+  # Duplicate-symbol guard.
+  #
+  # Two separate bugs in this repository were "the same function defined in two
+  # files, and the linker silently picked one": sha3_256 (a real one and an
+  # empty stub) and twenty helm_* symbols. Archive linking hides this, so check
+  # it explicitly rather than hoping a build catches it.
+  # ---------------------------------------------------------------------------
+  duplicate-symbols:
+    name: Duplicate symbol check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install build tools
+        run: sudo apt-get update && sudo apt-get install -y gcc cmake ninja-build binutils
+
+      - name: Build objects
+        run: |
+          cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+          cmake --build build --parallel
+
+      - name: Fail on any symbol defined by two objects
+        run: |
+          set -euo pipefail
+          # Library objects only; each demo legitimately defines its own main.
+          find build -name '*.o' \
+            -not -path '*demo*' -not -path '*test*' -not -name 'main.c.o' \
+            -print0 | xargs -0 nm --defined-only 2>/dev/null \
+            | awk '/^[0-9a-f]+ [TDB] /{print $3}' | sort | uniq -d > dups.txt
+          if [ -s dups.txt ]; then
+            echo "Symbols defined in more than one object:"
+            cat dups.txt
+            exit 1
+          fi
+          echo "No duplicate definitions."
+
+  # ---------------------------------------------------------------------------
+  # Source hygiene. Every one of these has actually shipped in this repository.
+  # ---------------------------------------------------------------------------
+  source-hygiene:
+    name: Source hygiene
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: No unresolved merge conflict markers
+        run: |
+          # beskarcore/src/boot_rom.c shipped with a bare ======= in it, leaving
+          # the file 9 lines long with no implementation at all.
+          if git grep -nE '^(<<<<<<< |=======$|>>>>>>> )' -- '*.c' '*.h' '*.camkes' '*.yml' '*.txt'; then
+            echo "Unresolved merge conflict markers found."
+            exit 1
+          fi
+          echo "No conflict markers."
+
+      - name: No shell-escape corruption in sources
+        run: |
+          # Nine files were committed carrying literal \" and \n sequences from
+          # being written through an unescaped shell echo, plus HTML entities
+          # and a literal "..." placeholder inside an array initialiser. None
+          # had ever been compiled.
+          #
+          # Matched narrowly: a bare \" inside a string literal is valid C and
+          # appears legitimately throughout the demos, so only the positions
+          # where it can never be correct are checked.
+          # Comment lines are skipped: several files carry comments that quote
+          # the original broken text on purpose, to explain what was wrong.
+          check() {
+            git grep -nE "$1" -- '*.c' '*.h' \
+              | grep -vE ':[0-9]+:[[:space:]]*(\*|//|/\*)' || true
+          }
+          # Only patterns that can never appear in correct C. A bare (\" was
+          # tried here and removed: it fires on any string literal containing a
+          # quoted term after a parenthesis, e.g. expect("SHA3-256(\"abc\")").
+          # The corrupted-statement case it was meant to catch does not compile,
+          # so the build job already rejects it.
+          fail=0
+          for pattern in \
+            '#include[[:space:]]*\\"' \
+            '&(amp|lt|gt|quot);' \
+            '\{[^}]*,[[:space:]]*\.\.\.[[:space:]]*\}'
+          do
+            hits=$(check "$pattern")
+            if [ -n "$hits" ]; then echo "$hits"; fail=1; fi
+          done
+          if git grep -nE '\\n[a-zA-Z_#]' -- 'CMakeLists.txt' '**/CMakeLists.txt'; then
+            fail=1
+          fi
+          if [ "$fail" = "1" ]; then
+            echo 'Shell-escape or entity corruption found in source.'
+            exit 1
+          fi
+          echo "No escape-sequence corruption."
+
+      - name: No weak randomness in security paths
+        run: |
+          # Every secret in this system — HSM keys, device identity, BeskarLink
+          # message keys, Helm attestation nonces — was once derived from
+          # rand() seeded by time(NULL). secure_random.h is now the only
+          # sanctioned source; this stops the old pattern coming back.
+          #
+          # helm/src/monitoring.c is exempt: its rand() picks a simulated
+          # failure rate for the demo and guards no secret.
+          hits=$(git grep -nE '\brand\s*\(|\bsrand\s*\(' \
+                   -- 'beskarcore/**/*.c' 'beskarcore/**/*.h' \
+                      'helm/**/*.c' 'aegis/**/*.c' 'mandalorian/**/*.c' \
+                 | grep -vE '^helm/src/monitoring\.c:' \
+                 | grep -vE ':[0-9]+:[[:space:]]*(\*|//|/\*)' || true)
+          if [ -n "$hits" ]; then
+            echo "$hits"
+            echo 'rand()/srand() in a security path. Use secure_random_bytes().'
+            exit 1
+          fi
+          echo "No weak randomness in security paths."
+
+      - name: No compiled artifacts committed
+        run: |
+          # Object files, executables and a 55KB test binary have each been
+          # committed to this repository before.
+          if git ls-files | grep -E '\.(o|a|so|exe|obj)$'; then
+            echo "Build artifacts are tracked in git."
+            exit 1
+          fi
+          echo "No tracked build artifacts."
+
+      - name: Static analysis
+        run: |
+          sudo apt-get update && sudo apt-get install -y cppcheck
           mkdir -p analysis
-          cppcheck --enable=all --std=c99 --platform=unix64 \
-            -Imandalorian/include \
-            -Ihelm/include \
-            -Ibeskarcore/include \
-            --suppress=missingIncludeSystem \
-            --inline-suppr \
-            mandalorian/ helm/ beskarcore/ 2>&1 | tee analysis/cppcheck.txt || true
+          # Reported, not gated: the existing warning count is not yet zero and
+          # a gate that always fails teaches people to ignore it.
+          cppcheck --enable=warning,portability --std=c11 --platform=unix64 \
+            -Imandalorian -Imandalorian/crypto -Ihelm/include \
+            -Ibeskarcore/include -Iaegis/include -Iveridianos/include \
+            --suppress=missingIncludeSystem --inline-suppr \
+            mandalorian/ helm/ beskarcore/ aegis/ veridianos/ \
+            2>&1 | tee analysis/cppcheck.txt
+          echo "--- summary ---"
+          grep -c 'error:'   analysis/cppcheck.txt || true
+          grep -c 'warning:' analysis/cppcheck.txt || true
 
-      - name: Code formatting check
-        run: |
-          which clang-format && \
-          find mandalorian/ helm/ beskarcore/ -name "*.c" -o -name "*.h" | \
-          while read f; do clang-format --dry-run "$f" 2>&1 | grep -q "format okay" || echo "MISFORMATTED: $f"; done || \
-          echo "clang-format not available — skipping"
-
-      - name: Upload analysis artifacts
+      - name: Upload analysis
         if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -71,162 +283,9 @@ jobs:
           path: analysis/
           retention-days: 30
 
-  # ─────────────────────────────────────────────────────────────────────────────
-  # Job 2: Comprehensive Test Suite
-  # ─────────────────────────────────────────────────────────────────────────────
-  comprehensive-tests:
-    name: Comprehensive Tests
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Run full test suite
-        env:
-          CC: gcc
-        run: |
-          cd tests/comprehensive
-          chmod +x run_tests.sh
-          ./run_tests.sh
-          echo "--- Test Summary ---"
-          cat TEST_RESULTS.txt 2>/dev/null || echo "No summary available"
-          echo "--- Coverage ---"
-          cat COVERAGE.txt 2>/dev/null || echo "No coverage available"
-
-      - name: Upload test results
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: test-results
-          path: tests/comprehensive/
-          retention-days: 30
-
-  # ─────────────────────────────────────────────────────────────────────────────
-  # Job 3: Build Verification (simulated — no seL4 in CI)
-  # ─────────────────────────────────────────────────────────────────────────────
-  build-verification:
-    name: Build Verification
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Install RISC-V toolchain
-        run: |
-          sudo apt-get update && sudo apt-get install -y gcc-riscv64-unknown-elf || \
-          echo "RISC-V toolchain not available in CI — using simulation mode"
-
-      - name: Verify Makefile targets
-        run: |
-          cd beskarcore
-          make deps || echo "deps check completed"
-          make simulate 2>&1 | tail -20 || echo "Simulated build attempted"
-
-      - name: Verify Helm compilation
-        run: |
-          cd helm
-          make clean && make all 2>&1 | tail -20
-
-      - name: Verify Mandalorian core
-        run: |
-          cd mandalorian
-          make clean && make all 2>&1 | tail -20
-
-      - name: Verify stub files
-        run: |
-          echo "Checking all required stub files..."
-          for stub in \
-            mandalorian/core/stubs/executor_stub.c \
-            mandalorian/core/stubs/logging_stub.c \
-            mandalorian/core/stubs/time_stub.c \
-            mandalorian/core/stubs/clock_stub.c \
-            mandalorian/core/stubs/gate_stub.c \
-            mandalorian/core/stubs/policy_stub.c; do
-            if [ -f "$stub" ]; then
-              echo "  ✓ $stub"
-            else
-              echo "  ✗ MISSING: $stub"
-              exit 1
-            fi
-          done
-
-  # ─────────────────────────────────────────────────────────────────────────────
-  # Job 4: Security Audit
-  # ─────────────────────────────────────────────────────────────────────────────
-  security-audit:
-    name: Security Audit
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Run security audit
-        run: |
-          sudo apt-get install -y cppcheck
-          mkdir -p analysis/security
-          # Critical security checks
-          cppcheck --enable=warning,performance,information,portability \
-            --std=c99 --platform=unix64 \
-            -Imandalorian/include \
-            -Ihelm/include \
-            -Ibeskarcore/include \
-            --suppress=missingIncludeSystem \
-            --check-config \
-            mandalorian/ helm/ beskarcore/ \
-            2>&1 | tee analysis/security/audit.txt || true
-          echo "--- Critical Issues ---"
-          grep -i "error" analysis/security/audit.txt | head -20 || echo "No critical issues"
-
-      - name: Upload security report
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: security-report
-          path: analysis/security/
-          retention-days: 90
-
-  # ─────────────────────────────────────────────────────────────────────────────
-  # Job 5: Cross-platform build (Windows + Linux)
-  # ─────────────────────────────────────────────────────────────────────────────
-  cross-platform:
-    name: Cross-Platform Build
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, windows-latest]
-        include:
-          - os: ubuntu-latest
-            cc: gcc
-            shell: bash
-          - os: windows-latest
-            cc: cl
-            shell: powershell
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup MSVC (Windows)
-        if: matrix.os == 'windows-latest'
-        uses: microsoft/setup-msvc@v3
-        with:
-          arch: x64
-
-      - name: Build on ${{ matrix.os }}
-        shell: ${{ matrix.shell }}
-        run: |
-          echo "Building on ${{ matrix.os }} with ${{ matrix.cc }}"
-          if [ "${{ matrix.os }}" = "windows-latest" ]; then
-            cd beskarcore && cmake -B build -G "Visual Studio 17 2022" -A x64
-            cmake --build build --config Release
-          else
-            cd beskarcore && cmake -B build -G Ninja && cmake --build build
-          fi
-
-  # ─────────────────────────────────────────────────────────────────────────────
-  # Job 6: Documentation Check
-  # ─────────────────────────────────────────────────────────────────────────────
+  # ---------------------------------------------------------------------------
+  # Documentation.
+  # ---------------------------------------------------------------------------
   docs:
     name: Documentation
     runs-on: ubuntu-latest
@@ -234,46 +293,24 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Check required docs exist
+      - name: Check referenced docs exist
         run: |
-          echo "Checking required documentation..."
-          for doc in README.md TODO.md PRE_UPLOAD_CHECKLIST.md CONTRIBUTING.md; do
+          set -e
+          missing=0
+          for doc in README.md TODO.md CONTRIBUTING.md LICENSE \
+                     docs/architecture/overview.md docs/architecture/gate.md \
+                     docs/architecture/helm.md docs/architecture/vault.md \
+                     docs/architecture/link.md docs/architecture/ledger.md; do
             if [ -f "$doc" ]; then
-              echo "  ✓ $doc ($(wc -l < $doc) lines)"
+              echo "  ok      $doc"
             else
-              echo "  ✗ MISSING: $doc"
+              echo "  MISSING $doc"
+              missing=1
             fi
           done
+          exit $missing
 
-      - name: Verify architecture consistency
-        run: |
-          echo "Verifying architecture docs..."
-          for doc in \
-            "docs/architecture/overview.md" \
-            "docs/architecture/gate.md" \
-            "docs/architecture/helm.md" \
-            "docs/architecture/vault.md" \
-            "docs/architecture/link.md" \
-            "docs/architecture/ledger.md"; do
-            if [ -f "$doc" ]; then
-              echo "  ✓ $doc"
-            else
-              echo "  ✗ MISSING: $doc"
-              exit 1
-            fi
-          done
-
-      - name: Build mkdocs site
+      - name: Build MkDocs site
         run: |
           pip install mkdocs-material
-          mkdocs build --strict --verbose
-        working-directory: .
-
-      - name: Verify site output
-        run: |
-          if [ -d "site" ]; then
-            echo "  ✓ site/ built ($(find site -type f | wc -l) files)"
-          else
-            echo "  ✗ site/ directory not found"
-            exit 1
-          fi
+          mkdocs build --strict

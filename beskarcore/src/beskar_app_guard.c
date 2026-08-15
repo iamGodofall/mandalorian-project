@@ -4,6 +4,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#include "secure_random.h"
+#include "sha3.h"
 
 // ============================================================================
 // BESKAR APP GUARD - Application Security Implementation
@@ -168,9 +170,20 @@ int app_guard_create_container(const char *name, app_container_type_t type,
     memset(c, 0, sizeof(app_container_t));
 
     // Generate container ID
-    extern int sha3_256(uint8_t *digest, const uint8_t *data, size_t len);
     uint8_t seed[64];
-    int seed_len = snprintf((char*)seed, sizeof(seed), "%s_%lu", name, (unsigned long)time(NULL));
+    /* Was name + unix seconds, which is guessable: anyone who knows the app
+     * name and roughly when it was created can recompute this id. Mixed with
+     * real entropy instead. */
+    uint8_t id_entropy[16];
+    if (secure_random_bytes(id_entropy, sizeof(id_entropy)) != 0) {
+        LOG_ERROR("No entropy available for app id");
+        return -1;
+    }
+    int seed_len = snprintf((char*)seed, sizeof(seed),
+                            "%s_%02x%02x%02x%02x%02x%02x%02x%02x", name,
+                            id_entropy[0], id_entropy[1], id_entropy[2],
+                            id_entropy[3], id_entropy[4], id_entropy[5],
+                            id_entropy[6], id_entropy[7]);
     if (seed_len < 0 || (size_t)seed_len >= sizeof(seed)) {
         LOG_ERROR("Container name too long - possible attack");
         return -1;
@@ -324,7 +337,6 @@ int app_guard_install_app(const char *package_path, const uint8_t *container_id,
     memset(new_app, 0, sizeof(app_info_t));
 
     // Generate app ID
-    extern int sha3_256(uint8_t *digest, const uint8_t *data, size_t len);
     sha3_256(new_app->app_id, (const uint8_t*)package_path, strlen(package_path));
 
     // Extract app name from package path

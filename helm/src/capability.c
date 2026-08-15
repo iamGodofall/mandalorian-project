@@ -4,28 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
-
-// Active capability sessions
-#define MAX_ACTIVE_SESSIONS 1024
-static struct {
-    uint32_t session_id;
-    uint32_t app_id;
-    helm_capability_t capability;
-    time_t granted_time;
-    time_t expires_time;
-    bool active;
-} capability_sessions[MAX_ACTIVE_SESSIONS];
-
-static uint32_t next_session_id = 1;
-
-static int find_session_slot(uint32_t session_id) {
-    for (int i = 0; i < MAX_ACTIVE_SESSIONS; i++) {
-        if (capability_sessions[i].session_id == session_id && capability_sessions[i].active) {
-            return i;
-        }
-    }
-    return -1;
-}
+#include "helm_internal.h"
 
 static int create_capability_session(uint32_t app_id, helm_capability_t capability, uint32_t timeout_seconds) {
     int slot = -1;
@@ -132,8 +111,11 @@ helm_attest_result_t helm_request_capability(
 
     // Map Helm cap to Mandalorian + Gate call
     mandalorian_cap_t mand_cap = {0}; // Derive from helm_capability
-    strcpy(mand_cap.action, capability_to_action(capability)); // e.g. "read_sensor"
-    strcpy(mand_cap.resource, "helm_internal");
+    /* Sources are internal literals today, but bound them so a future
+     * capability_to_action() returning something longer cannot overflow. */
+    strncpy(mand_cap.action, capability_to_action(capability),
+            sizeof(mand_cap.action) - 1);
+    strncpy(mand_cap.resource, "helm_internal", sizeof(mand_cap.resource) - 1);
     
     // Gate the capability grant itself
     gate_result_t gate_res = helm_mandalorian_gate(app_id, mand_cap.action, mand_cap.resource, "", &mand_cap);
@@ -152,7 +134,7 @@ helm_attest_result_t helm_request_capability(
     return HELM_ATTEST_OK;
 }
 
-static const char* capability_to_action(helm_capability_t cap) {
+const char *capability_to_action(helm_capability_t cap) {
     switch(cap) {
         case HELM_CAP_CAMERA: return "access_camera";
         case HELM_CAP_MICROPHONE: return "access_mic";
@@ -160,16 +142,55 @@ static const char* capability_to_action(helm_capability_t cap) {
     }
 }
 
-// Wrapper: Mandalorian gate from Helm context
-gate_result_t helm_mandalorian_gate(uint32_t app_id, const char *action, const char *resource, 
+/*
+ * Wrapper: Mandalorian gate from Helm context.
+ *
+ * The initialiser here used to be:
+ *
+ *     mandalorian_request_t req = {
+ *         .agent_id = app_id,
+ *         .action   = (char*)action,     // action is char[32]
+ *         ...
+ *     };
+ *
+ * action, resource and payload are arrays, not pointers. Initialising an
+ * array from a pointer assigns the pointer *value*, truncated to one char,
+ * into element zero — so "file_write" arrived at the gate as a single byte
+ * (0x08 on this machine, the low byte of the address) followed by zeros.
+ *
+ * Every capability request that reached the gate through Helm therefore
+ * carried a corrupt action, resource and payload. That is the entire
+ * Aegis -> Helm -> gate path: aegis_request_permission() calls
+ * helm_request_capability(), which calls this. It has never worked.
+ *
+ * The compiler said so all along — three -Wint-conversion warnings on these
+ * exact lines — but the file did not compile at all until recently, so nobody
+ * ever saw them.
+ */
+gate_result_t helm_mandalorian_gate(uint32_t app_id, const char *action, const char *resource,
                                    const char *payload, const mandalorian_cap_t *cap) {
-    mandalorian_request_t req = {
-        .agent_id = app_id,
-        .action = (char*)action,
-        .resource = (char*)resource,
-        .payload = (char*)payload
-    };
-    return mandalorian_execute(&req, cap);
+    mandalorian_request_t req;
+    mandalorian_cap_t local_cap;
+
+    if (action == NULL || resource == NULL || cap == NULL) {
+        return GATE_SIG_FAIL;
+    }
+
+    memset(&req, 0, sizeof(req));
+    req.agent_id = app_id;
+    strncpy(req.action, action, sizeof(req.action) - 1);
+    strncpy(req.resource, resource, sizeof(req.resource) - 1);
+    if (payload != NULL) {
+        strncpy(req.payload, payload, sizeof(req.payload) - 1);
+    }
+
+    /* mandalorian_execute() takes a non-const capability. Copy rather than
+     * casting away const on the caller's object — the previous code did the
+     * cast, which is how a callee is free to modify something the caller
+     * declared it would not. */
+    local_cap = *cap;
+
+    return mandalorian_execute(&req, &local_cap);
 }
 
 int helm_register_app_key(uint32_t app_id, const uint8_t *public_key) {

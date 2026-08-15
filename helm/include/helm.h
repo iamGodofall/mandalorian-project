@@ -25,7 +25,10 @@ typedef enum {
     HELM_ATTEST_FAIL_TIMEOUT = -2,
     HELM_ATTEST_FAIL_KEY_REVOKED = -3,
     HELM_ATTEST_FAIL_TAMPER = -4,
-    HELM_ATTEST_FAIL_HARDWARE = -5
+    HELM_ATTEST_FAIL_HARDWARE = -5,
+    /* Denied by the Mandalorian gate rather than by attestation itself.
+     * capability.c has always returned this; it was simply never declared. */
+    HELM_ATTEST_FAIL_POLICY = -6
 } helm_attest_result_t;
 
 typedef enum {
@@ -69,6 +72,8 @@ typedef struct {
     uint64_t capabilities_denied;
     uint32_t active_sessions;
     uint64_t average_response_time_us;
+    /* Continuous-monitoring passes completed; incremented by monitoring.c. */
+    uint64_t monitoring_cycles;
 } helm_monitoring_stats_t;
 
 typedef struct {

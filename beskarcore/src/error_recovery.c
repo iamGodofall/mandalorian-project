@@ -330,3 +330,9 @@ void error_recovery_reset(void) {
 
     LOG_INFO("Error recovery state reset");
 }
+
+/* Declared nowhere and defined nowhere, but called by main.c. */
+void error_recovery_cleanup(void)
+{
+    LOG_INFO("Error recovery: shutting down");
+}

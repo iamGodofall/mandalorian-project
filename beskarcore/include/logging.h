@@ -1,6 +1,13 @@
 #ifndef LOGGING_H
 #define LOGGING_H
 
+/* logger_log() is variadic and this header declares it, so va_list has to be
+ * visible here. logging.c relied on some other header dragging <stdarg.h> in
+ * and did not link without it. */
+#include <stdarg.h>
+#include <stddef.h>
+#include <stdint.h>
+
 #include <stdint.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -62,6 +69,11 @@ typedef struct {
 // Function declarations
 int logger_init(log_level_t level, log_output_t outputs, const char *filename);
 void logger_cleanup(void);
+
+/** Console logging at INFO level. Convenience form used by the demos. */
+int logging_init(void);
+/** Counterpart to logging_init(). */
+void logging_cleanup(void);
 void logger_set_level(log_level_t level);
 void logger_set_outputs(log_output_t outputs);
 void logger_set_timestamp(int enable);

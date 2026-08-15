@@ -10,6 +10,8 @@
 #ifndef VAULT_HAL_SIMULATION_H
 #define VAULT_HAL_SIMULATION_H
 
+#include "../secure_random.h"
+
 #include "vault_hal.h"
 #include <string.h>
 #include <stdlib.h>
@@ -180,11 +182,11 @@ static inline int vault_hal_decrypt(uint8_t slot_id,
 }
 
 static inline int vault_hal_get_random(uint8_t *buffer, size_t len) {
-    // PREDICTABLE randomness - simulation only!
-    for (size_t i = 0; i < len; i++) {
-        buffer[i] = (uint8_t)(rand() % 256);
-    }
-    return 0;
+    /* Was `rand() % 256`, i.e. predictable, despite being the HAL entry point
+     * every key and nonce in the vault came through. Real hardware routes this
+     * to a TRNG; off-target it goes to the OS CSPRNG, which is at least
+     * unpredictable. Propagates failure rather than returning weak bytes. */
+    return secure_random_bytes(buffer, len);
 }
 
 static inline bool vault_hal_check_tamper(void) {

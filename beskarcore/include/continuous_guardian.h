@@ -1,8 +1,9 @@
 #ifndef CONTINUOUS_GUARDIAN_H
 #define CONTINUOUS_GUARDIAN_H
 
-#include <stdint.h>
 #include <stdbool.h>
+#include <stddef.h>
+#include <stdint.h>
 
 // Continuous Guardian - Inspired by Nintendo 10NES chip
 // Performs real-time integrity verification every few milliseconds

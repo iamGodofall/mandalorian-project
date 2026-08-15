@@ -477,3 +477,34 @@ void perf_get_ipc_stats(ipc_stats_t *stats) {
     *stats = ipc_stats;
     pthread_mutex_unlock(&ipc_mutex);
 }
+
+/**
+ * @brief Elapsed time in whole microseconds.
+ *
+ * continuous_guardian.c has always called this, but only perf_get_elapsed_ms()
+ * existed, so the guardian's timing path referenced an undefined symbol and
+ * anything linking it failed. Microseconds matter here: the guardian's budget
+ * is a 50ms interval and it measures individual checks well under 1ms, which
+ * the millisecond version rounds to zero.
+ */
+uint64_t perf_get_elapsed_us(const perf_timer_t *timer)
+{
+    double ms = perf_get_elapsed_ms(timer);
+
+    if (ms <= 0.0) {
+        return 0;
+    }
+    return (uint64_t)(ms * 1000.0);
+}
+
+/* Convenience wrappers; see the note in logging.c. The demos and main.c call
+ * performance_init()/performance_cleanup(), the API is perf_init()/perf_cleanup(). */
+int performance_init(void)
+{
+    return perf_init(NULL);
+}
+
+void performance_cleanup(void)
+{
+    perf_cleanup();
+}

@@ -51,10 +51,18 @@ int perf_init(const perf_config_t *config);
 // Cleanup performance monitoring
 void perf_cleanup(void);
 
+/** Default-configured perf_init(). Convenience form used by main.c. */
+int performance_init(void);
+/** Counterpart to performance_init(). */
+void performance_cleanup(void);
+
 // Timer functions
 void perf_start_timer(perf_timer_t *timer);
 void perf_stop_timer(perf_timer_t *timer);
 double perf_get_elapsed_ms(const perf_timer_t *timer);
+
+/** Elapsed time in whole microseconds; see performance.c. */
+uint64_t perf_get_elapsed_us(const perf_timer_t *timer);
 
 // Start performance measurement
 void perf_start(perf_metric_t metric);

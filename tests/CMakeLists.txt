@@ -1,81 +1,97 @@
-# CMakeLists.txt for Comprehensive Test Suite
+# Test suite.
+#
+# The previous version of this file had three add_executable/target_link/add_test
+# groups written on one line with literal "\n" characters between them, which is
+# a CMake parse error — so `cmake -B build` failed at the root for everyone.
+#
+# The cmocka-based tests under unit/ need a vendored cmocka at external/cmocka
+# that is not in the repository and is not fetched by anything, so they are
+# built only when cmocka is actually found rather than breaking the build.
 
-cmake_minimum_required(VERSION 3.16)
-project(MandalorianTests VERSION 1.0.0 LANGUAGES C)
+# ---------------------------------------------------------------------------
+# Tests with no external dependencies. These run everywhere, including CI.
+# ---------------------------------------------------------------------------
 
-# Options
-option(ENABLE_FUZZING "Enable fuzzing tests" OFF)
-option(ENABLE_COVERAGE "Enable code coverage" OFF)
-option(ENABLE_SANITIZERS "Enable AddressSanitizer and UBSan" OFF)
+add_executable(test_sha3_vectors unit/test_sha3_vectors.c)
+target_link_libraries(test_sha3_vectors PRIVATE beskarcore)
+add_test(NAME Sha3Vectors COMMAND test_sha3_vectors)
 
-# Set C standard
-set(CMAKE_C_STANDARD 11)
-set(CMAKE_C_STANDARD_REQUIRED ON)
+add_executable(test_secure_random unit/test_secure_random.c)
+target_link_libraries(test_secure_random PRIVATE beskarcore)
+add_test(NAME SecureRandom COMMAND test_secure_random)
 
-# Compiler warnings (GCC/Clang only)
-if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
-    add_compile_options(-Wall -Wextra -Wpedantic -Werror)
-elseif(MSVC)
-    add_compile_options(/W4 /WX)
-endif()
+add_executable(test_gate_enforcement unit/test_gate_enforcement.c)
+target_link_libraries(test_gate_enforcement PRIVATE mandalorian_core)
+add_test(NAME GateEnforcement COMMAND test_gate_enforcement)
 
+# Gate fuzzing, running as a fixed-corpus test so the properties are checked
+# everywhere. The libFuzzer build is opt-in below.
+add_executable(fuzz_gate_corpus fuzz/fuzz_gate.c)
+target_link_libraries(fuzz_gate_corpus PRIVATE mandalorian_core)
+add_test(NAME GateFuzzCorpus COMMAND fuzz_gate_corpus)
 
-# Sanitizers
-if(ENABLE_SANITIZERS)
-    add_compile_options(-fsanitize=address,undefined)
-    add_link_options(-fsanitize=address,undefined)
-endif()
-
-# Coverage
-if(ENABLE_COVERAGE)
-    add_compile_options(--coverage)
-    add_link_options(--coverage)
-endif()
-
-# Include directories
-include_directories(
-    ${CMAKE_SOURCE_DIR}/../beskarcore/include
-    ${CMAKE_SOURCE_DIR}/../veridianos/include
-    ${CMAKE_SOURCE_DIR}/../aegis/include
-    ${CMAKE_SOURCE_DIR}/../helm/include
-    ${CMAKE_SOURCE_DIR}/../mandalorian
-)
-
-
-# Test executable
+# simple_test.c links no project code at all — every assertion in it compares
+# literals (`int guardian = 0; TEST_ASSERT(guardian == 0, ...)`) with the real
+# call commented out. It is kept because it exercises the harness itself, but
+# it is NOT evidence that anything in the project works, and the README badge
+# should not be read as if it were.
 add_executable(simple_test comprehensive/simple_test.c)
-target_link_libraries(simple_test)
-add_test(NAME SimpleTest COMMAND simple_test)
+add_test(NAME SimpleHarnessSelfCheck COMMAND simple_test)
 
-add_executable(comprehensive_test comprehensive/test_suite.c)\ntarget_link_libraries(comprehensive_test mandalorian_core beskarcore)\nadd_test(NAME ComprehensiveTest COMMAND comprehensive_test)\n\nadd_executable(test_mandalorian_gate comprehensive/test_mandalorian_gate.c)\ntarget_link_libraries(test_mandalorian_gate mandalorian_core beskarcore)\nadd_test(NAME MandalorianGateTest COMMAND test_mandalorian_gate)
+# ---------------------------------------------------------------------------
+# Demo executables run as smoke tests: each returns non-zero on failure.
+# ---------------------------------------------------------------------------
 
-# Fuzzing executable
-if(ENABLE_FUZZING)
-    add_executable(fuzz_vault fuzz/fuzz_vault.c)
-    target_compile_options(fuzz_vault PRIVATE -fsanitize=fuzzer)
-    target_link_options(fuzz_vault PRIVATE -fsanitize=fuzzer)
+if(BUILD_DEMOS)
+    add_test(NAME GateDemo COMMAND constrained-agent-demo)
+    add_test(NAME BeskarCoreDemo COMMAND demo)
+    add_test(NAME VaultDemo COMMAND demo_beskar_vault)
+    add_test(NAME LinkDemo COMMAND demo_beskar_link)
+    add_test(NAME EnterpriseDemo COMMAND demo_beskar_enterprise)
+    add_test(NAME GuardianDemo COMMAND demo_continuous_guardian)
+    add_test(NAME HelmDemo COMMAND demo_helm)
 endif()
 
-# Fuzzing test (runs for limited time)
-if(ENABLE_FUZZING)
-    add_test(NAME FuzzVault COMMAND fuzz_vault -max_total_time=30)
+# ---------------------------------------------------------------------------
+# cmocka-based tests, only if cmocka is present.
+# ---------------------------------------------------------------------------
+
+find_library(CMOCKA_LIBRARY cmocka)
+find_path(CMOCKA_INCLUDE_DIR cmocka.h)
+
+if(CMOCKA_LIBRARY AND CMOCKA_INCLUDE_DIR)
+    message(STATUS "cmocka found - building unit tests that depend on it")
+    foreach(t test_crypto test_ledger test_runtime test_security test_performance)
+        add_executable(${t} unit/${t}.c)
+        target_include_directories(${t} PRIVATE ${CMOCKA_INCLUDE_DIR})
+        target_link_libraries(${t} PRIVATE beskarcore veridianos aegis ${CMOCKA_LIBRARY})
+        add_test(NAME ${t} COMMAND ${t})
+    endforeach()
+else()
+    message(STATUS "cmocka not found - skipping unit/test_{crypto,ledger,runtime,security,performance}.c")
 endif()
 
+# ---------------------------------------------------------------------------
+# Fuzzing, opt-in and clang-only.
+# ---------------------------------------------------------------------------
 
-# Custom targets
-add_custom_target(run-tests
-    COMMAND ${CMAKE_CTEST_COMMAND} --output-on-failure
-    DEPENDS comprehensive_test
-)
+option(ENABLE_FUZZING "Build libFuzzer targets (requires clang)" OFF)
 
-add_custom_target(run-fuzzing
-    COMMAND fuzz_vault -max_total_time=300
-    DEPENDS fuzz_vault
-)
+if(ENABLE_FUZZING)
+    if(CMAKE_C_COMPILER_ID MATCHES "Clang")
+        add_executable(fuzz_gate fuzz/fuzz_gate.c)
+        target_link_libraries(fuzz_gate PRIVATE mandalorian_core)
+        target_compile_definitions(fuzz_gate PRIVATE FUZZ_GATE_LIBFUZZER)
+        target_compile_options(fuzz_gate PRIVATE -fsanitize=fuzzer,address)
+        target_link_options(fuzz_gate PRIVATE -fsanitize=fuzzer,address)
+        add_test(NAME FuzzGate COMMAND fuzz_gate -max_total_time=30)
 
-add_custom_target(coverage-report
-    COMMAND lcov --capture --directory . --output-file coverage.info
-    COMMAND lcov --remove coverage.info '/usr/*' --output-file coverage.info
-    COMMAND lcov --list coverage.info
-    DEPENDS run-tests
-)
+        add_executable(fuzz_vault fuzz/fuzz_vault.c)
+        target_link_libraries(fuzz_vault PRIVATE beskarcore)
+        target_compile_options(fuzz_vault PRIVATE -fsanitize=fuzzer,address)
+        target_link_options(fuzz_vault PRIVATE -fsanitize=fuzzer,address)
+        add_test(NAME FuzzVault COMMAND fuzz_vault -max_total_time=30)
+    else()
+        message(WARNING "ENABLE_FUZZING requires clang; skipping fuzz targets")
+    endif()
+endif()

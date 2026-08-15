@@ -4,6 +4,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include "helm_internal.h"
+#include "secure_random.h"
 
 // ============================================================================
 // THE HELM - Core Implementation
@@ -15,34 +17,6 @@ static helm_config_t helm_config = {0};
 static helm_monitoring_stats_t monitoring_stats = {0};
 static bool continuous_monitoring_active = false;
 static bool emergency_state = false;
-
-// App registry (stores registered app keys)
-#define MAX_REGISTERED_APPS 256
-static struct {
-    uint32_t app_id;
-    uint8_t public_key[1952];  // CRYSTALS-Dilithium public key
-    bool revoked;
-    time_t registered_time;
-    uint32_t attestation_count;
-} app_registry[MAX_REGISTERED_APPS];
-
-static int find_app_slot(uint32_t app_id) {
-    for (int i = 0; i < MAX_REGISTERED_APPS; i++) {
-        if (app_registry[i].app_id == app_id) {
-            return i;
-        }
-    }
-    return -1;
-}
-
-static int find_free_app_slot(void) {
-    for (int i = 0; i < MAX_REGISTERED_APPS; i++) {
-        if (app_registry[i].app_id == 0) {
-            return i;
-        }
-    }
-    return -1;
-}
 
 // ============================================================================
 // Core API Implementation
@@ -94,10 +68,14 @@ int helm_init(void) {
 helm_nonce_t helm_generate_nonce(void) {
     helm_nonce_t nonce;
 
-    // Generate cryptographically secure random nonce
-    // In real implementation, this would use hardware RNG
-    for (int i = 0; i < 32; i++) {
-        nonce.data[i] = (uint8_t)(rand() % 256);
+    /* The comment here used to say "cryptographically secure" above a loop of
+     * `rand() % 256`. An attestation nonce that an attacker can predict lets
+     * them precompute a valid response, which defeats the point of the
+     * challenge. */
+    if (secure_random_bytes(nonce.data, sizeof(nonce.data)) != 0) {
+        LOG_ERROR("Helm: no entropy for attestation nonce; returning zeroed "
+                  "nonce, attestation will fail");
+        memset(nonce.data, 0, sizeof(nonce.data));
     }
 
     nonce.timestamp = time(NULL);
