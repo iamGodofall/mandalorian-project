@@ -27,4 +27,13 @@ void policy_reset_daily_quota(uint32_t agent_id);
 /** @brief Reset all policy counters. Intended for tests. */
 void policy_reset_all(void);
 
+/**
+ * @brief Set the quiet-hours window, [start, end) in local time.
+ *
+ * Writes are denied inside the window. Pass equal values to disable the rule,
+ * which is what tests should do — otherwise any test asserting a successful
+ * write fails between the configured hours and passes the rest of the day.
+ */
+void policy_set_quiet_hours(int start_hour, int end_hour);
+
 #endif /* MANDALORIAN_POLICY_H */
