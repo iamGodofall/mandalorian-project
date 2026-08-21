@@ -16,6 +16,12 @@ add_executable(test_sha3_vectors unit/test_sha3_vectors.c)
 target_link_libraries(test_sha3_vectors PRIVATE beskarcore)
 add_test(NAME Sha3Vectors COMMAND test_sha3_vectors)
 
+# Ed25519 verification and SHA-512. The verifier this replaces returned
+# success unconditionally, so the rejection half of this suite is the point.
+add_executable(test_ed25519 unit/test_ed25519.c)
+target_link_libraries(test_ed25519 PRIVATE beskarcore)
+add_test(NAME Ed25519 COMMAND test_ed25519)
+
 add_executable(test_secure_random unit/test_secure_random.c)
 target_link_libraries(test_secure_random PRIVATE beskarcore)
 add_test(NAME SecureRandom COMMAND test_secure_random)
