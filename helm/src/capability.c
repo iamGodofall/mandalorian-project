@@ -1,19 +1,22 @@
 #include "../include/helm.h"
 #include "../../beskarcore/include/logging.h"
 #include "../../beskarcore/include/monitoring.h"
+#include "../../beskarcore/include/secure_random.h"
+#include "../../beskarcore/include/hmac_sha3.h"
+#include "../../mandalorian/capabilities/issuer.h"
+#include "../../mandalorian/stubs.h"
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
 #include "helm_internal.h"
 
+// ============================================================================
+// Attestation and capability grant
+// ============================================================================
+
 static int create_capability_session(uint32_t app_id, helm_capability_t capability, uint32_t timeout_seconds) {
-    int slot = -1;
-    for (int i = 0; i < MAX_ACTIVE_SESSIONS; i++) {
-        if (!capability_sessions[i].active) {
-            slot = i;
-            break;
-        }
-    }
+    int slot = find_free_session_slot();
 
     if (slot == -1) {
         LOG_ERROR("No free capability session slots");
@@ -27,106 +30,269 @@ static int create_capability_session(uint32_t app_id, helm_capability_t capabili
     capability_sessions[slot].expires_time = time(NULL) + timeout_seconds;
     capability_sessions[slot].active = true;
 
+    helm_monitoring_session_opened();
+
     LOG_INFO("Granted capability %d to app %u (session %u, expires in %us)",
              capability, app_id, capability_sessions[slot].session_id, timeout_seconds);
 
-    return capability_sessions[slot].session_id;
+    return (int)capability_sessions[slot].session_id;
 }
 
+// ============================================================================
+// Attestation tag
+// ============================================================================
+//
+// tag = HMAC-SHA3-256(secret,
+//         "HELM-ATTEST-v1" || app_id || nonce || timestamp || sequence)
+//
+// Serialised field by field, big-endian. Not memcpy'd from helm_nonce_t:
+// that struct holds a time_t next to two other members and therefore carries
+// padding whose contents are undefined, and its layout is an ABI detail. A tag
+// computed over struct bytes would differ between an app and a Helm built by
+// different compilers, and would cover uninitialised memory. The same mistake
+// on receipt_t is recorded in CLAUDE.md.
+//
+// app_id is inside the MAC so a tag minted for one app does not verify for
+// another, even if the two were ever registered with the same secret. The
+// version prefix keeps a tag from this construction from being reusable if the
+// construction is ever changed.
+
+#define HELM_ATTEST_LABEL "HELM-ATTEST-v1"
+#define HELM_ATTEST_LABEL_LEN 14
+#define HELM_ATTEST_MSG_LEN (HELM_ATTEST_LABEL_LEN + 4 + HELM_NONCE_SIZE + 8 + 4)
+
+static void put_be32(uint8_t *p, uint32_t v) {
+    p[0] = (uint8_t)(v >> 24);
+    p[1] = (uint8_t)(v >> 16);
+    p[2] = (uint8_t)(v >> 8);
+    p[3] = (uint8_t)v;
+}
+
+static void put_be64(uint8_t *p, uint64_t v) {
+    for (int i = 0; i < 8; i++) {
+        p[i] = (uint8_t)(v >> (56 - 8 * i));
+    }
+}
+
+static void serialise_challenge(uint8_t *out, uint32_t app_id,
+                                const helm_nonce_t *nonce) {
+    size_t off = 0;
+
+    memcpy(out + off, HELM_ATTEST_LABEL, HELM_ATTEST_LABEL_LEN);
+    off += HELM_ATTEST_LABEL_LEN;
+
+    put_be32(out + off, app_id);
+    off += 4;
+
+    memcpy(out + off, nonce->data, HELM_NONCE_SIZE);
+    off += HELM_NONCE_SIZE;
+
+    /* time_t is signed and may be 32- or 64-bit; widening through uint64_t
+     * gives one wire encoding on every platform. */
+    put_be64(out + off, (uint64_t)(int64_t)nonce->timestamp);
+    off += 8;
+
+    put_be32(out + off, nonce->sequence_number);
+}
+
+int helm_compute_attestation(const uint8_t *secret, size_t secret_len,
+                             uint32_t app_id, const helm_nonce_t *nonce,
+                             helm_attest_tag_t *out_tag) {
+    uint8_t msg[HELM_ATTEST_MSG_LEN];
+    int rc;
+
+    if (secret == NULL || nonce == NULL || out_tag == NULL) {
+        return -1;
+    }
+    if (secret_len < HELM_APP_SECRET_MIN || secret_len > HELM_APP_SECRET_MAX) {
+        return -1;
+    }
+
+    serialise_challenge(msg, app_id, nonce);
+    rc = hmac_sha3_256(out_tag->data, secret, secret_len, msg, sizeof(msg));
+    secure_zero(msg, sizeof(msg));
+
+    if (rc != 0) {
+        secure_zero(out_tag->data, sizeof(out_tag->data));
+        return -1;
+    }
+
+    return 0;
+}
+
+/*
+ * The check this replaces was, in full:
+ *
+ *     bool signature_valid = true;  // Placeholder
+ *     ...
+ *     if (!signature_valid) { ...fail... }
+ *
+ * so the failure arm was unreachable and the function returned HELM_ATTEST_OK
+ * for any signature, including the all-zero one its own caller passed it.
+ * Registration and revocation were checked, which is why the demo appeared to
+ * work: unknown and revoked apps were refused, and nothing else ever was.
+ */
 helm_attest_result_t helm_verify_attestation(
     uint32_t app_id,
     const helm_nonce_t *nonce,
-    const helm_signature_t *signature
+    const helm_attest_tag_t *tag
 ) {
-    // Find app in registry
-    int app_slot = find_app_slot(app_id);
+    helm_attest_tag_t expected;
+    helm_attest_result_t result;
+    time_t now;
+    double age;
+    int app_slot;
+    int matched;
+
+    if (nonce == NULL || tag == NULL) {
+        LOG_WARN("Attestation failed: missing challenge or response");
+        result = HELM_ATTEST_FAIL_SIGNATURE;
+        goto done;
+    }
+
+    app_slot = find_app_slot(app_id);
     if (app_slot == -1) {
         LOG_WARN("Attestation failed: app %u not registered", app_id);
-        return HELM_ATTEST_FAIL_SIGNATURE;
+        result = HELM_ATTEST_FAIL_SIGNATURE;
+        goto done;
     }
 
     if (app_registry[app_slot].revoked) {
         LOG_WARN("Attestation failed: app %u key revoked", app_id);
-        return HELM_ATTEST_FAIL_KEY_REVOKED;
+        result = HELM_ATTEST_FAIL_KEY_REVOKED;
+        goto done;
     }
 
-    // Check timestamp freshness (prevent replay attacks)
-    time_t current_time = time(NULL);
-    if (current_time - nonce->timestamp > 30) {  // 30 second window
-        LOG_WARN("Attestation failed: nonce too old (age=%lds)", current_time - nonce->timestamp);
-        return HELM_ATTEST_FAIL_TIMEOUT;
+    if (app_registry[app_slot].secret_len < HELM_APP_SECRET_MIN) {
+        /* Cannot happen through helm_register_app_secret(), which rejects it.
+         * Checked anyway: a zero-length secret would make every response
+         * verify, and that is the failure this whole change exists to end. */
+        LOG_ERROR("Attestation failed: app %u has no usable secret", app_id);
+        result = HELM_ATTEST_FAIL_HARDWARE;
+        goto done;
     }
 
-    // Verify signature using CRYSTALS-Dilithium
-    // In real implementation, this would call the actual crypto library
-    // For demo, we simulate signature verification
-    bool signature_valid = true;  // Placeholder
-
-    // Additional checks would include:
-    // - Verify signature matches nonce + app identity
-    // - Check for replay attacks
-    // - Verify key hasn't been compromised
-
-    if (!signature_valid) {
-        LOG_ERROR("Attestation failed: invalid signature for app %u", app_id);
-        helm_log_security_event("ATTESTATION_FAILED", "Invalid signature");
-        return HELM_ATTEST_FAIL_SIGNATURE;
+    /* The challenge must be one we issued, and it is spent either way — so a
+     * wrong answer cannot be retried against it, and a right answer captured
+     * off the wire cannot be replayed. Consumed before the tag is checked so
+     * that a failed verification still burns the challenge. */
+    if (helm_challenge_consume(nonce) != 1) {
+        LOG_WARN("Attestation failed: challenge for app %u was not issued by "
+                 "this Helm, or has already been answered", app_id);
+        result = HELM_ATTEST_FAIL_SIGNATURE;
+        goto done;
     }
 
-    // Update app statistics
+    /* Freshness. difftime() rather than subtracting time_t values, and the
+     * negative arm matters: `current_time - nonce->timestamp > 30` accepted
+     * any nonce dated in the future, since a negative age is not greater
+     * than 30. */
+    now = time(NULL);
+    age = difftime(now, nonce->timestamp);
+    if (age < 0.0 || age > (double)HELM_ATTEST_WINDOW_SECONDS) {
+        LOG_WARN("Attestation failed: challenge out of window (age=%.0fs)", age);
+        result = HELM_ATTEST_FAIL_TIMEOUT;
+        goto done;
+    }
+
+    if (helm_compute_attestation(app_registry[app_slot].secret,
+                                 app_registry[app_slot].secret_len,
+                                 app_id, nonce, &expected) != 0) {
+        LOG_ERROR("Attestation failed: could not compute expected tag");
+        result = HELM_ATTEST_FAIL_HARDWARE;
+        goto done;
+    }
+
+    matched = hmac_constant_time_equal(expected.data, tag->data,
+                                       HELM_ATTEST_TAG_SIZE);
+    secure_zero(&expected, sizeof(expected));
+
+    if (matched != 1) {
+        LOG_ERROR("Attestation failed: invalid response for app %u", app_id);
+        helm_log_security_event("ATTESTATION_FAILED", "Invalid response tag");
+        result = HELM_ATTEST_FAIL_SIGNATURE;
+        goto done;
+    }
+
     app_registry[app_slot].attestation_count++;
-
     LOG_DEBUG("Attestation successful for app %u", app_id);
+    result = HELM_ATTEST_OK;
 
-    return HELM_ATTEST_OK;
+done:
+    helm_update_monitoring_stats(result);
+    return result;
 }
 
 helm_attest_result_t helm_request_capability(
     uint32_t app_id,
     helm_capability_t capability,
-    uint32_t timeout_seconds
+    uint32_t timeout_seconds,
+    const helm_nonce_t *nonce,
+    const helm_attest_tag_t *tag
 ) {
-    // Generate attestation challenge
-    helm_nonce_t nonce = helm_generate_nonce();
+    helm_attest_result_t result;
+    mandalorian_cap_t mand_cap;
+    gate_result_t gate_res;
+    int session_id;
+    char details[256];
 
-    // In real implementation, this nonce would be sent to the app
-    // App would sign it and return the signature
-    // For demo, we simulate successful attestation
-
-    helm_signature_t signature = {0};  // Placeholder
-
-    // Verify attestation
-    helm_attest_result_t result = helm_verify_attestation(app_id, &nonce, &signature);
-
+    /* This used to call helm_generate_nonce() itself, declare
+     * `helm_signature_t signature = {0}` and verify that — so the caller
+     * proved nothing and every registered app_id was granted whatever it
+     * asked for. The proof now has to come from the caller. */
+    result = helm_verify_attestation(app_id, nonce, tag);
     if (result != HELM_ATTEST_OK) {
         return result;
     }
 
-    // Create capability session
-    int session_id = create_capability_session(app_id, capability, timeout_seconds);
+    session_id = create_capability_session(app_id, capability, timeout_seconds);
     if (session_id == -1) {
         LOG_ERROR("Failed to create capability session for app %u", app_id);
         return HELM_ATTEST_FAIL_HARDWARE;
     }
 
-    // Map Helm cap to Mandalorian + Gate call
-    mandalorian_cap_t mand_cap = {0}; // Derive from helm_capability
-    /* Sources are internal literals today, but bound them so a future
-     * capability_to_action() returning something longer cannot overflow. */
-    strncpy(mand_cap.action, capability_to_action(capability),
-            sizeof(mand_cap.action) - 1);
-    strncpy(mand_cap.resource, "helm_internal", sizeof(mand_cap.resource) - 1);
-    
+    /* Mint a capability the gate can actually verify.
+     *
+     * This used to be `mandalorian_cap_t mand_cap = {0}` with the action and
+     * resource strcpy'd in and the signature left as 32 zero bytes. The gate's
+     * first step is signature verification, so it denied every one of them —
+     * the successful path through Aegis -> Helm -> gate was unreachable, and
+     * the demo printed "Legitimate apps can access capabilities when attested"
+     * directly beneath two DENIED lines. */
+    if (issue_capability(&mand_cap, agent_id_to_str(app_id),
+                         capability_to_action(capability), "helm_internal",
+                         "", timeout_seconds) != 0) {
+        LOG_ERROR("Failed to issue capability for app %u", app_id);
+        int slot = find_session_slot((uint32_t)session_id);
+        if (slot != -1) {
+            capability_sessions[slot].active = false;
+            helm_monitoring_session_closed();
+        }
+        helm_monitoring_capability_denied();
+        return HELM_ATTEST_FAIL_HARDWARE;
+    }
+
     // Gate the capability grant itself
-    gate_result_t gate_res = helm_mandalorian_gate(app_id, mand_cap.action, mand_cap.resource, "", &mand_cap);
+    gate_res = helm_mandalorian_gate(app_id, mand_cap.action, mand_cap.resource,
+                                     "", &mand_cap);
     if (gate_res != GATE_OK) {
         LOG_ERROR("Mandalorian gate denied helm cap %d for app %u", capability, app_id);
+        /* The session was created before the gate ran, so a gate denial used
+         * to leave a live session behind for a request that was refused. */
+        int slot = find_session_slot((uint32_t)session_id);
+        if (slot != -1) {
+            capability_sessions[slot].active = false;
+            helm_monitoring_session_closed();
+        }
+        helm_monitoring_capability_denied();
+        helm_update_monitoring_stats(HELM_ATTEST_FAIL_POLICY);
         return HELM_ATTEST_FAIL_POLICY;
     }
-    
+
     // Log to Shield Ledger
-    char details[256];
-    snprintf(details, sizeof(details), "Granted cap=%d app=%u session=%d via Mandalorian gate", capability, app_id, session_id);
+    snprintf(details, sizeof(details),
+             "Granted cap=%d app=%u session=%d via Mandalorian gate",
+             capability, app_id, session_id);
     helm_log_security_event("CAPABILITY_GRANTED", details);
 
     LOG_INFO("Cap %d granted to app %u via Mandalorian (session %d)", capability, app_id, session_id);
@@ -134,12 +300,25 @@ helm_attest_result_t helm_request_capability(
     return HELM_ATTEST_OK;
 }
 
+/* Six of the eight capabilities fell through to "unknown" here, so location,
+ * contacts, network, storage, sensors and bluetooth all reached the gate as
+ * the same action string. A gate cannot enforce a distinction it is not told
+ * about: a capability granted for storage would have satisfied a request for
+ * location. Listed explicitly, with no default, so -Wswitch flags the next
+ * capability added to the enum rather than silently folding it into the
+ * others. */
 const char *capability_to_action(helm_capability_t cap) {
     switch(cap) {
-        case HELM_CAP_CAMERA: return "access_camera";
+        case HELM_CAP_CAMERA:     return "access_camera";
         case HELM_CAP_MICROPHONE: return "access_mic";
-        default: return "unknown";
+        case HELM_CAP_LOCATION:   return "access_location";
+        case HELM_CAP_CONTACTS:   return "access_contacts";
+        case HELM_CAP_NETWORK:    return "access_network";
+        case HELM_CAP_STORAGE:    return "access_storage";
+        case HELM_CAP_SENSORS:    return "access_sensors";
+        case HELM_CAP_BLUETOOTH:  return "access_bluetooth";
     }
+    return "unknown";
 }
 
 /*
@@ -193,23 +372,60 @@ gate_result_t helm_mandalorian_gate(uint32_t app_id, const char *action, const c
     return mandalorian_execute(&req, &local_cap);
 }
 
-int helm_register_app_key(uint32_t app_id, const uint8_t *public_key) {
-    // Check if app already registered
+int helm_register_app_secret(uint32_t app_id, const uint8_t *secret,
+                             size_t secret_len) {
+    int slot;
+    int nonzero = 0;
+
+    if (secret == NULL) {
+        LOG_ERROR("Refusing to register app %u with a NULL secret", app_id);
+        return -1;
+    }
+
+    /* app_id 0 marks a free slot in the registry, so it cannot name an app. */
+    if (app_id == 0) {
+        LOG_ERROR("Refusing to register app_id 0");
+        return -1;
+    }
+
+    /* The old signature was helm_register_app_key(app_id, const uint8_t *) and
+     * the body did memcpy(dst, public_key, 1952) — a fixed length with no way
+     * for the caller to say how much it actually had. Every caller in this
+     * tree passed a 1952-byte array of zeroes, which is the only reason it
+     * never read out of bounds. */
+    if (secret_len < HELM_APP_SECRET_MIN || secret_len > HELM_APP_SECRET_MAX) {
+        LOG_ERROR("Refusing to register app %u: secret length %zu outside "
+                  "[%d, %d]", app_id, secret_len, HELM_APP_SECRET_MIN,
+                  HELM_APP_SECRET_MAX);
+        return -1;
+    }
+
+    for (size_t i = 0; i < secret_len; i++) {
+        nonzero |= secret[i];
+    }
+    if (nonzero == 0) {
+        /* An all-zero secret is an uninitialised buffer far more often than a
+         * deliberate key, and registering one lets anybody attest as this app.
+         * The demo registered three apps with `static uint8_t key[1952] = {0}`
+         * and nothing objected. */
+        LOG_ERROR("Refusing to register app %u with an all-zero secret", app_id);
+        return -1;
+    }
+
     if (find_app_slot(app_id) != -1) {
         LOG_WARN("App %u already registered", app_id);
         return -1;
     }
 
-    // Find free slot
-    int slot = find_free_app_slot();
+    slot = find_free_app_slot();
     if (slot == -1) {
         LOG_ERROR("No free app registration slots");
         return -1;
     }
 
-    // Register app
     app_registry[slot].app_id = app_id;
-    memcpy(app_registry[slot].public_key, public_key, 1952);
+    memcpy(app_registry[slot].secret, secret, secret_len);
+    app_registry[slot].secret_len = secret_len;
     app_registry[slot].revoked = false;
     app_registry[slot].registered_time = time(NULL);
     app_registry[slot].attestation_count = 0;
@@ -229,10 +445,17 @@ int helm_revoke_app_key(uint32_t app_id) {
 
     app_registry[slot].revoked = true;
 
+    /* Wipe the secret. Marking the record revoked left the key material in
+     * memory for the life of the process, which is the opposite of what
+     * revoking a compromised app's credential is for. */
+    secure_zero(app_registry[slot].secret, sizeof(app_registry[slot].secret));
+    app_registry[slot].secret_len = 0;
+
     // Revoke all active sessions for this app
     for (int i = 0; i < MAX_ACTIVE_SESSIONS; i++) {
         if (capability_sessions[i].active && capability_sessions[i].app_id == app_id) {
             capability_sessions[i].active = false;
+            helm_monitoring_session_closed();
         }
     }
 

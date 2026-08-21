@@ -43,6 +43,27 @@ exec_result_t executor_perform(const mandalorian_request_t *req)
         return EXEC_OK;
     }
 
+    /* Capability grants: "access_camera", "access_location" and the rest,
+     * minted by Helm when an app attests successfully.
+     *
+     * These have no ambient side effect to perform. The effect *is* the grant
+     * — on real hardware, handing the app an seL4 endpoint capability for the
+     * device; here, the session record Helm has already written. Returning
+     * EXEC_DENIED for them made every Helm capability grant fail at gate step
+     * 8 after passing the other seven, so the Aegis -> Helm -> gate path could
+     * not succeed even once the capability was properly signed.
+     *
+     * This is not a hole in the fail-closed default below: the gate has
+     * already checked that the presented capability authorises this exact
+     * action string against this exact resource. What the prefix decides is
+     * only whether the executor has anything left to do, and for a grant it
+     * does not. */
+    if (strncmp(req->action, "access_", 7) == 0 && req->action[7] != '\0') {
+        LOG_INFO("Executor: capability grant '%s' on %s recorded; no seL4 "
+                 "endpoint to transfer off-target", req->action, req->resource);
+        return EXEC_OK;
+    }
+
     /* Previously this returned EXEC_OK for everything, so an unimplemented
      * action reported success and produced a receipt saying so. */
     LOG_WARN("Executor: no handler for action '%s'; denying", req->action);

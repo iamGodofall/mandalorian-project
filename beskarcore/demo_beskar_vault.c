@@ -8,6 +8,20 @@
 // BlackBerry-inspired hardware security demonstration
 
 // Tamper callback function (must be at file scope, not inside function)
+/* The demo printed ❌ for failed steps and then `return 0` regardless, so
+ * ctest's VaultDemo passed against a run in which every cryptographic
+ * operation failed. Steps that must succeed now record a failure. */
+static int demo_failures = 0;
+
+static void step(const char *what, int ok) {
+    if (ok) {
+        printf("✅ %s\n", what);
+    } else {
+        printf("❌ %s\n", what);
+        demo_failures++;
+    }
+}
+
 void my_tamper_callback(vault_tamper_type_t type, void *context) {
     (void)context; // Unused parameter
     printf("   🚨 TAMPER CALLBACK INVOKED: %s\n", 
@@ -40,12 +54,12 @@ void demo_key_management(void) {
     
     printf("Generating user authentication key...\n");
     if (vault_generate_key(VAULT_KEY_USER_AUTH, user_pub_key, &pub_len) == 0) {
-        printf("✅ User auth key generated successfully\n");
+        step("User auth key generated successfully", 1);
         printf("   Public Key Hash: %02X%02X...%02X%02X\n",
                user_pub_key[0], user_pub_key[1],
                user_pub_key[30], user_pub_key[31]);
     } else {
-        printf("❌ Failed to generate user auth key\n");
+        step("Failed to generate user auth key", 0);
     }
     
     // Generate communication key
@@ -54,9 +68,9 @@ void demo_key_management(void) {
     
     printf("\nGenerating communication key...\n");
     if (vault_generate_key(VAULT_KEY_COMMUNICATION, comm_pub_key, &pub_len) == 0) {
-        printf("✅ Communication key generated successfully\n");
+        step("Communication key generated successfully", 1);
     } else {
-        printf("❌ Failed to generate communication key\n");
+        step("Failed to generate communication key", 0);
     }
     
     // Get key metadata
@@ -79,28 +93,50 @@ void demo_cryptographic_operations(void) {
     const char *test_message = "Hello, BeskarVault! This is a secret message.";
     size_t msg_len = strlen(test_message);
     
-    // Sign data
-    uint8_t signature[64];
-    size_t sig_len = sizeof(signature);
-    
-    printf("Signing message with user auth key...\n");
-    if (vault_sign(VAULT_KEY_USER_AUTH, (const uint8_t*)test_message, msg_len,
-                   signature, &sig_len) == 0) {
-        printf("✅ Message signed successfully\n");
-        printf("   Signature: %02X%02X...%02X%02X\n",
-               signature[0], signature[1],
-               signature[62], signature[63]);
+    /* Authenticate data.
+     *
+     * This said "sign" and printed "Signature:". It is an HMAC-SHA3-256 tag —
+     * verifying it requires the same secret, so it authenticates the holder of
+     * the key, not the origin of the message to a third party. Calling it a
+     * signature invited exactly the wrong conclusion. */
+    uint8_t tag[BESKAR_VAULT_MAC_SIZE];
+    size_t tag_len = sizeof(tag);
+
+    printf("Authenticating message with user auth key (HMAC-SHA3-256)...\n");
+    if (vault_mac(VAULT_KEY_USER_AUTH, (const uint8_t*)test_message, msg_len,
+                  tag, &tag_len) == 0) {
+        step("Message authenticated successfully", 1);
+        printf("   Tag: %02X%02X...%02X%02X\n",
+               tag[0], tag[1],
+               tag[BESKAR_VAULT_MAC_SIZE - 2], tag[BESKAR_VAULT_MAC_SIZE - 1]);
     } else {
-        printf("❌ Failed to sign message\n");
+        step("Failed to authenticate message", 0);
     }
-    
-    // Verify signature
-    printf("\nVerifying signature...\n");
-    if (vault_verify(VAULT_KEY_USER_AUTH, (const uint8_t*)test_message, msg_len,
-                     signature, sig_len) == 0) {
-        printf("✅ Signature verified successfully\n");
+
+    // Verify tag
+    printf("\nVerifying tag...\n");
+    if (vault_verify_mac(VAULT_KEY_USER_AUTH, (const uint8_t*)test_message,
+                         msg_len, tag, tag_len) == 0) {
+        step("Tag verified successfully", 1);
     } else {
-        printf("❌ Signature verification failed\n");
+        step("Tag verification failed", 0);
+    }
+
+    /* And a tampered message must not verify. The demo checked only that a
+     * fresh tag verified against its own message, which any construction
+     * passes — including one that ignores the message entirely. */
+    printf("\nVerifying tag against a tampered message...\n");
+    {
+        char tampered[128];
+        snprintf(tampered, sizeof(tampered), "%s", test_message);
+        tampered[0] = (char)(tampered[0] ^ 0x01);
+
+        if (vault_verify_mac(VAULT_KEY_USER_AUTH, (const uint8_t*)tampered,
+                             strlen(tampered), tag, tag_len) != 0) {
+            step("Tampered message rejected (as it must be)", 1);
+        } else {
+            step("TAMPERED MESSAGE ACCEPTED - the tag covers nothing", 0);
+        }
     }
     
     // Encrypt data
@@ -110,10 +146,10 @@ void demo_cryptographic_operations(void) {
     printf("\nEncrypting message with communication key...\n");
     if (vault_encrypt(VAULT_KEY_COMMUNICATION, (const uint8_t*)test_message, msg_len,
                       ciphertext, &ct_len) == 0) {
-        printf("✅ Message encrypted successfully\n");
+        step("Message encrypted successfully", 1);
         printf("   Ciphertext length: %zu bytes\n", ct_len);
     } else {
-        printf("❌ Failed to encrypt message\n");
+        step("Failed to encrypt message", 0);
     }
     
     // Decrypt data
@@ -127,13 +163,10 @@ void demo_cryptographic_operations(void) {
         printf("✅ Message decrypted successfully\n");
         printf("   Decrypted: %s\n", plaintext);
         
-        if (strcmp((char*)plaintext, test_message) == 0) {
-            printf("   ✅ Decryption verified - matches original!\n");
-        } else {
-            printf("   ❌ Decryption failed - doesn't match original\n");
-        }
+        step("Decryption round-trip matches the original", 
+             strcmp((char*)plaintext, test_message) == 0);
     } else {
-        printf("❌ Failed to decrypt message\n");
+        step("Failed to decrypt message", 0);
     }
     
     printf("\n");
@@ -174,9 +207,9 @@ void demo_authentication(void) {
     printf("   PIN: %s\n", pin);
     
     if (vault_authenticate_pin((const uint8_t*)pin, strlen(pin)) == 0) {
-        printf("✅ PIN authentication successful\n");
+        step("PIN authentication successful", 1);
     } else {
-        printf("❌ PIN authentication failed\n");
+        step("PIN authentication failed", 0);
     }
     
     // Test biometric authentication
@@ -342,11 +375,18 @@ int main(int argc, char *argv[]) {
     // Print initial status
     print_vault_status();
     
-    // Run demos
+    /* Authenticate first.
+     *
+     * vault_init() leaves the vault locked, and every operation below refuses
+     * while it is. demo_authentication() ran fourth, so key generation, the
+     * MAC, encryption and decryption all failed for the whole life of this
+     * demo — six consecutive ❌ lines — and it still exited 0, so the VaultDemo
+     * ctest passed and the closing banner listed every one of those operations
+     * as "demonstrated". */
+    demo_authentication();
     demo_key_management();
     demo_cryptographic_operations();
     demo_key_derivation();
-    demo_authentication();
     demo_tamper_detection();
     demo_secure_memory();
     demo_emergency_wipe();
@@ -371,6 +411,10 @@ int main(int argc, char *argv[]) {
     printf("  ✅ Emergency wipe functionality\n");
     printf("═══════════════════════════════════════════════════════════════\n");
     
+    if (demo_failures > 0) {
+        printf("\n❌ %d demo step(s) failed\n", demo_failures);
+    }
+
     logging_cleanup();
-    return 0;
+    return demo_failures == 0 ? 0 : 1;
 }

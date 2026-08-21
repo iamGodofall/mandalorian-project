@@ -37,6 +37,54 @@
 #define USER_DENY      0
 #define USER_REMEMBER  2
 
+// ============================================================================
+// Demo app keystore
+// ============================================================================
+//
+// Helm attestation is a challenge-response: the app answers with a tag it can
+// only compute if it holds its registered secret. On a real device the app
+// holds that secret and Aegis relays the challenge to it over IPC; Aegis never
+// sees it. There is no such channel here, so Aegis stands in for the apps and
+// answers on their behalf. That is a demo shortcut, not the design — marked
+// clearly because an undocumented shortcut in a security path is how this
+// repository accumulated the problems it did.
+//
+// Before this, Aegis registered no apps with Helm at all, so every
+// helm_request_capability() call it made returned "app not registered" and
+// aegis_request_permission() denied everything. Nothing noticed, because the
+// deny path prints the same reassuring message either way.
+#define AEGIS_DEMO_SECRET_LEN 32
+
+typedef struct {
+    uint32_t app_id;
+    uint8_t secret[AEGIS_DEMO_SECRET_LEN];
+} aegis_demo_identity_t;
+
+static const aegis_demo_identity_t demo_identities[] = {
+    { APP_SIGNAL, {
+        0x41, 0x45, 0x47, 0x49, 0x53, 0x2d, 0x53, 0x69, 0x67, 0x6e, 0x61, 0x6c,
+        0x2d, 0x64, 0x65, 0x6d, 0x6f, 0x2d, 0x69, 0x64, 0x65, 0x6e, 0x74, 0x69,
+        0x74, 0x79, 0x2d, 0x30, 0x30, 0x30, 0x30, 0x31 } },
+    { APP_WHATSAPP, {
+        0x41, 0x45, 0x47, 0x49, 0x53, 0x2d, 0x57, 0x68, 0x61, 0x74, 0x73, 0x41,
+        0x70, 0x70, 0x2d, 0x64, 0x65, 0x6d, 0x6f, 0x2d, 0x69, 0x64, 0x65, 0x6e,
+        0x74, 0x69, 0x74, 0x79, 0x2d, 0x30, 0x30, 0x32 } },
+    { APP_INSTAGRAM, {
+        0x41, 0x45, 0x47, 0x49, 0x53, 0x2d, 0x49, 0x6e, 0x73, 0x74, 0x61, 0x67,
+        0x72, 0x61, 0x6d, 0x2d, 0x64, 0x65, 0x6d, 0x6f, 0x2d, 0x69, 0x64, 0x65,
+        0x6e, 0x74, 0x69, 0x74, 0x79, 0x2d, 0x30, 0x33 } },
+};
+
+static const uint8_t *aegis_demo_secret(uint32_t app_id) {
+    for (size_t i = 0; i < sizeof(demo_identities) / sizeof(demo_identities[0]);
+         i++) {
+        if (demo_identities[i].app_id == app_id) {
+            return demo_identities[i].secret;
+        }
+    }
+    return NULL;  /* Unknown app: no secret, so attestation must fail. */
+}
+
 typedef struct {
     char app_name[64];
     char capability[32];
@@ -166,10 +214,27 @@ int aegis_request_permission(const char* app_name, const char* capability) {
     printf("[AEGIS] 🔐 Requesting Helm attestation for %s...\n", app_name);
 
     helm_capability_t helm_cap = map_capability_string(capability);
+
+    /* Take a challenge and answer it. On a real device the middle step is an
+     * IPC round-trip to the app; see the demo keystore note above. An app with
+     * no registered secret sends a zeroed tag, which fails — that is the
+     * correct outcome, not a special case. */
+    helm_nonce_t nonce = helm_generate_nonce();
+    helm_attest_tag_t tag;
+    const uint8_t *secret = aegis_demo_secret(app_id);
+
+    memset(&tag, 0, sizeof(tag));
+    if (secret != NULL) {
+        helm_compute_attestation(secret, AEGIS_DEMO_SECRET_LEN, app_id, &nonce,
+                                 &tag);
+    }
+
     helm_attest_result_t helm_result = helm_request_capability(
         app_id,
         helm_cap,
-        300  // 5 minute capability timeout
+        300,  // 5 minute capability timeout
+        &nonce,
+        &tag
     );
 
     if (helm_result != HELM_ATTEST_OK) {
@@ -264,6 +329,31 @@ int aegis_init(void) {
     // Initialize policy cache
     memset(user_policies, 0, sizeof(user_policies));
     policy_count = 0;
+
+    /* Bring Helm up and register the demo app identities. Aegis called
+     * helm_request_capability() without either, so every request failed
+     * attestation with "app not registered" and Aegis denied it — the whole
+     * Aegis -> Helm -> gate path returned the right answer for the wrong
+     * reason and had never once granted anything. */
+    if (helm_init() != 0) {
+        printf("[AEGIS] Helm initialization failed — capability requests will "
+               "be denied\n");
+        return -1;
+    }
+
+    for (size_t i = 0; i < sizeof(demo_identities) / sizeof(demo_identities[0]);
+         i++) {
+        if (helm_register_app_secret(demo_identities[i].app_id,
+                                     demo_identities[i].secret,
+                                     AEGIS_DEMO_SECRET_LEN) != 0) {
+            printf("[AEGIS] Failed to register app %u with Helm\n",
+                   demo_identities[i].app_id);
+            return -1;
+        }
+    }
+
+    printf("[AEGIS] Registered %zu app identities with Helm\n",
+           sizeof(demo_identities) / sizeof(demo_identities[0]));
 
     return 0;
 }

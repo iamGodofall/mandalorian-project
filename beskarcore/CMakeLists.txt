@@ -2,6 +2,7 @@
 
 add_library(beskarcore STATIC
     src/sha3.c
+    src/hmac_sha3.c
     src/secure_random.c
     src/merkle_ledger.c
     src/logging.c

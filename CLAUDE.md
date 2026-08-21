@@ -77,6 +77,55 @@ judge a cryptographic primitive by looking at its output.** Use published test
 vectors, and cross-check against an independent implementation — Python's
 `hashlib` and `hmac` are already used for this in CI.
 
+**A security check whose result is a literal.** `helm_verify_attestation()`
+contained `bool signature_valid = true;  // Placeholder` and then
+`if (!signature_valid) { ...fail... }`, so the failure arm was unreachable and
+every response verified — including the all-zero one its own caller handed it.
+It survived because the checks *around* it were real: unknown apps and revoked
+apps were refused, so the demo showed denials and looked like it worked. When
+reviewing an authentication path, find the line that compares the credential.
+If there isn't one, the surrounding checks are decoration.
+
+**A test that only tries the cases the broken code already refuses.** The
+counterpart to the above. A test for attestation that checks "unknown app
+denied" and "revoked app denied" passes against a verifier that accepts every
+tag. The cases that matter are the ones where the subject is *registered and
+unrevoked* and still must fail: wrong secret, one-bit-different secret, zeroed
+tag, replayed challenge, self-chosen challenge. Prove it by breaking the fix on
+purpose — `tests/unit/test_helm_attestation.c` was confirmed to go 10 red out
+of 36 against the old logic before it was trusted.
+
+**Challenge-response where the responder picks the challenge.** Verifying a
+tag over a nonce is worth nothing unless the nonce is one you issued and have
+not seen answered. Helm keeps an outstanding-challenge table and consumes the
+entry on the first verification attempt, pass *or* fail — so a captured pair
+cannot be replayed and a wrong answer cannot be retried against the same nonce.
+
+**Signed time arithmetic in a freshness window.** `current_time -
+nonce->timestamp > 30` rejects stale nonces and accepts every nonce dated in
+the *future*, because a negative age is not greater than 30. Check both arms.
+
+**`static` hides duplicate state the way archives hide duplicate symbols.**
+After the twenty `helm_*` duplicates were trimmed, `attestation.c` still held
+private copies of `monitoring_stats`, `continuous_monitoring_active`,
+`helm_config` and a `create_capability_session()` that nothing called — and
+`helm.c` held its own `monitoring_stats` and `continuous_monitoring_active`
+alongside `monitoring.c`'s. Being `static` meant the linker never complained.
+The consequences were real: `helm_init()` reset counters nobody reads,
+`helm_emergency_halt()` cleared a flag the monitoring thread does not consult
+so an emergency halt did not stop monitoring, and the live
+`create_capability_session()` never incremented `capabilities_granted`, so it
+read zero however many capabilities were granted. Grep for a name before
+declaring it, `static` or not.
+
+**A demo that prints ✅/❌ per step and then `return 0`.** `demo_beskar_vault`
+ran `demo_authentication()` *fourth*, after key management and the crypto
+operations — and `vault_init()` leaves the vault locked, so key generation, the
+MAC, encryption and decryption all failed, every run, for the life of the demo.
+It exited 0, so ctest's `VaultDemo` passed, and the closing banner listed all
+of those as "Key Features Demonstrated". A demo registered as a test must
+return non-zero when a step fails, or it is a test that cannot fail.
+
 **Randomness must fail closed.** `secure_random.h` is the only sanctioned
 source. It has deliberately no `rand()` fallback: if no entropy source is
 available it returns an error and zeroes the buffer. Zeros are obviously
@@ -141,7 +190,15 @@ Keep this list honest and current. As of the last update:
   Signal Double Ratchet.
 - **Message AEAD.** BeskarLink uses a SHA3-based keystream and a SHA3 MAC. Not
   a reviewed construction. Do not protect real messages with it.
-- **Post-quantum anything.** No Dilithium, no Kyber, nowhere in the tree.
+- **Post-quantum anything.** No Dilithium, no Kyber, nowhere in the tree. Helm's
+  attestation types were *sized* for Dilithium (1952-byte key, 3293-byte
+  signature) without implementing any of it; they now say HMAC.
+- **Public-key signatures, anywhere.** Helm attestation and `vault_mac()` are
+  both symmetric: the verifier holds the same secret as the signer and can
+  forge. Neither is a signature, and neither should be described as one.
+  Swapping in a real scheme means replacing `helm_compute_attestation()` (app
+  side) and the tag comparison in `helm_verify_attestation()` (Helm side); the
+  protocol shape does not otherwise change.
 - **Hardware root of trust.** `boot_init()` refuses `enable_secure_boot`
   because there is nothing to anchor it to. Measured boot works; secure boot
   does not exist.

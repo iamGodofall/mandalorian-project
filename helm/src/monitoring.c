@@ -11,6 +11,7 @@
 static helm_monitoring_stats_t monitoring_stats = {0};
 static bool continuous_monitoring_active = false;
 static pthread_t monitoring_thread;
+static bool monitoring_thread_valid = false;
 static bool monitoring_running = false;
 
 // Forward declarations
@@ -37,13 +38,18 @@ int helm_start_continuous_monitoring(void) {
         monitoring_running = false;
         return -1;
     }
+    monitoring_thread_valid = true;
 
     LOG_INFO("Continuous Helm monitoring started");
     return 0;
 }
 
 void helm_stop_continuous_monitoring(void) {
-    if (!continuous_monitoring_active) {
+    if (!monitoring_thread_valid) {
+        /* An emergency halt may have already cleared the run flag via
+         * helm_monitoring_request_stop(). The thread is still joinable and
+         * still has to be joined, so key this on whether a thread was ever
+         * started rather than on continuous_monitoring_active. */
         return;
     }
 
@@ -52,12 +58,45 @@ void helm_stop_continuous_monitoring(void) {
 
     // Wait for monitoring thread to finish
     pthread_join(monitoring_thread, NULL);
+    monitoring_thread_valid = false;
 
     LOG_INFO("Continuous Helm monitoring stopped");
 }
 
 helm_monitoring_stats_t helm_get_monitoring_stats(void) {
     return monitoring_stats;
+}
+
+void helm_monitoring_reset(void) {
+    memset(&monitoring_stats, 0, sizeof(monitoring_stats));
+}
+
+/* These two increments used to live in attestation.c's private copy of
+ * create_capability_session(), which nothing called. The live copy in
+ * capability.c never had them, so capabilities_granted and active_sessions
+ * read 0 no matter how many capabilities were granted — and the expiry sweep
+ * below decremented active_sessions from 0, wrapping a uint32_t to about four
+ * billion the first time a session timed out. */
+void helm_monitoring_session_opened(void) {
+    monitoring_stats.capabilities_granted++;
+    monitoring_stats.active_sessions++;
+}
+
+void helm_monitoring_session_closed(void) {
+    if (monitoring_stats.active_sessions > 0) {
+        monitoring_stats.active_sessions--;
+    }
+}
+
+void helm_monitoring_capability_denied(void) {
+    monitoring_stats.capabilities_denied++;
+}
+
+void helm_monitoring_request_stop(void) {
+    /* Clears the run flag without joining, so it is safe to call from inside
+     * the monitoring thread — which helm_emergency_halt() does. */
+    continuous_monitoring_active = false;
+    monitoring_running = false;
 }
 
 // ============================================================================
@@ -102,7 +141,7 @@ static void perform_continuous_attestation(void) {
                 current_time > capability_sessions[i].expires_time) {
                 capability_sessions[i].active = false;
                 expired_sessions++;
-                monitoring_stats.active_sessions--;
+                helm_monitoring_session_closed();
             }
         }
 

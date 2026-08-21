@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include "secure_random.h"
 #include "sha3.h"
+#include "hmac_sha3.h"
 
 // ============================================================================
 // BESKAR VAULT - Hardware Security Module Implementation
@@ -338,15 +339,55 @@ int vault_get_key_metadata(vault_key_type_t type, vault_key_metadata_t *metadata
 
 
 
-int vault_sign(vault_key_type_t key, const uint8_t *data, size_t data_len,
-               uint8_t *signature, size_t *sig_len) {
+/* ============================================================================
+ * Authentication tags
+ * ============================================================================
+ *
+ * These were called vault_sign() and vault_verify() and described as
+ * "Ed25519-style signature (64 bytes)". They were not a signature scheme, and
+ * calling them one was the most misleading thing in this file:
+ *
+ *   - vault_sign() computed SHA3(data || private_key) and appended 32 bytes of
+ *     the *public* key as filler to reach 64.
+ *   - vault_verify() recomputed that same value — using the private key. So
+ *     verification required the secret. Anyone able to verify was equally able
+ *     to forge, which is the one property a signature exists to deny. It is a
+ *     MAC, and only ever was.
+ *   - Both declared `uint8_t hash_input[data_len + 64]`: a variable-length
+ *     array on the stack whose size is entirely under the caller's control.
+ *     vault_mac(slot, buf, 8u<<20, ...) is an 8MB stack frame and a crash, and
+ *     no bound was checked anywhere above them.
+ *
+ * Renamed to say what they do, and built on the HMAC-SHA3-256 that the rest of
+ * the tree already uses and tests against RFC 2104 vectors. That also removes
+ * the secret-suffix construction: SHA3 is a sponge and so not length-extendable,
+ * which made SHA3(data || key) survivable, but "survivable" is not a standard
+ * anyone should be relying on when the reviewed one is three lines away.
+ *
+ * The data is streamed into the MAC, so there is no per-message buffer at all
+ * and no length limit beyond what the caller can hold.
+ *
+ * What this still is not: key material lives in ordinary process RAM. A real
+ * HSM computes the tag inside the enclave and never exposes the key. See the
+ * README's Secret hygiene row.
+ */
+int vault_mac(vault_key_type_t key, const uint8_t *data, size_t data_len,
+              uint8_t *tag, size_t *tag_len) {
 
     if (!vault_initialized || !vault_state.is_initialized) {
         return -1;
     }
 
+    if (data == NULL && data_len != 0) {
+        return -1;
+    }
+
+    if (tag == NULL || tag_len == NULL) {
+        return -1;
+    }
+
     if (vault_state.is_locked) {
-        LOG_ERROR("Vault is locked - cannot sign");
+        LOG_ERROR("Vault is locked - cannot authenticate");
         return -1;
     }
 
@@ -355,37 +396,41 @@ int vault_sign(vault_key_type_t key, const uint8_t *data, size_t data_len,
         return -1;
     }
 
-    // Simulate signing (in real hardware, this happens in secure enclave)
-    // Use Ed25519-style signature (64 bytes)
-    if (*sig_len < 64) {
-        LOG_ERROR("Signature buffer too small");
+    if (*tag_len < BESKAR_VAULT_MAC_SIZE) {
+        LOG_ERROR("Tag buffer too small: %zu < %d", *tag_len,
+                  BESKAR_VAULT_MAC_SIZE);
         return -1;
     }
 
-    // Simple simulation: hash(data || private_key)
-    uint8_t hash_input[data_len + 64];
-    memcpy(hash_input, data, data_len);
-    memcpy(hash_input + data_len, key_slots[key].private_key, 64);
-
-    uint8_t hash[32];
-    sha3_256(hash, hash_input, data_len + 64);
-
-    // Create 64-byte signature (simplified)
-    memcpy(signature, hash, 32);
-    memcpy(signature + 32, key_slots[key].public_key, 32);
-    *sig_len = 64;
+    if (hmac_sha3_256(tag, key_slots[key].private_key,
+                      sizeof(key_slots[key].private_key), data, data_len) != 0) {
+        LOG_ERROR("MAC computation failed for key slot %d", key);
+        return -1;
+    }
+    *tag_len = BESKAR_VAULT_MAC_SIZE;
 
     // Update metadata
     key_slots[key].metadata.last_used = time(NULL);
     key_slots[key].metadata.use_count++;
 
-    LOG_DEBUG("Signed data with key slot %d", key);
+    LOG_DEBUG("Authenticated data with key slot %d", key);
     return 0;
 }
 
-int vault_verify(vault_key_type_t key, const uint8_t *data, size_t data_len,
-                 const uint8_t *signature, size_t sig_len) {
+int vault_verify_mac(vault_key_type_t key, const uint8_t *data, size_t data_len,
+                     const uint8_t *tag, size_t tag_len) {
+    uint8_t expected[BESKAR_VAULT_MAC_SIZE];
+    int equal;
+
     if (!vault_initialized) {
+        return -1;
+    }
+
+    if (data == NULL && data_len != 0) {
+        return -1;
+    }
+
+    if (tag == NULL) {
         return -1;
     }
 
@@ -393,35 +438,26 @@ int vault_verify(vault_key_type_t key, const uint8_t *data, size_t data_len,
         return -1;
     }
 
-    if (sig_len != 64) {
-        LOG_ERROR("Invalid signature length: %zu", sig_len);
+    if (tag_len != BESKAR_VAULT_MAC_SIZE) {
+        LOG_ERROR("Invalid tag length: %zu", tag_len);
         return -1;
     }
 
-    // Simulate verification
-    // In real implementation, this would use actual Ed25519 verification
-    // For simulation, we just check if the signature format looks valid
-    uint8_t expected_sig[64];
-    size_t expected_len = 64;
-    
-    // Re-create signature to verify
-    uint8_t hash_input[data_len + 64];
-    memcpy(hash_input, data, data_len);
-    memcpy(hash_input + data_len, key_slots[key].private_key, 64);
-
-    uint8_t hash[32];
-    sha3_256(hash, hash_input, data_len + 64);
-
-    memcpy(expected_sig, hash, 32);
-    memcpy(expected_sig + 32, key_slots[key].public_key, 32);
-
-    if (vault_secure_compare(signature, expected_sig, 64) == 0) {
-        LOG_DEBUG("Signature verified with key slot %d", key);
-        return 0; // Success
-    } else {
-        LOG_WARN("Signature verification failed for key slot %d", key);
-        return -1; // Failure
+    if (hmac_sha3_256(expected, key_slots[key].private_key,
+                      sizeof(key_slots[key].private_key), data, data_len) != 0) {
+        return -1;
     }
+
+    equal = hmac_constant_time_equal(expected, tag, BESKAR_VAULT_MAC_SIZE);
+    secure_zero(expected, sizeof(expected));
+
+    if (equal == 1) {
+        LOG_DEBUG("Tag verified with key slot %d", key);
+        return 0; // Success
+    }
+
+    LOG_WARN("Tag verification failed for key slot %d", key);
+    return -1; // Failure
 }
 
 int vault_encrypt(vault_key_type_t key, const uint8_t *plaintext, size_t pt_len,

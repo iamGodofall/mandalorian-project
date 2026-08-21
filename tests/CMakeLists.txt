@@ -24,6 +24,10 @@ add_executable(test_gate_enforcement unit/test_gate_enforcement.c)
 target_link_libraries(test_gate_enforcement PRIVATE mandalorian_core)
 add_test(NAME GateEnforcement COMMAND test_gate_enforcement)
 
+add_executable(test_helm_attestation unit/test_helm_attestation.c)
+target_link_libraries(test_helm_attestation PRIVATE helm)
+add_test(NAME HelmAttestation COMMAND test_helm_attestation)
+
 # Gate fuzzing, running as a fixed-corpus test so the properties are checked
 # everywhere. The libFuzzer build is opt-in below.
 add_executable(fuzz_gate_corpus fuzz/fuzz_gate.c)

@@ -92,11 +92,39 @@ int vault_export_key(vault_key_type_t type, uint8_t *encrypted_key,
 int vault_delete_key(vault_key_type_t type);
 int vault_get_key_metadata(vault_key_type_t type, vault_key_metadata_t *metadata);
 
-// Cryptographic operations (private keys never leave HSM)
-int vault_sign(vault_key_type_t key, const uint8_t *data, size_t data_len,
-               uint8_t *signature, size_t *sig_len);
-int vault_verify(vault_key_type_t key, const uint8_t *data, size_t data_len,
-                 const uint8_t *signature, size_t sig_len);
+// ---------------------------------------------------------------------------
+// Cryptographic operations
+// ---------------------------------------------------------------------------
+//
+// NOT "private keys never leave HSM", which is what this section used to
+// claim: key material is held in ordinary process memory by key_slots[]. That
+// is the Phase 2 hardware dependency, not a property of this code.
+
+/** Size of an authentication tag: HMAC-SHA3-256. */
+#define BESKAR_VAULT_MAC_SIZE 32
+
+/**
+ * @brief Authenticate data with a slot's key. HMAC-SHA3-256.
+ *
+ * This is a symmetric MAC, not a signature: verification needs the same secret,
+ * so anyone who can verify can also forge. It was called vault_sign() and
+ * documented as "Ed25519-style", which it never was — vault_verify() recomputed
+ * the value using the *private* key. Both also built a stack buffer sized by
+ * data_len, so a large message was a stack overflow.
+ *
+ * @param tag_len  In: capacity of tag. Out: BESKAR_VAULT_MAC_SIZE.
+ * @return 0 on success, -1 on invalid arguments, a locked vault, an absent key,
+ *         or a tag buffer smaller than BESKAR_VAULT_MAC_SIZE.
+ */
+int vault_mac(vault_key_type_t key, const uint8_t *data, size_t data_len,
+              uint8_t *tag, size_t *tag_len);
+
+/**
+ * @brief Verify a tag from vault_mac(). Constant-time comparison.
+ * @return 0 if the tag is valid, -1 otherwise.
+ */
+int vault_verify_mac(vault_key_type_t key, const uint8_t *data, size_t data_len,
+                     const uint8_t *tag, size_t tag_len);
 int vault_decrypt(vault_key_type_t key, const uint8_t *ciphertext, size_t ct_len,
                   uint8_t *plaintext, size_t *pt_len);
 int vault_encrypt(vault_key_type_t key, const uint8_t *plaintext, size_t pt_len,

@@ -6,16 +6,25 @@
 #include <time.h>
 #include "helm_internal.h"
 #include "secure_random.h"
+#include "../../mandalorian/capabilities/issuer.h"
+#include "../../mandalorian/core/receipt.h"
+#include "../../mandalorian/core/verifier.h"
 
 // ============================================================================
 // THE HELM - Core Implementation
 // ============================================================================
 
 // Global Helm state
+//
+// monitoring_stats and continuous_monitoring_active used to be declared here
+// too, as private copies of monitoring.c's. Nothing read helm.c's stats, so
+// helm_init() "reset" a set of counters that helm_get_monitoring_stats() does
+// not return; and helm_emergency_halt() cleared helm.c's
+// continuous_monitoring_active, which the monitoring thread does not consult —
+// so an emergency halt did not stop continuous monitoring. Both now live in
+// monitoring.c only, reached through helm_internal.h.
 static bool helm_initialized = false;
 static helm_config_t helm_config = {0};
-static helm_monitoring_stats_t monitoring_stats = {0};
-static bool continuous_monitoring_active = false;
 static bool emergency_state = false;
 
 // ============================================================================
@@ -36,16 +45,54 @@ int helm_init(void) {
     helm_config.multisig_enabled = false;
     helm_config.hardware_security_required = true;
 
-    // Initialize app registry
-    memset(app_registry, 0, sizeof(app_registry));
+    // Initialize app registry. secure_zero, not memset: the registry holds
+    // app attestation secrets now, and a re-init must not leave the previous
+    // set of them lying in memory for the compiler to decide to skip clearing.
+    secure_zero(app_registry, sizeof(app_registry));
 
-    // Initialize monitoring stats
-    memset(&monitoring_stats, 0, sizeof(monitoring_stats));
+    // Drop any challenges outstanding from a previous run.
+    helm_challenge_reset();
+
+    // Initialize monitoring stats (owned by monitoring.c)
+    helm_monitoring_reset();
 
     // Verify hardware integrity (would check TPM/enclave in real implementation)
     if (helm_config.hardware_security_required && !helm_verify_hardware_integrity()) {
         LOG_ERROR("Hardware integrity check failed - cannot initialize Helm");
         return -1;
+    }
+
+    /* Install the Mandalorian capability-signing key.
+     *
+     * Helm is the capability authority in this architecture: it decides which
+     * app may hold which capability, so it is what should be minting them.
+     * Nothing installed this key, so the gate had none, so every capability
+     * Helm produced failed verification — the grant path had never once
+     * reached GATE_OK.
+     *
+     * Generated per process from the OS CSPRNG. On real hardware it comes from
+     * BeskarVault and survives reboots; here it does not, which means
+     * capabilities do not outlive the process that issued them. That is the
+     * safe direction to be wrong in. If entropy is unavailable, refuse to
+     * initialise rather than run with a predictable signing key. */
+    {
+        uint8_t cap_key[MANDALORIAN_CAP_KEY_SIZE];
+
+        if (secure_random_bytes(cap_key, sizeof(cap_key)) != 0) {
+            LOG_ERROR("Helm: no entropy for the capability-signing key; "
+                      "refusing to initialise");
+            return -1;
+        }
+
+        if (issuer_set_key(cap_key, sizeof(cap_key)) != 0 ||
+            verifier_set_key(cap_key, sizeof(cap_key)) != 0 ||
+            receipt_set_key(cap_key, sizeof(cap_key)) != 0) {
+            secure_zero(cap_key, sizeof(cap_key));
+            LOG_ERROR("Helm: could not install the capability-signing key");
+            return -1;
+        }
+
+        secure_zero(cap_key, sizeof(cap_key));
     }
 
     helm_initialized = true;
@@ -67,6 +114,9 @@ int helm_init(void) {
 
 helm_nonce_t helm_generate_nonce(void) {
     helm_nonce_t nonce;
+    static uint32_t sequence = 0;
+
+    memset(&nonce, 0, sizeof(nonce));
 
     /* The comment here used to say "cryptographically secure" above a loop of
      * `rand() % 256`. An attestation nonce that an attacker can predict lets
@@ -76,11 +126,20 @@ helm_nonce_t helm_generate_nonce(void) {
         LOG_ERROR("Helm: no entropy for attestation nonce; returning zeroed "
                   "nonce, attestation will fail");
         memset(nonce.data, 0, sizeof(nonce.data));
+        /* Deliberately not recorded as outstanding: an unrecorded challenge
+         * cannot be answered, so this fails closed rather than issuing a
+         * predictable challenge that anyone could precompute against. */
+        nonce.timestamp = time(NULL);
+        nonce.sequence_number = sequence++;
+        return nonce;
     }
 
     nonce.timestamp = time(NULL);
-    static uint32_t sequence = 0;
     nonce.sequence_number = sequence++;
+
+    /* Record it, or helm_verify_attestation() has no way to tell a challenge
+     * Helm issued from one the responder made up. */
+    helm_challenge_record(&nonce);
 
     LOG_DEBUG("Generated attestation nonce (seq=%u)", nonce.sequence_number);
 
@@ -152,12 +211,27 @@ bool helm_verify_hardware_integrity(void) {
 
 void helm_emergency_halt(const char *reason) {
     emergency_state = true;
-    continuous_monitoring_active = false;
+
+    /* Ask the monitoring thread to stop rather than calling
+     * helm_stop_continuous_monitoring(), which joins it —
+     * perform_continuous_attestation() can call this function, and a thread
+     * joining itself is a mistake this would otherwise invite. */
+    helm_monitoring_request_stop();
 
     LOG_ERROR("EMERGENCY HALT: %s", reason);
 
-    // Revoke all active capabilities
-    // (This would be implemented in capability.c)
+    /* Kill every live capability session and drop every outstanding
+     * challenge. The comment here said "This would be implemented in
+     * capability.c" and it was not implemented anywhere, so an emergency halt
+     * left all granted capabilities active — which is the one thing an
+     * emergency halt exists to prevent. */
+    for (int i = 0; i < MAX_ACTIVE_SESSIONS; i++) {
+        if (capability_sessions[i].active) {
+            capability_sessions[i].active = false;
+            helm_monitoring_session_closed();
+        }
+    }
+    helm_challenge_reset();
 
     // Log emergency to Shield Ledger
     helm_log_security_event("EMERGENCY_HALT", reason);
@@ -214,6 +288,42 @@ int helm_log_security_event(const char *event_type, const char *details) {
     }
 
     return 0;
+}
+
+// ============================================================================
+// Utility Functions
+// ============================================================================
+//
+// Both of these were declared in helm.h and defined nowhere, so any caller
+// failed to link. That is the same class as the twenty helm_* symbols that
+// were defined twice: helm.h was written as a description of an intended API
+// rather than of the code, and nothing checked the two against each other.
+
+const char *helm_capability_to_string(helm_capability_t cap) {
+    switch (cap) {
+        case HELM_CAP_CAMERA:     return "camera";
+        case HELM_CAP_MICROPHONE: return "microphone";
+        case HELM_CAP_LOCATION:   return "location";
+        case HELM_CAP_CONTACTS:   return "contacts";
+        case HELM_CAP_NETWORK:    return "network";
+        case HELM_CAP_STORAGE:    return "storage";
+        case HELM_CAP_SENSORS:    return "sensors";
+        case HELM_CAP_BLUETOOTH:  return "bluetooth";
+    }
+    return "unknown";
+}
+
+const char *helm_result_to_string(helm_attest_result_t result) {
+    switch (result) {
+        case HELM_ATTEST_OK:              return "OK";
+        case HELM_ATTEST_FAIL_SIGNATURE:  return "invalid response";
+        case HELM_ATTEST_FAIL_TIMEOUT:    return "challenge expired";
+        case HELM_ATTEST_FAIL_KEY_REVOKED:return "key revoked";
+        case HELM_ATTEST_FAIL_TAMPER:     return "tamper detected";
+        case HELM_ATTEST_FAIL_HARDWARE:   return "hardware failure";
+        case HELM_ATTEST_FAIL_POLICY:     return "denied by gate policy";
+    }
+    return "unknown";
 }
 
 int helm_get_audit_trail(helm_audit_entry_t *entries, uint32_t max_entries, uint32_t *count) {

@@ -1,32 +1,37 @@
 #include "../include/helm.h"
 #include "../../beskarcore/include/logging.h"
 #include "../../beskarcore/include/monitoring.h"
+#include "../../beskarcore/include/secure_random.h"
+#include "../../beskarcore/include/hmac_sha3.h"
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
 #include "helm_internal.h"
 
 // ============================================================================
-// THE HELM - Core Attestation Implementation
+// THE HELM - shared state
 // ============================================================================
-// This implements the runtime attestation protocol inspired by Nintendo 10NES
-// but using modern post-quantum cryptography and continuous verification.
+// This file owns the app registry, the capability session table and the
+// outstanding-challenge table, plus their lookup helpers. The API lives in:
+//   helm.c        lifecycle, config, security status, audit
+//   capability.c  attestation and capability grant/revoke
+//   monitoring.c  continuous monitoring
 //
-// Key differences from 10NES:
-// - Open-source (auditable but still secure via user-fused keys)
-// - Post-quantum crypto (CRYSTALS-Dilithium instead of RSA)
-// - Continuous runtime attestation (not just at cartridge insertion)
-// - Capability-based security (fine-grained permissions)
+// Everything from helm_init() onward used to live below this point as well as
+// in those three files. They were split out of this one and this one was never
+// trimmed, so twenty symbols had two definitions apiece. Building them into
+// one archive hid it — the linker takes the first object that satisfies a
+// symbol, so which copy ran depended on link order, and the copies had already
+// drifted (monitoring_cycles exists in one and not the other).
+//
+// A second round of the same thing was still here after that trim: a private
+// create_capability_session() that nothing called, and private copies of
+// helm_initialized, helm_config, monitoring_stats, continuous_monitoring_active
+// and emergency_state that nothing read. Being `static` kept the linker quiet,
+// which is exactly why they survived. They are gone.
 // ============================================================================
 
-// Global Helm state
-static bool helm_initialized = false;
-static helm_config_t helm_config = {0};
-static helm_monitoring_stats_t monitoring_stats = {0};
-static bool continuous_monitoring_active = false;
-static bool emergency_state = false;
-
-// App registry (stores registered app keys). Declared in helm_internal.h and
+// App registry (stores registered app secrets). Declared in helm_internal.h and
 // defined here; capability.c and monitoring.c read it too.
 helm_app_record_t app_registry[MAX_REGISTERED_APPS];
 
@@ -62,49 +67,82 @@ int find_session_slot(uint32_t session_id) {
     return -1;
 }
 
-static int create_capability_session(uint32_t app_id, helm_capability_t capability, uint32_t timeout_seconds) {
-    int slot = -1;
+int find_free_session_slot(void) {
     for (int i = 0; i < MAX_ACTIVE_SESSIONS; i++) {
         if (!capability_sessions[i].active) {
+            return i;
+        }
+    }
+    return -1;
+}
+
+// ============================================================================
+// Outstanding challenge table
+// ============================================================================
+//
+// Without this, verification would accept any well-formed (nonce, tag) pair
+// whose tag happens to match — including one captured off the wire and sent
+// again, and including a nonce the attacker chose rather than one Helm issued.
+// A challenge-response protocol whose challenge the responder may pick is not
+// a challenge-response protocol.
+
+static helm_challenge_record_t challenges[HELM_MAX_OUTSTANDING_CHALLENGES];
+static uint32_t challenge_next_evict = 0;
+
+void helm_challenge_reset(void) {
+    secure_zero(challenges, sizeof(challenges));
+    challenge_next_evict = 0;
+}
+
+void helm_challenge_record(const helm_nonce_t *nonce) {
+    int slot = -1;
+
+    if (nonce == NULL) {
+        return;
+    }
+
+    for (int i = 0; i < HELM_MAX_OUTSTANDING_CHALLENGES; i++) {
+        if (!challenges[i].in_use) {
             slot = i;
             break;
         }
     }
 
     if (slot == -1) {
-        LOG_ERROR("No free capability session slots");
-        return -1;
+        /* All slots outstanding. Evict round-robin rather than refusing to
+         * issue: an attacker who can make Helm issue challenges must not be
+         * able to stop legitimate apps attesting. The evicted challenge simply
+         * stops being answerable, which fails closed. */
+        slot = (int)(challenge_next_evict % HELM_MAX_OUTSTANDING_CHALLENGES);
+        challenge_next_evict++;
+        LOG_DEBUG("Challenge table full; evicting slot %d", slot);
     }
 
-    capability_sessions[slot].session_id = next_session_id++;
-    capability_sessions[slot].app_id = app_id;
-    capability_sessions[slot].capability = capability;
-    capability_sessions[slot].granted_time = time(NULL);
-    capability_sessions[slot].expires_time = time(NULL) + timeout_seconds;
-    capability_sessions[slot].active = true;
-
-    monitoring_stats.capabilities_granted++;
-    monitoring_stats.active_sessions++;
-
-    LOG_INFO("Granted capability %d to app %u (session %u, expires in %us)",
-             capability, app_id, capability_sessions[slot].session_id, timeout_seconds);
-
-    return capability_sessions[slot].session_id;
+    challenges[slot].nonce = *nonce;
+    challenges[slot].in_use = true;
 }
 
+int helm_challenge_consume(const helm_nonce_t *nonce) {
+    if (nonce == NULL) {
+        return 0;
+    }
 
-/*
- * Everything from helm_init() onward used to live below this point as well as
- * in helm.c, capability.c and monitoring.c. Those three files were split out
- * of this one and this one was never trimmed, so twenty symbols had two
- * definitions apiece. Building them into one archive hid it — the linker takes
- * the first object that satisfies a symbol, so which copy ran depended on link
- * order, and the copies had already drifted (monitoring_cycles exists in one
- * and not the other).
- *
- * This file now owns only the shared state and its lookup helpers, declared in
- * helm_internal.h. The API lives in:
- *   helm.c        lifecycle, config, security status, audit
- *   capability.c  attestation and capability grant/revoke
- *   monitoring.c  continuous monitoring
- */
+    for (int i = 0; i < HELM_MAX_OUTSTANDING_CHALLENGES; i++) {
+        if (!challenges[i].in_use) {
+            continue;
+        }
+        /* Constant-time on the nonce bytes. The nonce is not secret, but
+         * comparing it with memcmp() would leak how much of a guessed nonce
+         * is right, which is a step towards guessing one Helm will accept. */
+        if (challenges[i].nonce.sequence_number == nonce->sequence_number &&
+            challenges[i].nonce.timestamp == nonce->timestamp &&
+            hmac_constant_time_equal(challenges[i].nonce.data, nonce->data,
+                                     HELM_NONCE_SIZE) == 1) {
+            challenges[i].in_use = false;
+            secure_zero(&challenges[i].nonce, sizeof(challenges[i].nonce));
+            return 1;
+        }
+    }
+
+    return 0;
+}

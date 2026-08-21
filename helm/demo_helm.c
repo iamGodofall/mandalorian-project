@@ -24,10 +24,63 @@
 // - Sovereign user-controlled security
 // ============================================================================
 
-// Simulated app identities (in real system, these would be registered during install)
-static uint8_t signal_public_key[1952] = {0};     // CRYSTALS-Dilithium public key
-static uint8_t whatsapp_public_key[1952] = {0};   // Would be different in reality
-static uint8_t instagram_public_key[1952] = {0};  // Would be different in reality
+// ============================================================================
+// App identities
+// ============================================================================
+//
+// These were three 1952-byte arrays of zeroes called "CRYSTALS-Dilithium
+// public keys". They were zero because nothing ever verified against them:
+// helm_verify_attestation() hardcoded its result to valid. Registration now
+// rejects an all-zero secret outright, so this demo would not run on those.
+//
+// In a real deployment the secret is provisioned at install time and lives in
+// the app's keystore, not in the OS image. Hard-coded here so the demo is
+// reproducible; do not copy this pattern.
+#define DEMO_SECRET_LEN 32
+
+static const uint8_t signal_secret[DEMO_SECRET_LEN] = {
+    0x53, 0x69, 0x67, 0x6e, 0x61, 0x6c, 0x2d, 0x64, 0x65, 0x6d, 0x6f, 0x2d,
+    0x73, 0x65, 0x63, 0x72, 0x65, 0x74, 0x2d, 0x6e, 0x6f, 0x74, 0x2d, 0x66,
+    0x6f, 0x72, 0x2d, 0x75, 0x73, 0x65, 0x21, 0x21
+};
+static const uint8_t whatsapp_secret[DEMO_SECRET_LEN] = {
+    0x57, 0x68, 0x61, 0x74, 0x73, 0x41, 0x70, 0x70, 0x2d, 0x64, 0x65, 0x6d,
+    0x6f, 0x2d, 0x73, 0x65, 0x63, 0x72, 0x65, 0x74, 0x2d, 0x6e, 0x6f, 0x74,
+    0x2d, 0x66, 0x6f, 0x72, 0x2d, 0x75, 0x73, 0x65
+};
+static const uint8_t instagram_secret[DEMO_SECRET_LEN] = {
+    0x49, 0x6e, 0x73, 0x74, 0x61, 0x67, 0x72, 0x61, 0x6d, 0x2d, 0x64, 0x65,
+    0x6d, 0x6f, 0x2d, 0x73, 0x65, 0x63, 0x72, 0x65, 0x74, 0x2d, 0x6e, 0x6f,
+    0x74, 0x2d, 0x66, 0x6f, 0x72, 0x2d, 0x75, 0x73
+};
+
+/* What an attacker has: a plausible-looking secret that is not the registered
+ * one. Under the old code this attested successfully. */
+static const uint8_t forged_secret[DEMO_SECRET_LEN] = {
+    0x41, 0x74, 0x74, 0x61, 0x63, 0x6b, 0x65, 0x72, 0x2d, 0x67, 0x75, 0x65,
+    0x73, 0x73, 0x2d, 0x77, 0x72, 0x6f, 0x6e, 0x67, 0x2d, 0x73, 0x65, 0x63,
+    0x72, 0x65, 0x74, 0x2d, 0x30, 0x30, 0x30, 0x31
+};
+
+/* One full exchange: take a challenge, answer it with `secret`, ask for the
+ * capability. In a real system the middle step happens inside the app. */
+static helm_attest_result_t attest_and_request(uint32_t app_id,
+                                               const uint8_t *secret,
+                                               helm_capability_t cap,
+                                               uint32_t timeout_seconds) {
+    helm_nonce_t nonce = helm_generate_nonce();
+    helm_attest_tag_t tag;
+
+    memset(&tag, 0, sizeof(tag));
+    /* An app that holds no secret can still send something; a zeroed tag is
+     * exactly what the old code accepted. Left as-is on failure so that case
+     * is reachable from this demo. */
+    if (secret != NULL) {
+        helm_compute_attestation(secret, DEMO_SECRET_LEN, app_id, &nonce, &tag);
+    }
+
+    return helm_request_capability(app_id, cap, timeout_seconds, &nonce, &tag);
+}
 
 void demonstrate_10nes_security(void) {
     printf("🎮 THE HELM - Nintendo 10NES Security Demonstration\n");
@@ -61,21 +114,21 @@ void demonstrate_10nes_security(void) {
     printf("📦 PHASE 2: Registering apps with The Helm...\n");
 
     // Register Signal (privacy-focused app)
-    if (helm_register_app_key(1, signal_public_key) != 0) {
+    if (helm_register_app_secret(1, signal_secret, DEMO_SECRET_LEN) != 0) {
         printf("❌ Failed to register Signal\n");
         return;
     }
     printf("✅ Signal registered (app ID: 1)\n");
 
     // Register WhatsApp (less trustworthy)
-    if (helm_register_app_key(2, whatsapp_public_key) != 0) {
+    if (helm_register_app_secret(2, whatsapp_secret, DEMO_SECRET_LEN) != 0) {
         printf("❌ Failed to register WhatsApp\n");
         return;
     }
     printf("✅ WhatsApp registered (app ID: 2)\n");
 
     // Register Instagram (social media)
-    if (helm_register_app_key(3, instagram_public_key) != 0) {
+    if (helm_register_app_secret(3, instagram_secret, DEMO_SECRET_LEN) != 0) {
         printf("❌ Failed to register Instagram\n");
         return;
     }
@@ -90,7 +143,8 @@ void demonstrate_10nes_security(void) {
     printf("🎯 PHASE 3: Testing legitimate app attestation...\n");
 
     printf("🔐 Signal requesting camera access...\n");
-    helm_attest_result_t result1 = helm_request_capability(1, HELM_CAP_CAMERA, 300);
+    helm_attest_result_t result1 =
+        attest_and_request(1, signal_secret, HELM_CAP_CAMERA, 300);
     if (result1 == HELM_ATTEST_OK) {
         printf("✅ Signal camera access GRANTED (5min timeout)\n");
     } else {
@@ -98,7 +152,8 @@ void demonstrate_10nes_security(void) {
     }
 
     printf("🔐 Signal requesting microphone access...\n");
-    helm_attest_result_t result2 = helm_request_capability(1, HELM_CAP_MICROPHONE, 300);
+    helm_attest_result_t result2 =
+        attest_and_request(1, signal_secret, HELM_CAP_MICROPHONE, 300);
     if (result2 == HELM_ATTEST_OK) {
         printf("✅ Signal microphone access GRANTED (5min timeout)\n");
     } else {
@@ -114,19 +169,68 @@ void demonstrate_10nes_security(void) {
     printf("🚨 PHASE 4: Demonstrating attack prevention...\n");
 
     printf("🔐 Unknown app (ID: 999) requesting camera access...\n");
-    helm_attest_result_t result3 = helm_request_capability(999, HELM_CAP_CAMERA, 300);
+    helm_attest_result_t result3 =
+        attest_and_request(999, forged_secret, HELM_CAP_CAMERA, 300);
     if (result3 == HELM_ATTEST_OK) {
         printf("❌ UNKNOWN APP ACCESS GRANTED (SECURITY FAILURE!)\n");
     } else {
         printf("✅ Unknown app access DENIED (as expected)\n");
     }
 
+    /* The case the old code could not catch. Malware claiming to be Signal,
+     * with a registered app_id and a wrong secret, was granted the capability:
+     * registration was checked, the response never was. */
+    printf("🔐 Malware claiming to be Signal (app ID: 1, wrong secret)...\n");
+    helm_attest_result_t result3b =
+        attest_and_request(1, forged_secret, HELM_CAP_CAMERA, 300);
+    if (result3b == HELM_ATTEST_OK) {
+        printf("❌ IMPERSONATION SUCCEEDED (SECURITY FAILURE!)\n");
+    } else {
+        printf("✅ Impersonation DENIED — wrong secret, wrong tag (%s)\n",
+               helm_result_to_string(result3b));
+    }
+
+    /* An app that sends nothing at all. This is literally what the old
+     * helm_request_capability() passed to itself: helm_signature_t = {0}. */
+    printf("🔐 App sending an all-zero response tag...\n");
+    helm_attest_result_t result3c =
+        attest_and_request(1, NULL, HELM_CAP_CAMERA, 300);
+    if (result3c == HELM_ATTEST_OK) {
+        printf("❌ ZERO TAG ACCEPTED (SECURITY FAILURE!)\n");
+    } else {
+        printf("✅ Zero tag DENIED (%s)\n", helm_result_to_string(result3c));
+    }
+
+    /* Replay: capture one valid exchange and send it a second time. */
+    printf("🔐 Replaying a captured, previously valid attestation...\n");
+    {
+        helm_nonce_t nonce = helm_generate_nonce();
+        helm_attest_tag_t tag;
+
+        helm_compute_attestation(signal_secret, DEMO_SECRET_LEN, 1, &nonce, &tag);
+
+        helm_attest_result_t first =
+            helm_request_capability(1, HELM_CAP_CAMERA, 300, &nonce, &tag);
+        helm_attest_result_t replayed =
+            helm_request_capability(1, HELM_CAP_CAMERA, 300, &nonce, &tag);
+
+        printf("   first use:  %s\n", helm_result_to_string(first));
+        if (replayed == HELM_ATTEST_OK) {
+            printf("❌ REPLAY ACCEPTED (SECURITY FAILURE!)\n");
+        } else {
+            printf("✅ Replay DENIED — the challenge was spent (%s)\n",
+                   helm_result_to_string(replayed));
+        }
+    }
+
     printf("🔐 WhatsApp requesting location access (suspicious)...\n");
-    helm_attest_result_t result4 = helm_request_capability(2, HELM_CAP_LOCATION, 300);
+    helm_attest_result_t result4 =
+        attest_and_request(2, whatsapp_secret, HELM_CAP_LOCATION, 300);
     if (result4 == HELM_ATTEST_OK) {
         printf("⚠️  WhatsApp location access GRANTED (policy decision)\n");
     } else {
-        printf("✅ WhatsApp location access DENIED (privacy protection)\n");
+        printf("✅ WhatsApp location access DENIED (%s)\n",
+               helm_result_to_string(result4));
     }
 
     printf("✅ Unauthorized access attempts blocked\n\n");
@@ -138,7 +242,8 @@ void demonstrate_10nes_security(void) {
     printf("🚫 PHASE 5: Demonstrating key revocation...\n");
 
     printf("🔐 Instagram requesting camera access...\n");
-    helm_attest_result_t result5 = helm_request_capability(3, HELM_CAP_CAMERA, 300);
+    helm_attest_result_t result5 =
+        attest_and_request(3, instagram_secret, HELM_CAP_CAMERA, 300);
     if (result5 == HELM_ATTEST_OK) {
         printf("✅ Instagram camera access GRANTED\n");
     } else {
@@ -153,7 +258,8 @@ void demonstrate_10nes_security(void) {
     }
 
     printf("🔐 Instagram attempting camera access again...\n");
-    helm_attest_result_t result6 = helm_request_capability(3, HELM_CAP_CAMERA, 300);
+    helm_attest_result_t result6 =
+        attest_and_request(3, instagram_secret, HELM_CAP_CAMERA, 300);
     if (result6 == HELM_ATTEST_OK) {
         printf("❌ REVOKED APP ACCESS GRANTED (SECURITY FAILURE!)\n");
     } else {

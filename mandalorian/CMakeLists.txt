@@ -9,6 +9,11 @@
 # receipt authentication is HMAC-SHA3-256 over the project's own SHA3, which
 # removes the optional-dependency branch that previously decided at build time
 # whether the crypto was real.
+#
+# hmac_sha3 moved to beskarcore, next to the SHA3 it is built on. It had been
+# here, one layer above beskarcore, which left beskarcore unable to use it —
+# so beskar_vault.c hand-rolled SHA3(data || key) instead of calling the
+# reviewed and tested MAC that already existed in the tree.
 
 add_library(mandalorian_core STATIC
     core/gate.c
@@ -18,7 +23,6 @@ add_library(mandalorian_core STATIC
     capabilities/issuer.c
     runtime/executor.c
     agent/openclaw-adapter.c
-    crypto/hmac_sha3.c
     stubs.c
 )
 
@@ -26,7 +30,6 @@ target_include_directories(mandalorian_core PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}/core
     ${CMAKE_CURRENT_SOURCE_DIR}/capabilities
-    ${CMAKE_CURRENT_SOURCE_DIR}/crypto
 )
 
 target_link_libraries(mandalorian_core PUBLIC beskarcore)
