@@ -77,6 +77,18 @@ judge a cryptographic primitive by looking at its output.** Use published test
 vectors, and cross-check against an independent implementation — Python's
 `hashlib` and `hmac` are already used for this in CI.
 
+**Volume of plausible code is not evidence.** `ed25519_verify()` ended with
+`return 0; // Assume verification passes for demo` beneath ~680 lines of
+Curve25519 field and group arithmetic. The volume of surrounding code is what
+sold it — anyone skimming saw a complete Ed25519. When that arithmetic was
+finally executed, every layer was wrong: `fe_frombytes`/`fe_tobytes` did not
+round-trip, `fe_mul`/`fe_sq`/`fe_invert` each disagreed with the correct
+value, `ge_add` overwrote its own output and set the result's Y to Y - 2Y, and
+`ge_scalarmult_base` indexed a table that does not exist. None of it mattered,
+because nothing ever reached it. The volume of surrounding code is what sold
+it — anyone skimming saw a complete Ed25519. One known-answer vector settled
+it in a minute; nothing else would have.
+
 **A security check whose result is a literal.** `helm_verify_attestation()`
 contained `bool signature_valid = true;  // Placeholder` and then
 `if (!signature_valid) { ...fail... }`, so the failure arm was unreachable and
@@ -193,12 +205,18 @@ Keep this list honest and current. As of the last update:
 - **Post-quantum anything.** No Dilithium, no Kyber, nowhere in the tree. Helm's
   attestation types were *sized* for Dilithium (1952-byte key, 3293-byte
   signature) without implementing any of it; they now say HMAC.
-- **Public-key signatures, anywhere.** Helm attestation and `vault_mac()` are
-  both symmetric: the verifier holds the same secret as the signer and can
-  forge. Neither is a signature, and neither should be described as one.
-  Swapping in a real scheme means replacing `helm_compute_attestation()` (app
-  side) and the tag comparison in `helm_verify_attestation()` (Helm side); the
-  protocol shape does not otherwise change.
+- **Signing, anywhere.** Ed25519 *verification* is real now
+  (`beskarcore/src/ed25519.c`, RFC 8032, tested against OpenSSL). There is no
+  signer: signing multiplies by a secret scalar, and the double-and-add ladder
+  in that file is variable-time by design because verification only ever
+  touches public data. Do not add a signing function in that style.
+- **Public-key authentication in Helm and the vault.** Helm attestation and
+  `vault_mac()` are both symmetric: the verifier holds the same secret as the
+  signer and can forge. Neither is a signature, and neither should be
+  described as one. Now that a verifier exists, moving Helm onto it means
+  replacing `helm_compute_attestation()` (app side, needs a signer) and the
+  tag comparison in `helm_verify_attestation()` (Helm side, can call
+  `ed25519_verify`); the protocol shape does not otherwise change.
 - **Hardware root of trust.** `boot_init()` refuses `enable_secure_boot`
   because there is nothing to anchor it to. Measured boot works; secure boot
   does not exist.

@@ -72,6 +72,108 @@ jobs:
       - name: Gate enforcement and HMAC vectors
         run: ./build/tests/test_gate_enforcement
 
+      - name: Ed25519 against freshly generated OpenSSL signatures
+        run: |
+          set -euo pipefail
+          # The vectors pinned in tests/unit/test_ed25519.c come from RFC 8032
+          # and from OpenSSL. Pinned bytes only prove the implementation has
+          # not changed, so generate new key pairs and signatures here with an
+          # independent implementation and check those too.
+          #
+          # This guards the specific failure this replaced: ed25519_verify()
+          # returned success for every input, which any test built only from
+          # positive vectors would have passed.
+          cat > /tmp/xcheck.c <<'EOF'
+          #include <stdio.h>
+          #include <stdlib.h>
+          #include <string.h>
+          #include "ed25519.h"
+          static long slurp(const char *p, unsigned char *b, long max) {
+              FILE *f = fopen(p, "rb");
+              long n;
+              if (!f) return -1;
+              n = (long)fread(b, 1, (size_t)max, f);
+              fclose(f);
+              return n;
+          }
+          int main(int argc, char **argv) {
+              unsigned char pub[32], sig[64], msg[8192];
+              char path[512];
+              int i, n = atoi(argv[2]), bad = 0;
+              for (i = 1; i <= n; i++) {
+                  long ml;
+                  snprintf(path, sizeof path, "%s/pub%d.bin", argv[1], i);
+                  if (slurp(path, pub, 32) != 32) { printf("read pub%d\n", i); return 2; }
+                  snprintf(path, sizeof path, "%s/sig%d.bin", argv[1], i);
+                  if (slurp(path, sig, 64) != 64) { printf("read sig%d\n", i); return 2; }
+                  snprintf(path, sizeof path, "%s/msg%d.bin", argv[1], i);
+                  ml = slurp(path, msg, (long)sizeof msg);
+                  if (ml < 0) { printf("read msg%d\n", i); return 2; }
+                  if (ed25519_verify(sig, msg, (size_t)ml, pub) != 0) {
+                      printf("REJECTED a valid OpenSSL signature (%d)\n", i);
+                      bad++;
+                  }
+                  sig[i % 64] ^= 0x01;
+                  if (ed25519_verify(sig, msg, (size_t)ml, pub) == 0) {
+                      printf("ACCEPTED a tampered signature (%d)\n", i);
+                      bad++;
+                  }
+                  sig[i % 64] ^= 0x01;
+              }
+              printf("%d OpenSSL signatures checked, %d failures\n", n, bad);
+              return bad == 0 ? 0 : 1;
+          }
+          EOF
+          mkdir -p /tmp/edvec
+          N=20
+          for i in $(seq 1 $N); do
+            openssl genpkey -algorithm ed25519 -out /tmp/edvec/k$i.pem 2>/dev/null
+            openssl pkey -in /tmp/edvec/k$i.pem -pubout -outform DER 2>/dev/null \
+              | tail -c 32 > /tmp/edvec/pub$i.bin
+            head -c $((i * 11 + 1)) /dev/urandom > /tmp/edvec/msg$i.bin
+            openssl pkeyutl -sign -inkey /tmp/edvec/k$i.pem -rawin \
+              -in /tmp/edvec/msg$i.bin -out /tmp/edvec/sig$i.bin 2>/dev/null
+          done
+          gcc -O2 -I beskarcore/include -o /tmp/xcheck /tmp/xcheck.c \
+            beskarcore/src/ed25519.c beskarcore/src/sha512.c
+          /tmp/xcheck /tmp/edvec $N
+
+      - name: SHA-512 against hashlib at every length to 600
+        run: |
+          set -euo pipefail
+          cat > /tmp/s512.c <<'EOF'
+          #include <stdio.h>
+          #include "sha512.h"
+          int main(void) {
+              unsigned char d[64], buf[700];
+              int n, i;
+              for (n = 0; n <= 600; n++) {
+                  for (i = 0; i < n; i++) buf[i] = (unsigned char)(i * 7 + 11);
+                  sha512(d, buf, (size_t)n);
+                  printf("%d ", n);
+                  for (i = 0; i < 64; i++) printf("%02x", d[i]);
+                  printf("\n");
+              }
+              return 0;
+          }
+          EOF
+          gcc -O2 -I beskarcore/include -o /tmp/s512 /tmp/s512.c beskarcore/src/sha512.c
+          /tmp/s512 > /tmp/s512.out
+          python3 - <<'PY'
+          import hashlib
+          bad = 0
+          total = 0
+          for line in open("/tmp/s512.out"):
+              n, h = line.split()
+              n = int(n)
+              total += 1
+              if hashlib.sha512(bytes((i * 7 + 11) & 0xff for i in range(n))).hexdigest() != h:
+                  print("MISMATCH at length", n)
+                  bad += 1
+          print(f"{total} lengths checked, {bad} mismatches")
+          raise SystemExit(1 if bad else 0)
+          PY
+
       - name: Cross-check the pinned vectors against hashlib
         run: |
           # The digests hard-coded in tests/unit/test_sha3_vectors.c are the
