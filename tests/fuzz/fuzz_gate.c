@@ -28,6 +28,7 @@
 
 #include "gate.h"
 #include "issuer.h"
+#include "policy.h"
 #include "receipt.h"
 #include "verifier.h"
 
@@ -47,6 +48,9 @@ static void fuzz_init(void)
     if (initialised) {
         return;
     }
+    /* Otherwise the "allowed" arm of every property is vacuous between 02:00
+     * and 06:00 local, and the fuzzer proves nothing during those hours. */
+    policy_set_quiet_hours(0, 0);
     issuer_set_key(fuzz_key, sizeof(fuzz_key));
     verifier_set_key(fuzz_key, sizeof(fuzz_key));
     receipt_set_key(fuzz_key, sizeof(fuzz_key));

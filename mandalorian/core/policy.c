@@ -19,6 +19,19 @@ static uint64_t agent_quota_bytes[256] = {0}; // Daily byte quota
 static int agent_trust_level[256];
 static bool policy_initialised = false;
 
+/* Quiet hours, as [start, end) in local time. Was hardcoded to 2-6AM.
+ *
+ * Hardcoding it made every test that exercises an allowed write fail between
+ * 02:00 and 06:00 and pass the rest of the day — which is exactly the kind of
+ * test that looks green until it does not. It was merged that way because
+ * every run happened to fall outside the window; a clean-clone build at 02:xx
+ * caught it.
+ *
+ * Configurable now, so tests can pin it and deployments can choose. Set both
+ * to the same value to disable. */
+static int quiet_hours_start = 2;
+static int quiet_hours_end = 6;
+
 static void policy_init_once(void) {
     if (policy_initialised) {
         return;
@@ -59,8 +72,11 @@ bool policy_evaluate(const mandalorian_request_t *req, const mandalorian_cap_t *
         LOG_WARN("Policy: could not resolve local time; denying");
         return false;
     }
-    if (strcmp(req->action, "write") == 0 && (tm_buf.tm_hour >= 2 && tm_buf.tm_hour < 6)) {
-        LOG_WARN("Policy: Quiet hours block write");
+    if (quiet_hours_start != quiet_hours_end &&
+        strcmp(req->action, "write") == 0 &&
+        tm_buf.tm_hour >= quiet_hours_start && tm_buf.tm_hour < quiet_hours_end) {
+        LOG_WARN("Policy: quiet hours (%02d:00-%02d:00) block write",
+                 quiet_hours_start, quiet_hours_end);
         return false;
     }
     
@@ -116,4 +132,16 @@ void policy_reset_all(void) {
     memset(agent_quota_bytes, 0, sizeof(agent_quota_bytes));
     policy_initialised = false;
     policy_init_once();
+}
+
+/* Set the quiet-hours window in local time, [start, end). Equal values
+ * disable the rule. Out-of-range values are ignored. */
+void policy_set_quiet_hours(int start_hour, int end_hour) {
+    if (start_hour < 0 || start_hour > 23 || end_hour < 0 || end_hour > 24) {
+        LOG_WARN("Policy: ignoring invalid quiet hours %d-%d", start_hour,
+                 end_hour);
+        return;
+    }
+    quiet_hours_start = start_hour;
+    quiet_hours_end = end_hour;
 }

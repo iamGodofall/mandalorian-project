@@ -19,6 +19,7 @@
 #include "gate.h"
 #include "hmac_sha3.h"
 #include "issuer.h"
+#include "policy.h"
 #include "merkle_ledger.h"
 #include "receipt.h"
 #include "verifier.h"
@@ -117,6 +118,11 @@ static void test_gate_denials(void)
 
     init_shield_ledger();
 
+    /* Pin the quiet-hours window off. Without this every assertion below that
+     * expects a successful write fails between 02:00 and 06:00 local time and
+     * passes the rest of the day. */
+    policy_set_quiet_hours(0, 0);
+
     /* Fail closed before any key is installed. */
     memset(&cap, 0, sizeof(cap));
     fill_request(&req, 1, "write", "/tmp/x", "hi");
@@ -209,6 +215,21 @@ static void test_gate_denials(void)
     /* Denials must be recorded, not just successes. */
     expect("ledger recorded denials as well as grants",
            get_ledger_entry_count() > 5);
+
+    /* Quiet hours are a real rule, so test it rather than only switching it
+     * off: set a window covering the whole day and confirm writes are denied,
+     * then restore. */
+    {
+        policy_set_quiet_hours(0, 24);
+        fill_request(&req, 1, "write", "/tmp/output.txt", "hi");
+        expect("quiet hours deny writes",
+               mandalorian_execute(&req, &cap) == GATE_POLICY_DENY);
+
+        policy_set_quiet_hours(0, 0);
+        fill_request(&req, 1, "write", "/tmp/output.txt", "hi");
+        expect("writes allowed again outside quiet hours",
+               mandalorian_execute(&req, &cap) == GATE_OK);
+    }
 }
 
 static void test_receipt_authentication(void)
@@ -217,6 +238,7 @@ static void test_receipt_authentication(void)
     mandalorian_cap_t cap;
     receipt_t r;
 
+    policy_set_quiet_hours(0, 0);
     issuer_set_key(test_key, sizeof(test_key));
     verifier_set_key(test_key, sizeof(test_key));
     receipt_set_key(test_key, sizeof(test_key));

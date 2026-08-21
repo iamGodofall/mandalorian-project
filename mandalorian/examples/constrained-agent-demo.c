@@ -17,6 +17,7 @@
 
 #include "../capabilities/issuer.h"
 #include "../core/gate.h"
+#include "../core/policy.h"
 #include "../core/receipt.h"
 #include "../core/verifier.h"
 #include "../stubs.h"
@@ -66,6 +67,11 @@ int main(void)
     printf("Mandalorian gate demo\n");
 
     init_shield_ledger();
+
+    /* The policy engine denies writes during quiet hours (2-6AM by default),
+     * which would make this demo report failures for a reason unrelated to
+     * what it is demonstrating. Turned off here; see policy.h. */
+    policy_set_quiet_hours(0, 0);
 
     /* Before any key is installed the gate must fail closed. */
     memset(&cap, 0, sizeof(cap));
