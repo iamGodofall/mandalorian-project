@@ -28,6 +28,13 @@ add_executable(test_helm_attestation unit/test_helm_attestation.c)
 target_link_libraries(test_helm_attestation PRIVATE helm)
 add_test(NAME HelmAttestation COMMAND test_helm_attestation)
 
+# The Aegis -> Helm -> gate integration. Nothing ran this path before: the one
+# executable that links Aegis exercises only IPC observation, and it was not
+# registered as a test either.
+add_executable(test_aegis_helm_path unit/test_aegis_helm_path.c)
+target_link_libraries(test_aegis_helm_path PRIVATE aegis helm)
+add_test(NAME AegisHelmPath COMMAND test_aegis_helm_path)
+
 # Gate fuzzing, running as a fixed-corpus test so the properties are checked
 # everywhere. The libFuzzer build is opt-in below.
 add_executable(fuzz_gate_corpus fuzz/fuzz_gate.c)
@@ -54,6 +61,8 @@ if(BUILD_DEMOS)
     add_test(NAME EnterpriseDemo COMMAND demo_beskar_enterprise)
     add_test(NAME GuardianDemo COMMAND demo_continuous_guardian)
     add_test(NAME HelmDemo COMMAND demo_helm)
+    # Built but never run until now.
+    add_test(NAME VeridianosDemo COMMAND veridianos_demo)
 endif()
 
 # ---------------------------------------------------------------------------
