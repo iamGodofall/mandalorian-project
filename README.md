@@ -88,9 +88,60 @@ before relying on any row.
 | **Vault authentication** | Partial | `vault_mac()` / `vault_verify_mac()` are HMAC-SHA3-256 over a key slot, compared in constant time. They were `vault_sign()` / `vault_verify()` and documented as "Ed25519-style signature": verification recomputed the value from the *private* key, so it was a MAC all along and anyone able to verify was able to forge. Both also sized a stack buffer from the caller's message length. There is still no signature scheme in the vault. |
 | **Forward secrecy** | Partial | The symmetric chain ratchet advances per message, so a captured chain key does not recover earlier message keys. The **DH ratchet and X3DH are not implemented** — `x3dh_key_agreement()` returns random bytes rather than performing any Diffie-Hellman — so there is no break-in recovery and this is *not* the Signal Double Ratchet. |
 | **Message encryption** | Placeholder | BeskarLink uses a SHA3-based keystream with a SHA3 MAC, not a reviewed AEAD. Do not use it to protect real messages. |
-| **Post-quantum resistance** | Not implemented | No CRYSTALS-Dilithium, Kyber, or any PQC primitive exists in this repository. Helm's attestation types were named and sized for Dilithium — a 1952-byte "public key", a 3293-byte "signature" — while implementing none of it; they are now named for the HMAC they actually carry. |
+| **Post-quantum resistance** | Not implemented | No ML-KEM (FIPS 203), ML-DSA (FIPS 204), SLH-DSA (FIPS 205) or any PQC primitive exists in this repository. Signatures are Ed25519, which a cryptographically relevant quantum computer breaks. Helm's attestation types were named and sized for Dilithium — a 1952-byte "public key", a 3293-byte "signature" — while implementing none of it; they are now named for the HMAC they actually carry. See *Post-quantum: where this actually stands*. |
 | **Continuous integrity** | Working (simulated) | 50ms CRC32 with periodic SHA3-256 full verification. Measures simulated regions; there is no hardware watchdog behind it. |
 | **Random number generation** | Working | All key, nonce and identifier material comes from the OS CSPRNG (`getrandom(2)`, `arc4random_buf`, `BCryptGenRandom`, or `/dev/urandom`) via `secure_random.h`, which **fails closed** — no entropy source means an error, never a weak fallback. Covered by `tests/unit/test_secure_random.c`, which fails against the previous clock-seeded implementation. |
+
+
+---
+
+## Post-quantum: where this actually stands
+
+**The names this file used were the competition names, and in a project whose
+licence condition 4 requires accurate documentation of security limitations that
+matters.** CRYSTALS-Dilithium and CRYSTALS-Kyber were standardised in **August
+2024** under different names:
+
+| standard | algorithm | was called |
+|---|---|---|
+| **FIPS 203** | ML-KEM — key encapsulation | CRYSTALS-Kyber |
+| **FIPS 204** | ML-DSA — digital signature | CRYSTALS-Dilithium |
+| **FIPS 205** | SLH-DSA — stateless hash-based signature | SPHINCS+ |
+
+**HQC** was selected in 2025 as a backup KEM built on different mathematics from
+ML-KEM, and Falcon remains in standardisation. So "no Dilithium" is still true
+and is no longer the way to say it.
+
+### What this tree actually has
+
+Ed25519, verify-only, written for auditability and checked against RFC 8032
+vectors and against OpenSSL in CI. That is a *classical* signature scheme: a
+cryptographically relevant quantum computer breaks it. Nothing here is
+quantum-resistant and nothing here claims to be.
+
+### If PQC is added, it is NOT hand-written here
+
+That is this repository's own rule turned on its hardest case. Every crypto bug
+found in this tree produced plausible-looking output: a rate-200 sponge that
+returned 32 convincing bytes with no capacity at all, an "HMAC" that copied the
+key into the output, and **680 lines of Curve25519 field arithmetic that was
+wrong at every level underneath a `return 0`**. Ed25519 was repairable by hand
+only because it can be checked line by line against a few lines of Python and
+against published vectors.
+
+ML-DSA is not that. It is rejection sampling, NTT arithmetic and hint
+compression, with timing-attack surface throughout, and there is no short
+independent implementation to diff against. Hand-rolling it would repeat this
+project's most expensive mistake at a scale where inspection could not catch it.
+
+**So the path is a reviewed implementation** — PQClean or liboqs — behind the
+same auditable interface `ed25519.h` already sets, with the FIPS known-answer
+vectors in `tests/unit/` and a cross-check against an independent implementation
+in CI, exactly as SHA-512 is checked against Python's `hashlib` today.
+
+**The real cost is the dependency, and it belongs in the decision rather than in
+the footnotes.** This tree has none today, which is part of why it can be
+audited at all. Taking one on is a trade to make deliberately.
 
 ---
 
