@@ -4,6 +4,36 @@
 
 The Mandalorian Project offers commercial licensing for organizations that require proprietary use rights, professional support, or custom deployments. Our dual-license model ensures the core technology remains open and auditable while enabling sustainable business growth.
 
+## What you would be licensing today
+
+**Read this before the pricing table.** The Sovereignty License in `LICENSE`,
+Section A, condition 4 requires that hardware dependencies, security limitations
+and simulation-only code be documented clearly. That obligation does not stop at
+the open licence — a buyer reading a price is exactly the person it was written
+for.
+
+So, plainly, and the full row-by-row detail is in the
+[README's security table](README.md#security-guarantees):
+
+| | |
+|---|---|
+| **Working today** | SHA3-256/512 against the FIPS 202 vectors; Ed25519 **verification** against RFC 8032 and OpenSSL-produced signatures; the nine-step capability gate with a receipt for every decision including denials; the Shield Ledger's hash chain; OS-CSPRNG randomness that fails closed |
+| **Partial** | App attestation (HMAC, symmetric — Helm holds the same secret, so it is not a signature); vault authentication (a MAC, not a signature); forward secrecy (symmetric ratchet only) |
+| **Not implemented** | Post-quantum anything — no ML-KEM (FIPS 203), no ML-DSA (FIPS 204), no SLH-DSA (FIPS 205); X3DH and the DH ratchet; key destruction on tamper; keys outside application RAM |
+| **Placeholder — do not protect real messages with it** | BeskarLink's message encryption is a SHA3 keystream with a SHA3 MAC, not a reviewed AEAD |
+| **Hardware** | There is none. The tamper mesh, OTP fusing and memory encryption all need custom silicon or a custom PCB. VisionFive 2 is a Linux SBC with no cellular baseband and no secure enclave |
+| **Third-party audit** | None has been done |
+
+There is no SOC 2 report, no FedRAMP authorisation and no Common Criteria
+evaluation for this software. Nothing below should be read as saying otherwise.
+
+**What is genuinely on offer is engineering and the architecture**, on a
+codebase whose defects are written down rather than hidden. If your requirement
+is a certified post-quantum secure phone available now, this is not that, and
+saying so costs one paragraph instead of a failed procurement.
+
+---
+
 ## Why Commercial License?
 
 ### For Enterprises
@@ -11,13 +41,16 @@ The Mandalorian Project offers commercial licensing for organizations that requi
 - **Legal Indemnification**: Protection against IP claims
 - **Professional Support**: Dedicated support channel with SLAs
 - **Custom Development**: Priority feature development
-- **Compliance Documentation**: SOC 2, FedRAMP, Common Criteria support
+- **Compliance Documentation**: engineering evidence for *your* audit — the Shield
+  Ledger's decision receipts, the test vectors each primitive is held to, and a
+  written statement of what is not implemented. **Not** a SOC 2 report, a FedRAMP
+  authorisation or a Common Criteria certificate; this software holds none of those.
 
 ### For Government/Defense
 - **Sovereign Deployment**: Air-gapped, on-premise installations
 - **Custom HSM Integration**: Classified hardware security modules
 - **Security Clearance**: Personnel with appropriate clearances
-- **Export Control**: ITAR/EAR compliance assistance
+- **Export Control**: assistance with your ITAR/EAR determination (this is a cryptography codebase; the classification is yours to obtain)
 - **Classified Environments**: SCIF-compatible deployments
 
 ## Pricing Tiers
@@ -43,7 +76,7 @@ The Mandalorian Project offers commercial licensing for organizations that requi
 - ✅ Dedicated account manager
 - ✅ Custom feature development (40 hours/year)
 - ✅ On-site training and onboarding
-- ✅ Compliance documentation package
+- ✅ Compliance evidence package (see the note above on what this is and is not)
 - ✅ Custom HSM integration support
 - ✅ White-label licensing options
 - ✅ Source code escrow
@@ -54,7 +87,7 @@ The Mandalorian Project offers commercial licensing for organizations that requi
 - ✅ Security-cleared personnel
 - ✅ Custom hardware integration
 - ✅ Export control compliance
-- ✅ FedRAMP/Common Criteria assistance
+- ✅ Support for your FedRAMP / Common Criteria submission — the software is not itself certified
 - ✅ Dedicated secure communication channel
 
 ## License Terms
@@ -72,7 +105,7 @@ The Mandalorian Project offers commercial licensing for organizations that requi
 - **Deployment**: On-premise, air-gapped
 - **Source Code**: Available for audit (escrow)
 - **Personnel**: Security-cleared support available
-- **Compliance**: ITAR/EAR, FedRAMP, Common Criteria
+- **Compliance**: assistance with your ITAR/EAR, FedRAMP and Common Criteria work — the software carries none of these certifications itself
 - **Termination**: 90-day notice, full data portability
 
 ## How to Purchase
@@ -115,7 +148,11 @@ We'll prepare a tailored proposal within 5 business days including:
 **A:** Yes. We offer 30-day commercial license trials for qualified organizations.
 
 ### Q: Is there a startup discount?
-**A:** Yes. Pre-revenue startups qualify for the $10K Startup tier (normally $50K).
+**A:** The $10,000 Startup tier in the table above *is* the discounted rate, and it
+is for pre-revenue startups and researchers. A company with revenue starts at
+Growth. (This answer used to read "normally $50K", which contradicted the same
+table — $50,000 is the Growth tier's own price, not a struck-through Startup
+one.)
 
 ### Q: How does this compare to other security licenses?
 **A:** Unlike MongoDB's SSPL or Elastic's proprietary license, we maintain true open source core with transparent commercial terms. No bait-and-switch.
