@@ -675,8 +675,12 @@ int enterprise_issue_command(const uint8_t *target_device,
         cmd->payload_len = payload_len;
     }
 
-    // Sign command
-    sign_command(cmd);
+    // Sign command. Never enqueue an unsigned command.
+    if (sign_command(cmd) != 0) {
+        LOG_ERROR("Enterprise command signing is unavailable; refusing to issue command");
+        memset(cmd, 0, sizeof(*cmd));
+        return -1;
+    }
 
     *command_id = cmd->command_id;
     command_count++;
@@ -1076,19 +1080,18 @@ enterprise_stats_t enterprise_get_stats(void) {
 }
 
 int enterprise_generate_report(const char *filepath) {
-    LOG_INFO("Generating enterprise report: %s", filepath);
-    
-    // SECURITY: Never output sensitive statistics to stdout
-    // All reporting goes through secure logging only
-    LOG_INFO("Enterprise statistics generated");
-    LOG_DEBUG("Total devices: %u", stats.total_devices);
-    LOG_DEBUG("Active devices: %u", stats.active_devices);
-    LOG_DEBUG("Compliant devices: %u", stats.compliant_devices);
-    
-    // In production, write encrypted report to file
-    // TODO: Implement encrypted report generation
+    if (filepath == NULL || filepath[0] == '\0') {
+        return -1;
+    }
+
+    /*
+     * Do not report success until an actual encrypted report writer exists.
+     * Returning 0 while producing no file makes callers believe evidence was
+     * exported when nothing was persisted.
+     */
+    LOG_WARN("Enterprise report export is not implemented; no file was written");
     (void)filepath;
-    return 0;
+    return -1;
 }
 
 
@@ -1137,17 +1140,26 @@ static int find_command(uint64_t command_id, enterprise_command_t **command) {
 }
 
 static int verify_command_signature(const enterprise_command_t *command) {
-    // In real implementation, verify using issuer's public key
-    // For demo, always return success
+    /*
+     * Command authentication is security-critical. The previous implementation
+     * returned success for every command, which made the signature field
+     * decorative and allowed an unauthenticated caller to reach command
+     * execution. Until the repository has a real issuer-key registry and a
+     * reviewed signature primitive, fail closed.
+     */
     (void)command;
-    return 0;
+    LOG_ERROR("Enterprise command signature verification is not implemented");
+    return -1;
 }
 
 static int sign_command(enterprise_command_t *command) {
-    // In real implementation, sign with our private key
-    // For demo, fill with dummy signature
-    memset(command->signature, 0xEF, 64);
-    return 0;
+    /*
+     * Do not manufacture a dummy signature. A 64-byte constant is not a
+     * cryptographic signature and must never be accepted as one.
+     */
+    (void)command;
+    LOG_ERROR("Enterprise command signing is not implemented");
+    return -1;
 }
 
 static int log_enterprise_event(const char *event_type, const char *details) {
