@@ -9,8 +9,9 @@
 #include "sha3.h"
 
 // ============================================================================
-// BESKAR LINK - Secure Messaging Implementation
-// Double Ratchet Protocol with X3DH Key Agreement
+// BESKAR LINK - Secure Messaging Prototype
+// Symmetric chain ratchet with authenticated encryption placeholder.
+// X3DH/DH ratcheting is intentionally fail-closed until a reviewed implementation exists.
 // ============================================================================
 
 // Global state
@@ -45,10 +46,10 @@ static int x3dh_key_agreement(const link_identity_key_t *identity,
                               const uint8_t *ephemeral_key,
                               uint8_t *shared_secret);
 static int double_ratchet_step(link_ratchet_state_t *state, bool is_sender);
-static int encrypt_message_aes_gcm(const uint8_t *plaintext, size_t pt_len,
+static int encrypt_message_authenticated_stream(const uint8_t *plaintext, size_t pt_len,
                                    const uint8_t *key, const uint8_t *nonce,
                                    uint8_t *ciphertext, size_t *ct_len);
-static int decrypt_message_aes_gcm(const uint8_t *ciphertext, size_t ct_len,
+static int decrypt_message_authenticated_stream(const uint8_t *ciphertext, size_t ct_len,
                                    const uint8_t *key, const uint8_t *nonce,
                                    uint8_t *plaintext, size_t *pt_len);
 static int find_contact(const uint8_t *contact_id, link_contact_t **contact);
@@ -555,7 +556,7 @@ int link_send_message(const uint8_t *recipient_id, link_message_type_t type,
 
     // Encrypt
     size_t ct_len = sizeof(message.ciphertext);
-    if (encrypt_message_aes_gcm(plaintext, plaintext_len, message_key, nonce,
+    if (encrypt_message_authenticated_stream(plaintext, plaintext_len, message_key, nonce,
                                 message.ciphertext, &ct_len) != 0) {
         LOG_ERROR("Message encryption failed");
         return -1;
@@ -617,7 +618,7 @@ int link_receive_message(const uint8_t *sender_id, const link_message_t *message
 
     // Decrypt message
     uint8_t nonce[12] = {0}; // In real implementation, extract from message
-    if (decrypt_message_aes_gcm(message->ciphertext, message->ciphertext_len,
+    if (decrypt_message_authenticated_stream(message->ciphertext, message->ciphertext_len,
                                 message_key, nonce,
                                 plaintext, plaintext_len) != 0) {
         LOG_ERROR("Message decryption failed");
@@ -959,14 +960,14 @@ int link_encrypt_attachment(const uint8_t *plaintext, size_t plaintext_len,
     uint8_t nonce[12];
     generate_random_bytes(nonce, 12);
 
-    return encrypt_message_aes_gcm(plaintext, plaintext_len, key_out, nonce,
+    return encrypt_message_authenticated_stream(plaintext, plaintext_len, key_out, nonce,
                                    ciphertext, ciphertext_len);
 }
 
 int link_decrypt_attachment(const uint8_t *ciphertext, size_t ciphertext_len,
                               const uint8_t *key, uint8_t *plaintext, size_t *plaintext_len) {
     uint8_t nonce[12] = {0}; // Extract from ciphertext in real implementation
-    return decrypt_message_aes_gcm(ciphertext, ciphertext_len, key, nonce,
+    return decrypt_message_authenticated_stream(ciphertext, ciphertext_len, key, nonce,
                                    plaintext, plaintext_len);
 }
 
@@ -1102,16 +1103,17 @@ static int derive_key(const uint8_t *input, size_t input_len,
 static int x3dh_key_agreement(const link_identity_key_t *identity,
                               const uint8_t *ephemeral_key,
                               uint8_t *shared_secret) {
-    // Simplified X3DH - in real implementation, perform actual DH operations
+    /*
+     * Fail closed until a reviewed X3DH implementation is integrated.
+     * Returning random bytes here would create two unrelated keys and could
+     * falsely present a session as authenticated.
+     */
     (void)identity;
     (void)ephemeral_key;
-
-    // Generate deterministic shared secret for demo
-    generate_random_bytes(shared_secret, 32);
-
-    return 0;
+    (void)shared_secret;
+    LOG_ERROR("BeskarLink: X3DH is not implemented; refusing session establishment");
+    return -1;
 }
-
 /*
  * Symmetric-chain ratchet step.
  *
@@ -1295,7 +1297,7 @@ static int message_tag(const uint8_t *ciphertext, size_t ct_len,
     return 0;
 }
 
-static int encrypt_message_aes_gcm(const uint8_t *plaintext, size_t pt_len,
+static int encrypt_message_authenticated_stream(const uint8_t *plaintext, size_t pt_len,
                                    const uint8_t *key, const uint8_t *nonce,
                                    uint8_t *ciphertext, size_t *ct_len) {
     uint8_t tag[32];
@@ -1321,7 +1323,7 @@ static int encrypt_message_aes_gcm(const uint8_t *plaintext, size_t pt_len,
     return 0;
 }
 
-static int decrypt_message_aes_gcm(const uint8_t *ciphertext, size_t ct_len,
+static int decrypt_message_authenticated_stream(const uint8_t *ciphertext, size_t ct_len,
                                    const uint8_t *key, const uint8_t *nonce,
                                    uint8_t *plaintext, size_t *pt_len) {
     uint8_t expected[32];
