@@ -1,135 +1,127 @@
-# Mandalorian Project - Commercial Licensing
+# Mandalorian Project — Commercial License
 
-## Overview
+## Commercial purpose
 
-The Mandalorian Project offers commercial licensing for organizations that require proprietary use rights, professional support, or custom deployments. Our dual-license model ensures the core technology remains open and auditable while enabling sustainable business growth.
+The Mandalorian Project is an open security research and systems project with a separate commercial licensing path for organizations that need proprietary use rights, paid support, integration work, or contractual delivery.
 
-## Why Commercial License?
+This document describes what is being sold. It does not claim certifications, production hardware, classified capability, or regulatory approval unless those items are separately demonstrated and contracted.
 
-### For Enterprises
-- **No Copyleft Obligations**: Use in proprietary products without sharing source code
-- **Legal Indemnification**: Protection against IP claims
-- **Professional Support**: Dedicated support channel with SLAs
-- **Custom Development**: Priority feature development
-- **Compliance Documentation**: SOC 2, FedRAMP, Common Criteria support
+## Current technical position
 
-### For Government/Defense
-- **Sovereign Deployment**: Air-gapped, on-premise installations
-- **Custom HSM Integration**: Classified hardware security modules
-- **Security Clearance**: Personnel with appropriate clearances
-- **Export Control**: ITAR/EAR compliance assistance
-- **Classified Environments**: SCIF-compatible deployments
+The repository contains substantial software research and architectural work around capability enforcement, cryptographic primitives, auditing, sandboxing, attestation concepts, and sovereign device architecture.
 
-## Pricing Tiers
+Important limitations remain documented in the repository:
 
-| Tier | Annual Price | Includes | Best For |
-|------|-------------|----------|----------|
-| **Startup** | $10,000 | Basic support, updates | Pre-revenue startups, researchers |
-| **Growth** | $50,000 | Priority support, custom features | Growing companies, mid-market |
-| **Enterprise** | $250,000 | Dedicated team, SLAs, training | Large enterprises, critical infrastructure |
-| **Government** | Custom ($500K-$2M+) | Sovereign deployment, classified support | Defense, intelligence, critical government |
+- The production RISC-V smartphone hardware is not built.
+- The custom SoC, tamper mesh, OTP fusing, and hardware memory protection are future work.
+- Some cryptographic and messaging components remain explicitly marked as partial or placeholder.
+- seL4 is used as an architectural reference in parts of the repository and is not represented as a production integration unless separately demonstrated.
+- Commercial customers receive the exact version, artifacts, support scope, and deployment rights stated in their order documents.
 
-## What's Included
+## Commercial offerings
 
-### All Commercial Tiers Include:
-- ✅ Commercial use rights (no copyleft)
-- ✅ Binary distribution rights
-- ✅ Professional support (email/phone)
-- ✅ Security updates (priority access)
-- ✅ Documentation and training materials
-- ✅ Community access (forums, events)
+| Offering | Starting price | Delivery |
+|---|---:|---|
+| Startup license | $10,000/year | Proprietary deployment rights, release access, defined support scope |
+| Growth license | $50,000/year | Expanded deployment rights, priority support, agreed integration work |
+| Enterprise license | $250,000/year | Organization-wide commercial rights, contracted support and integration |
+| Sovereign / government program | Custom | Contract-specific scope, audit access, integration, deployment engineering |
 
-### Enterprise+ Tiers Add:
-- ✅ Dedicated account manager
-- ✅ Custom feature development (40 hours/year)
-- ✅ On-site training and onboarding
-- ✅ Compliance documentation package
-- ✅ Custom HSM integration support
-- ✅ White-label licensing options
-- ✅ Source code escrow
+Prices are commercial starting points. A signed order form or master agreement defines the final scope, term, support response, deployment rights, and deliverables.
 
-### Government Tiers Add:
-- ✅ Air-gapped deployment support
-- ✅ Classified environment expertise
-- ✅ Security-cleared personnel
-- ✅ Custom hardware integration
-- ✅ Export control compliance
-- ✅ FedRAMP/Common Criteria assistance
-- ✅ Dedicated secure communication channel
+## What the commercial license provides
 
-## License Terms
+Subject to the signed agreement:
 
-### Standard Commercial License
-- **Term**: 1 year, auto-renewing
-- **Users**: Unlimited within licensed organization
-- **Deployments**: Unlimited within licensed organization
-- **Modification**: Allowed (no source sharing required)
-- **Sublicensing**: Allowed for subsidiaries
-- **Termination**: 30-day notice, pro-rata refund
+- proprietary use rights for the licensed release
+- permission to integrate the licensed release into internal or commercial products
+- binary distribution rights within the agreed scope
+- access to the documented release artifacts
+- support according to the selected service level
+- optional paid engineering through a separate statement of work
+- security update access for the covered release family
 
-### Government Sovereign License
-- **Term**: Multi-year (3-5 years typical)
-- **Deployment**: On-premise, air-gapped
-- **Source Code**: Available for audit (escrow)
-- **Personnel**: Security-cleared support available
-- **Compliance**: ITAR/EAR, FedRAMP, Common Criteria
-- **Termination**: 90-day notice, full data portability
+## What is not included automatically
 
-## How to Purchase
+The following are not implied by purchase:
 
-### Step 1: Initial Consultation
-Contact: info@socialfeed.co.za  
-Subject: "Commercial License Inquiry - [Your Organization]"
+- regulatory certification
+- government accreditation
+- Common Criteria certification
+- FedRAMP authorization
+- ITAR classification or authorization
+- security clearance
+- classified-environment approval
+- production custom silicon
+- production mobile hardware
+- guaranteed formal verification of every subsystem
+- legal or export-control advice
 
-Include:
-- Organization name and size
-- Use case (enterprise, government, defense)
-- Deployment scale (devices, users)
-- Special requirements (HSMs, compliance, etc.)
+Where an organization needs one of these outcomes, the engagement requires a separate feasibility and compliance assessment with the appropriate qualified parties.
 
-### Step 2: Custom Proposal
-We'll prepare a tailored proposal within 5 business days including:
-- Recommended tier and pricing
-- Implementation timeline
-- Support plan
-- Compliance roadmap
+## Paid engineering
 
-### Step 3: Agreement and Onboarding
-- Master Service Agreement (MSA)
-- Statement of Work (SOW)
-- Security and compliance review
-- Technical onboarding
+Custom engineering is available through a written statement of work.
 
-## Frequently Asked Questions
+Typical paid work includes:
 
-### Q: Can I start with the open source license and upgrade later?
-**A:** Yes. Many customers start with the Sovereignty License to evaluate, then upgrade to Commercial when ready for production deployment.
+- hardware bring-up engineering
+- target-board integration
+- secure boot and key-management integration
+- platform adaptation
+- sandbox policy integration
+- cryptographic review and test development
+- build reproducibility work
+- deployment automation
+- security documentation
+- independent validation work
 
-### Q: What happens if I stop paying?
-**A:** You retain rights to versions released during your subscription period. You lose access to updates, support, and new features.
+Every engineering engagement states its acceptance criteria before work begins. No report describes a feature as implemented unless the corresponding artifact, test, or measured result exists.
 
-### Q: Do I need a commercial license for internal use?
-**A:** No. The Sovereignty License allows unlimited internal use. Commercial licenses are only required if you distribute proprietary products or need professional support.
+## Evaluation
 
-### Q: Can I get a trial?
-**A:** Yes. We offer 30-day commercial license trials for qualified organizations.
+A paid or time-limited evaluation agreement is available for organizations that need to assess the repository before a production decision.
 
-### Q: Is there a startup discount?
-**A:** Yes. Pre-revenue startups qualify for the $10K Startup tier (normally $50K).
+An evaluation release is labelled as an evaluation release and is not represented as production certification.
 
-### Q: How does this compare to other security licenses?
-**A:** Unlike MongoDB's SSPL or Elastic's proprietary license, we maintain true open source core with transparent commercial terms. No bait-and-switch.
+## Purchase path
+
+1. Request commercial terms.
+2. Define organization, use case, release, deployment scope, and support requirements.
+3. Receive a written quotation and proposed agreement.
+4. Execute the agreement.
+5. Payment is collected through the agreed commercial channel.
+6. License access and support begin according to the contract.
+
+For enterprise engagements, invoicing and bank payment are preferred over embedding a consumer checkout into the security product.
+
+## Intellectual property
+
+The open-source portion of the project remains governed by its published license. Commercial terms grant the rights stated in the signed agreement and do not retroactively alter the open-source license.
+
+No customer receives rights beyond the contract.
 
 ## Contact
 
-**Email**: info@socialfeed.co.za  
-**Subject**: "Commercial License Inquiry"
+Commercial inquiries should use the contact address published in the repository README.
 
-**For Government/Defense**:  
-Add "GOV" to subject line for priority routing to cleared personnel.
+Subject example:
 
----
+`Mandalorian Commercial License — [Organization]`
 
-*"Sovereignty is not a feature. It is the foundation."*
+Include:
 
-This is the way.
+- organization
+- intended use
+- deployment scale
+- preferred release
+- required support level
+- integration requirements
+
+## Evidence policy
+
+The commercial program follows one rule:
+
+**No capability is sold as a fact until the repository, a delivered artifact, or an agreed engineering result supports the claim.**
+
+This keeps the commercial offering aligned with the actual state of the technology.
