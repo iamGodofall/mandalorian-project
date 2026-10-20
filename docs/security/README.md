@@ -25,4 +25,4 @@ See [Security assurance cases](ASSURANCE_CASES.md) for the claim-to-evidence tab
 
 ## Reporting a vulnerability
 
-Follow the repository [security policy](../../SECURITY.md). Use private vulnerability reporting where available, and do not include live secrets, private keys, or personal data in public issue reports.
+Follow the repository [security policy](https://github.com/iamGodofall/mandalorian-project/blob/master/SECURITY.md). Use private vulnerability reporting where available, and do not include live secrets, private keys, or personal data in public issue reports.
