@@ -22,6 +22,7 @@
 typedef struct {
     int active;
 } ledger_reservation_t;
+#define LEDGER_RESERVATION_INIT {0}
 
 /**
  * @brief Append an event to the ledger and advance the root hash.
