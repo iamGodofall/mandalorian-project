@@ -70,7 +70,7 @@ bool receipt_key_is_set(void)
 #define RECEIPT_BODY_SIZE (4U + 8U + MANDALORIAN_ACTION_SIZE + \
                            MANDALORIAN_RESOURCE_SIZE + MANDALORIAN_MAX_PAYLOAD + \
                            MANDALORIAN_CAP_ID_SIZE + 8U + 4U + MANDALORIAN_RECEIPT_REASON_SIZE)
-#define RECEIPT_ENCODED_SIZE (RECEIPT_BODY_SIZE + MANDALORIAN_SIGNATURE_SIZE)
+#define RECEIPT_ENCODED_SIZE (RECEIPT_BODY_SIZE + HMAC_SHA3_256_SIZE)
 
 static void encode_u32_le(uint8_t *out, uint32_t value)
 {
