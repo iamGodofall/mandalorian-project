@@ -156,7 +156,7 @@ This is a source-based engineering review of selected repository files, not a co
 
 The latest branch adds several regression-focused changes after the initial assessment:
 
-- Policy state now uses exact 32-bit agent IDs rather than modulo aliases, synchronized state access, per-minute request windows, and automatic UTC-day quota rollover. A concurrent regression test checks that one identity cannot exceed the configured rate through parallel calls.
+- Policy state now uses exact 32-bit agent IDs rather than modulo aliases, synchronized state access, monotonic per-minute request windows and rolling 24-hour quota buckets. A concurrent regression test checks that one identity cannot exceed the configured rate through parallel calls.
 - Capability verifier key snapshots and receipt key/receipt-ID state are mutex-protected to avoid concurrent key replacement and counter races in the host process.
 - Simulated executor outcomes are distinct from real execution. `GATE_SIMULATED` is recorded when the host demo path simulates a file operation; callers must not interpret it as a real side effect.
 - A security-contract workflow checks selected code invariants and guards against the strongest unsupported README claims.
