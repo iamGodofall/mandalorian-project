@@ -1,10 +1,11 @@
 /**
  * @file gate.c
- * @brief Mandalorian Core Gate — single enforcement point.
+ * @brief Mandalorian host-side authorization gate.
  *
- * Every request passes through mandalorian_execute(). There are no bypass
- * paths: executor_perform() is declared in executor.h and called from nowhere
- * else in the tree.
+ * This is a library-level check, not an OS-enforced isolation boundary.
+ * The current executor simulates file operations; a hostile process can use
+ * ambient OS privileges outside this library. The sole intended C call site
+ * for executor_perform() is below.
  *
  * This file did not compile. It re-declared mandalorian_cap_t,
  * mandalorian_request_t and gate_result_t locally instead of using gate.h —
