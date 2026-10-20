@@ -196,6 +196,12 @@ static void test_gate_denials(void)
                mandalorian_execute(&req, &t) == GATE_SIG_FAIL);
 
         t = cap;
+        t.signature[0] ^= 0x01U;
+        fill_request(&req, 1, "write", "/tmp/x", "x");
+        expect("tampered capability MAC rejected",
+               mandalorian_execute(&req, &t) == GATE_SIG_FAIL);
+
+        t = cap;
         strncpy(t.subject, "agent_9", sizeof(t.subject) - 1);
         fill_request(&req, 9, "write", "/tmp/x", "x");
         expect("tampered subject rejected",
