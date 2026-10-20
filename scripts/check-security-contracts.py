@@ -18,7 +18,7 @@ checks = {
     "executor marks simulated operations": ("mandalorian/runtime/executor.c", r"return EXEC_SIMULATED;"),
     "simulated reads are not marked as executed": ("mandalorian/runtime/executor.c", r'LOG_INFO\("Executor: simulated read of %s", req->resource\);\s*return EXEC_SIMULATED;'),
     "receipt MAC uses canonical field encoding": ("mandalorian/core/receipt.c", r"receipt_encode_body"),
-    "capability signature field matches HMAC width": ("mandalorian/capabilities/schema.h", r"MANDALORIAN_SIGNATURE_SIZE\\s+32"),
+    "capability signature field matches HMAC width": ("mandalorian/capabilities/schema.h", r"MANDALORIAN_SIGNATURE_SIZE\s+32"),
     "receipt MAC tag has no unused signature tail": ("mandalorian/core/receipt.h", r"signature\[HMAC_SHA3_256_SIZE\]"),
     "overnight quiet hours are handled": ("mandalorian/core/policy.c", r"return hour >= start_hour \|\| hour < end_hour;"),
     "OpenClaw never maps simulation to ordinary success": ("mandalorian/agent/openclaw-adapter.c", r"case GATE_SIMULATED:\s*return -14"),
