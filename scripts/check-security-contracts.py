@@ -16,6 +16,8 @@ checks = {
     "gate has a distinct simulated result": ("mandalorian/core/gate.h", r"\bGATE_SIMULATED\b"),
     "gate handles simulated execution separately": ("mandalorian/core/gate.c", r"if\s*\(exec_res\s*==\s*EXEC_SIMULATED\)"),
     "executor marks simulated operations": ("mandalorian/runtime/executor.c", r"return EXEC_SIMULATED;"),
+    "simulated reads are not marked as executed": ("mandalorian/runtime/executor.c", r'LOG_INFO\("Executor: simulated read of %s", req->resource\);\s*return EXEC_SIMULATED;'),
+    "overnight quiet hours are handled": ("mandalorian/core/policy.c", r"return hour >= start_hour \|\| hour < end_hour;"),
     "OpenClaw never maps simulation to ordinary success": ("mandalorian/agent/openclaw-adapter.c", r"case GATE_SIMULATED:\s*return -14"),
     "policy state is synchronized": ("mandalorian/core/policy.c", r"pthread_mutex_t policy_mutex"),
     "policy windows use monotonic time": ("mandalorian/core/policy.c", r"CLOCK_MONOTONIC"),
