@@ -51,7 +51,7 @@ These are requirements to test continuously, not claims that all are already pro
 3. Exact identity binding: a capability is bound to the intended issuer, subject, audience, action, resource, policy version, and validity interval.
 4. Unambiguous encoding: authenticated fields use a canonical, versioned encoding. Ambiguous concatenation, truncation, and non-terminated strings are rejected.
 5. Bounded input: all externally supplied lengths and counts are checked before string operations, allocation, copying, or execution.
-6. Replay control: single-use or replay-sensitive capabilities have a defined nonce or identifier store, expiry semantics, and concurrency-safe consumption.
+6. Replay control: a process-local, mutex-protected nonce cache now consumes nonzero (agent_id, nonce) pairs through capability expiry and fails closed when full. Durable replay state across restarts and a cryptographically authenticated request envelope remain open requirements for hostile multi-process/network deployments.
 7. Resource confinement: path and resource matching is component-aware, canonicalized for the target platform, and resistant to traversal, alternate separators, symlinks, and prefix confusion.
 8. Auditable outcomes: accepted and rejected requests produce structured, integrity-protected records where the logging system is available. Logging failure behavior is explicitly defined.
 9. No secret leakage: keys and plaintext are not written to logs, receipts, crash output, or demo output.
@@ -101,8 +101,9 @@ The review branch now includes an initial hardening pass, with regression tests 
 - The gate checks request string termination and safe log text before logging, and rejects malformed capabilities before receipt formatting.
 - Resource matching rejects relative paths, backslashes, repeated separators, and explicit `.` or `..` path segments. This is lexical filtering only. A real filesystem executor still needs platform-specific canonicalization and symlink-safe access.
 - Regression tests cover unterminated capability fields, oversized issuer inputs, malformed size constraints, and malformed capability rejection at the gate.
-- Gate receipt handling verifies the receipt MAC and checks ledger append results. It refuses to execute when no receipt key is configured and distinguishes `GATE_AUDIT_FAIL` from `GATE_AUDIT_FAIL_AFTER_EXECUTION`; tests force ledger exhaustion to exercise both outcomes.
-- The OpenClaw adapter validates numeric agent IDs and rejects oversized resource/payload inputs rather than using `atoi()` or silently truncating authorization targets. It no longer writes a duplicate unauthenticated compact receipt into the authoritative ledger.
+- Gate receipt handling verifies the receipt MAC and checks ledger append results. It refuses to execute when no receipt key or reserved ledger capacity is available and distinguishes `GATE_AUDIT_FAIL` from `GATE_AUDIT_FAIL_AFTER_EXECUTION`; tests force ledger exhaustion to exercise fail-closed behavior.
+- A request nonce is required and consumed atomically after authorization; duplicate agent/nonce pairs are denied. The replay cache is bounded and process-local, with expiry-based reclamation and fail-closed exhaustion. Concurrent replay tests assert only one caller can consume a given nonce.
+- The OpenClaw adapter validates numeric agent IDs, rejects oversized resource/payload inputs, and generates request nonces from the secure random source rather than using `atoi()` or silently truncating authorization targets. It no longer writes a duplicate unauthenticated compact receipt into the authoritative ledger.
 - The fuzz harness resets the bounded test ledger for each input so ledger exhaustion does not make later authorization checks vacuous.
 - Shield Ledger append/root/count operations are mutex-serialized, with multithreaded regression tests for append count, root integrity, and reserved-slot accounting. The gate reserves audit capacity before executing an authorized operation. This does not provide crash durability.
 
@@ -130,7 +131,7 @@ A failed or unexecuted check must be reported as such, not converted to a pass.
 1. Freeze security claims to the current evidence and reconcile contradictory status documents.
 2. Harden input validation and canonical resource matching, with regression tests.
 3. Define capability issuer/verifier trust and key lifecycle.
-4. Add gate-bypass checks, concurrency-safe audit reservation, and durable audit failure semantics.
+4. Add deployment-level gate-bypass tests, durable audit storage, and independent cryptographic review; the current process-local ledger/replay cache are not persistent.
 5. Introduce fuzzing and stronger CI provenance controls.
 6. Replace messaging placeholders only through a reviewed protocol/library integration.
 7. Validate the seL4 and hardware path separately from host simulation.
