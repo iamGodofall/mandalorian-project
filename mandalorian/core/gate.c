@@ -50,21 +50,45 @@ const char *gate_result_to_string(gate_result_t result)
     case GATE_CONSTRAINT_FAIL:    return "CONSTRAINT_FAILED";
     case GATE_POLICY_DENY:        return "POLICY_DENIED";
     case GATE_EXEC_FAIL:          return "EXECUTION_FAILED";
+    case GATE_AUDIT_FAIL:         return "AUDIT_FAILURE_NOT_EXECUTED";
+    case GATE_AUDIT_FAIL_AFTER_EXECUTION:
+                                  return "EXECUTION_OUTCOME_UNRECORDED";
     default:                      return "UNKNOWN";
     }
 }
 
-/* Record the decision and return it. Every exit from the gate goes through
- * here, so a denial is as auditable as a success — the original returned
- * early on each failure and only receipted the success path, leaving no
- * ledger evidence of a rejected request. */
+/* A gate decision is not fully successful unless its receipt is
+ * authenticated and accepted by the ledger. Never ignore either failure. */
+static int gate_record_decision(const mandalorian_request_t *req,
+                               const mandalorian_cap_t *cap,
+                               gate_result_t status,
+                               const char *reason)
+{
+    receipt_t receipt = generate_receipt(req, cap, status, reason);
+
+    if (verify_receipt(&receipt) != 0) {
+        LOG_ERROR("Gate: receipt authentication failed; decision is unrecorded");
+        return -1;
+    }
+    if (log_receipt(&receipt) != 0) {
+        LOG_ERROR("Gate: ledger append failed; decision is unrecorded");
+        return -1;
+    }
+    return 0;
+}
+
+/* Denials are receipted too. If that record cannot be authenticated and
+ * appended, expose the audit failure rather than implying the normal denial
+ * path completed with its expected evidence. */
 static gate_result_t gate_deny(const mandalorian_request_t *req,
                                const mandalorian_cap_t *cap,
                                gate_result_t reason)
 {
-    receipt_t receipt = generate_receipt(req, cap, reason,
-                                         gate_result_to_string(reason));
-    log_receipt(&receipt);
+    if (gate_record_decision(req, cap, reason,
+                             gate_result_to_string(reason)) != 0) {
+        LOG_ERROR("Gate: DENIED but audit record failed");
+        return GATE_AUDIT_FAIL;
+    }
     LOG_ERROR("Gate: DENIED (%s) agent=%u %s %s",
               gate_result_to_string(reason), req->agent_id, req->action,
               req->resource);
@@ -142,10 +166,15 @@ gate_result_t mandalorian_execute(mandalorian_request_t *req,
         return gate_deny(req, cap, GATE_EXEC_FAIL);
     }
 
-    /* Step 9: receipt. */
+    /* Step 9: receipt. An execution may already have occurred at this
+     * point. Report a distinct result if its outcome cannot be recorded:
+     * callers must not blindly retry because that could repeat side effects. */
     receipt = generate_receipt(req, cap, GATE_OK, NULL);
-    log_receipt(&receipt);
+    if (verify_receipt(&receipt) != 0 || log_receipt(&receipt) != 0) {
+        LOG_ERROR("Gate: execution completed/attempted but outcome receipt failed");
+        return GATE_AUDIT_FAIL_AFTER_EXECUTION;
+    }
 
-    LOG_INFO("Gate: SUCCESS - receipt generated");
+    LOG_INFO("Gate: SUCCESS - receipt authenticated and recorded");
     return GATE_OK;
 }
