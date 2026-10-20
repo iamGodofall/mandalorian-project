@@ -30,9 +30,9 @@
 
 - [Security assurance cases](ASSURANCE_CASES.md)
 - [Security posture and threat model](SECURITY_POSTURE_2026-10.md)
-- [Gate tests](../../tests/unit/test_gate_enforcement.c)
-- [Policy tests](../../tests/unit/test_policy.c)
-- [Replay guard tests](../../tests/unit/test_replay_guard.c)
+- [Gate tests](https://github.com/iamGodofall/mandalorian-project/blob/master/tests/unit/test_gate_enforcement.c)
+- [Policy tests](https://github.com/iamGodofall/mandalorian-project/blob/master/tests/unit/test_policy.c)
+- [Replay guard tests](https://github.com/iamGodofall/mandalorian-project/blob/master/tests/unit/test_replay_guard.c)
 
 ## Release rule
 
