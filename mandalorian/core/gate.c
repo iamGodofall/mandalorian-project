@@ -32,7 +32,7 @@ static int safe_text_field(const char *value, size_t capacity)
     size_t i;
     for (i = 0; i < capacity; ++i) {
         unsigned char ch = (unsigned char)value[i];
-        if (ch == '\\0') return 1;
+        if (ch == '\0') return 1;
         if (ch < 0x20 || ch == 0x7f || ch == '|') return 0;
     }
     return 0;
