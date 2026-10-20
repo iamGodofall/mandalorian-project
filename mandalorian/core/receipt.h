@@ -18,6 +18,7 @@
 
 #include "../capabilities/schema.h"
 #include "gate.h"
+#include "../../beskarcore/include/merkle_ledger.h"
 
 /** Full receipt: the complete record appended to the Shield Ledger. */
 typedef struct {
@@ -51,6 +52,8 @@ receipt_t generate_receipt(const mandalorian_request_t *req,
  * @return 0 on success, -1 on failure.
  */
 int log_receipt(const receipt_t *r);
+/** Append a receipt using and consume a pre-reserved ledger slot. */
+int log_receipt_reserved(const receipt_t *r, ledger_reservation_t *reservation);
 
 /**
  * @brief Append a compact receipt to the Shield Ledger.
