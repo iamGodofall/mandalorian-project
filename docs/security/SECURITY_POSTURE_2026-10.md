@@ -77,7 +77,7 @@ The current verifier code uses a process-global HMAC-SHA3-256 key. With a shared
 
 ### P1: Make audit semantics explicit
 
-The gate now distinguishes an audit failure before execution from a receipt failure after execution, verifies receipt authentication before append, and no longer silently ignores a failed ledger append. Malformed requests that cannot safely be formatted still return early without a receipt. The success path can still execute before its final receipt is appended; `GATE_AUDIT_FAIL_AFTER_EXECUTION` therefore means the operation may have happened and callers must not blindly retry. This remains a bounded in-memory ledger with no concurrency-safe reservation or durability guarantee. A hash chain detects some forms of modification only when the trusted root is retained independently; it is not tamper-proof against a process or host administrator.
+The gate now distinguishes an audit failure before execution from a receipt failure after execution, verifies receipt authentication before append, and no longer silently ignores a failed ledger append. Malformed requests that cannot safely be formatted still return early without a receipt. The success path can still execute before its final receipt is appended; `GATE_AUDIT_FAIL_AFTER_EXECUTION` therefore means the operation may have happened and callers must not blindly retry. Ledger appends and shared-state reads are now mutex-serialized, but the bounded ledger is still in-memory, has no durable persistence, and does not atomically reserve capacity for a future outcome receipt. An append may still fail after an operation executes. A hash chain detects some forms of modification only when the trusted root is retained independently; it is not tamper-proof against a process or host administrator.
 
 ### P1: Add property-oriented security tests
 
@@ -104,6 +104,7 @@ The review branch now includes an initial hardening pass, with regression tests 
 - Gate receipt handling verifies the receipt MAC and checks ledger append results. It refuses to execute when no receipt key is configured and distinguishes `GATE_AUDIT_FAIL` from `GATE_AUDIT_FAIL_AFTER_EXECUTION`; tests force ledger exhaustion to exercise both outcomes.
 - The OpenClaw adapter validates numeric agent IDs and rejects oversized resource/payload inputs rather than using `atoi()` or silently truncating authorization targets. It no longer writes a duplicate unauthenticated compact receipt into the authoritative ledger.
 - The fuzz harness resets the bounded test ledger for each input so ledger exhaustion does not make later authorization checks vacuous.
+- Shield Ledger append/root/count operations are mutex-serialized, with a multithreaded regression test that checks append count and root integrity. This does not provide crash durability or atomic audit-capacity reservation.
 
 The latest review-branch CI run passed build/test, crypto-vector, AddressSanitizer/UBSan, documentation, duplicate-symbol, and source-hygiene jobs. This is useful regression evidence, not an independent audit or proof of production security. Resource canonicalization still requires platform-specific treatment, and the shared HMAC key model remains a trust-boundary limitation.
 
