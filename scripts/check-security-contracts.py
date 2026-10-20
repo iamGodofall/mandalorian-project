@@ -37,7 +37,10 @@ for label, (path, pattern) in checks.items():
     else:
         print(f"PASS: {label}")
 
-public_docs = ["README.md", "PROJECT_REPORT.md", "docs/index.md", "docs/architecture/overview.md"]
+public_docs = [
+    "README.md", "PROJECT_REPORT.md", "docs/index.md", "docs/architecture/overview.md",
+    "index.html", "mandate/PRODUCT_BRIEF.md", "helm/README.md", "beskarcore/README.md",
+]
 for path in public_docs:
     content = read(path).lower()
     for unsupported in ("world's first", "mathematically incapable", "provable sovereignty", "no bypass paths"):
