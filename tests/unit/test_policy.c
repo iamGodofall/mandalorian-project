@@ -79,6 +79,14 @@ int main(void)
     policy_set_trust(99U, 3);
     assert(policy_evaluate(&a, NULL));
 
+    policy_reset_all();
+    policy_set_quiet_hours(0, 24);
+    a = make_request(7U);
+    (void)snprintf(a.action, sizeof(a.action), "file_write");
+    assert(!policy_evaluate(&a, NULL)); /* adapter action must not bypass quiet hours */
+    (void)snprintf(a.action, sizeof(a.action), "write");
+    assert(!policy_evaluate(&a, NULL));
+
     puts("Policy tests passed");
     return 0;
 }
