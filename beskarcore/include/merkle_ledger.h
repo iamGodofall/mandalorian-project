@@ -3,8 +3,9 @@
  * @brief Shield Ledger — append-only hash chain over security events.
  *
  * Each entry commits to the previous root, so altering or deleting any past
- * entry changes every root after it. The chain is only as strong as the hash
- * behind it: see sha3.h for why that implementation has known-answer tests.
+ * entry changes every root after it. Appends and shared-state reads are mutex-
+ * protected; the ledger remains bounded in-memory state, not durable storage.
+ * The chain is only as strong as the hash behind it: see sha3.h for vectors.
  */
 
 #ifndef BESKARCORE_MERKLE_LEDGER_H
@@ -21,7 +22,7 @@
  * @brief Append an event to the ledger and advance the root hash.
  * @param event_type NUL-terminated label; truncated to LEDGER_EVENT_TYPE_SIZE-1.
  * @param data_hash  LEDGER_HASH_SIZE bytes committing to the event payload.
- * @return 0 on success, -1 if the ledger is full or an argument is NULL.
+ * @return 0 on success, -1 if the ledger is full, locking fails, or an argument is NULL.
  */
 int add_ledger_entry(const char *event_type, const uint8_t *data_hash);
 
