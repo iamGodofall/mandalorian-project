@@ -48,7 +48,7 @@ graph TB
     subgraph Security["Security Stack"]
         GL["Shield Ledger<br/>Merkle Tree + SHA3-256"]
         AG["BeskarAppGuard<br/>64 Permissions / 16 Categories"]
-        BL["BeskarLink<br/>Signal Protocol + PQ Augmentation"]
+        BL["BeskarLink<br/>Messaging scaffold — not production E2EE"]
         BE["BeskarEnterprise<br/>Decentralized Policy Engine"]
     end
 
@@ -77,16 +77,16 @@ before relying on any row.
 
 | Goal | Status | What is actually implemented |
 |---|---|---|
-| **No backdoors** | Design | No central servers and no remote-access path exists in the code. On-device enforcement via seL4 capabilities is architectural; the gate runs on the host today. |
-| **Capability enforcement** | Working | Nine-step gate with HMAC-SHA3-256 capability authentication, wildcard resource matching with traversal rejection, size constraints, policy, and a receipt for every decision including denials. Covered by `tests/unit/test_gate_enforcement.c`. |
-| **Immutable audit log** | Working | Shield Ledger chains each entry into the previous root with SHA3-256. Append-only in memory; there is no on-disk or replicated store yet. |
-| **Hash integrity** | Working | SHA3-256/512 pass the FIPS 202 known-answer vectors (`tests/unit/test_sha3_vectors.c`) and match an independent implementation across every length up to several blocks. |
+| **No backdoors** | Design goal only | The host gate does not require a central server, but this does not establish a no-backdoor property. The library is not an OS-enforced boundary. |
+| **Capability enforcement** | Host prototype | HMAC-SHA3-256 authentication, lexical resource checks, size constraints, policy, replay guard, and audited decisions for well-formed requests. `GATE_SIMULATED` means no file operation occurred; this is not OS confinement. |
+| **Hash-chained audit ledger** | Partial | Shield Ledger chains entries with SHA3-256 in bounded process-local memory. It is not crash-durable or independently tamper-proof. |
+| **Hash integrity** | Primitive tested | SHA3-256/512 pass the repository’s FIPS 202 known-answer vectors. This does not validate every use of cryptography across the full project. |
 | **Key destruction on tamper** | Not implemented | Requires the tamper mesh and custom PCB described under Hardware Reality Check. |
 | **Secret hygiene** | Partial | Key material is wiped with `secure_zero()`, which the compiler cannot optimise away. Keys still live in ordinary application RAM — a real HSM never exposes them, which needs the hardware in Phase 2. |
-| **Forward secrecy** | Partial | The symmetric chain ratchet advances per message, so a captured chain key does not recover earlier message keys. The **DH ratchet and X3DH are not implemented** — `x3dh_key_agreement()` returns random bytes rather than performing any Diffie-Hellman — so there is no break-in recovery and this is *not* the Signal Double Ratchet. |
+| **Forward secrecy / messaging** | Not established | BeskarLink is incomplete and is not the Signal Double Ratchet. Do not use it for production end-to-end encryption. Reviewed protocol integration and conformance testing are required. |
 | **Message encryption** | Placeholder | BeskarLink uses a SHA3-based keystream with a SHA3 MAC, not a reviewed AEAD. Do not use it to protect real messages. |
 | **Post-quantum resistance** | Not implemented | No CRYSTALS-Dilithium, Kyber, or any PQC primitive exists in this repository. |
-| **Continuous integrity** | Working (simulated) | 50ms CRC32 with periodic SHA3-256 full verification. Measures simulated regions; there is no hardware watchdog behind it. |
+| **Continuous integrity** | Simulated prototype | Software checks exercise simulated regions; there is no demonstrated hardware watchdog or ROM-resident trust anchor. |
 | **Random number generation** | Working | All key, nonce and identifier material comes from the OS CSPRNG (`getrandom(2)`, `arc4random_buf`, `BCryptGenRandom`, or `/dev/urandom`) via `secure_random.h`, which **fails closed** — no entropy source means an error, never a weak fallback. Covered by `tests/unit/test_secure_random.c`, which fails against the previous clock-seeded implementation. |
 
 ---
