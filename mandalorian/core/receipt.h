@@ -19,6 +19,9 @@
 #include "../capabilities/schema.h"
 #include "gate.h"
 #include "../../beskarcore/include/merkle_ledger.h"
+#include "../crypto/hmac_sha3.h"
+
+#define MANDALORIAN_RECEIPT_REASON_SIZE 256
 
 /** Full receipt: the complete record appended to the Shield Ledger. */
 typedef struct {
@@ -26,8 +29,8 @@ typedef struct {
     char cap_id[MANDALORIAN_CAP_ID_SIZE];
     uint64_t timestamp;
     gate_result_t status;
-    char reason[256];
-    uint8_t signature[MANDALORIAN_SIGNATURE_SIZE];
+    char reason[MANDALORIAN_RECEIPT_REASON_SIZE];
+    uint8_t signature[HMAC_SHA3_256_SIZE];
 } receipt_t;
 
 /** Compact receipt handed back to callers such as the OpenClaw adapter. */
