@@ -15,6 +15,9 @@
 #include <stddef.h>
 #include <string.h>
 #include <time.h>
+#ifdef _WIN32
+#include <windows.h>
+#endif
 
 #include "logging.h"
 
@@ -37,6 +40,35 @@ static policy_agent_state_t agents[POLICY_AGENT_SLOTS];
 static pthread_mutex_t policy_mutex = PTHREAD_MUTEX_INITIALIZER;
 static int quiet_hours_start = 2;
 static int quiet_hours_end = 6;
+
+static bool get_monotonic_seconds(uint64_t *seconds)
+{
+    if (seconds == NULL) {
+        return false;
+    }
+#ifdef _WIN32
+    *seconds = (uint64_t)(GetTickCount64() / 1000ULL);
+    return true;
+#else
+    {
+        struct timespec now;
+        if (clock_gettime(CLOCK_MONOTONIC, &now) != 0 || now.tv_sec < 0) {
+            return false;
+        }
+        *seconds = (uint64_t)now.tv_sec;
+        return true;
+    }
+#endif
+}
+
+static bool get_local_time(time_t wall_now, struct tm *local_tm)
+{
+#ifdef _WIN32
+    return localtime_s(local_tm, &wall_now) == 0;
+#else
+    return localtime_r(&wall_now, local_tm) != NULL;
+#endif
+}
 
 static bool request_fields_terminated(const mandalorian_request_t *req)
 {
@@ -75,7 +107,7 @@ bool policy_evaluate(const mandalorian_request_t *req,
 {
     time_t wall_now;
     struct tm local_tm;
-    struct timespec monotonic_now;
+    uint64_t monotonic_seconds_now;
     uint64_t minute_epoch, day_epoch, payload_size, daily_quota;
     policy_agent_state_t *state;
     bool allowed = false;
@@ -85,16 +117,15 @@ bool policy_evaluate(const mandalorian_request_t *req,
         return false;
     }
     wall_now = time(NULL);
-    if (wall_now < 0 || localtime_r(&wall_now, &local_tm) == NULL ||
-        clock_gettime(CLOCK_MONOTONIC, &monotonic_now) != 0 ||
-        monotonic_now.tv_sec < 0) {
+    if (wall_now < 0 || !get_local_time(wall_now, &local_tm) ||
+        !get_monotonic_seconds(&monotonic_seconds_now)) {
         return false;
     }
 
     /* Rate and quota windows use monotonic time, so wall-clock changes cannot
      * reset counters. These buckets are process-local and restart-local. */
-    minute_epoch = (uint64_t)monotonic_now.tv_sec / 60U;
-    day_epoch = (uint64_t)monotonic_now.tv_sec / 86400U;
+    minute_epoch = monotonic_seconds_now / 60U;
+    day_epoch = monotonic_seconds_now / 86400U;
     payload_size = (uint64_t)strnlen(req->payload, sizeof(req->payload));
 
     if (pthread_mutex_lock(&policy_mutex) != 0) {
@@ -171,12 +202,11 @@ void policy_set_trust(uint32_t agent_id, int level)
 void policy_reset_daily_quota(uint32_t agent_id)
 {
     size_t i;
-    struct timespec monotonic_now;
+    uint64_t monotonic_seconds_now;
     uint64_t quota_epoch = UINT64_MAX;
 
-    if (clock_gettime(CLOCK_MONOTONIC, &monotonic_now) == 0 &&
-        monotonic_now.tv_sec >= 0) {
-        quota_epoch = (uint64_t)monotonic_now.tv_sec / 86400U;
+    if (get_monotonic_seconds(&monotonic_seconds_now)) {
+        quota_epoch = monotonic_seconds_now / 86400U;
     }
     if (pthread_mutex_lock(&policy_mutex) != 0) {
         return;
