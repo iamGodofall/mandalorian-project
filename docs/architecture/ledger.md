@@ -1,101 +1,28 @@
-# Shield Ledger — Immutable Audit Trail
+# Shield Ledger — In-Memory Hash-Chain Prototype
 
-> Every gate call. Every result. Every time. Receipted.
+> **Status:** this is a bounded in-memory ledger, not an immutable or crash-durable audit system.
 
----
+## Current behavior
 
-## Overview
+The host prototype serializes ledger entries, hashes each entry with a commitment to the previous root, and protects append/root/count operations with a mutex. The gate can reserve one slot for a future outcome receipt so ordinary writers cannot consume that capacity.
 
-The Shield Ledger is an **append-only Merkle tree** that records every decision the Mandalorian Gate makes. Every `exec`, `read`, `write`, `process`, web call, and `cron` invocation generates a signed receipt.
+Receipts are authenticated with HMAC-SHA3-256. They are not publicly verifiable signatures: a party holding the shared receipt key can mint valid MACs. The ledger and replay cache are process-local and are lost on restart.
 
-**Immutability guarantee**: The Merkle tree structure makes it impossible to alter past receipts without breaking the tree's hash chain — any tampering is immediately detectable.
+## Guarantees not provided
 
----
+- Durable writes or crash consistency.
+- External anchoring or independent verification of ledger roots.
+- Protection from a privileged process modifying memory.
+- Proof that a recorded receipt corresponds to a real-world side effect.
+- Non-repudiation against another party that possesses the shared MAC key.
 
-## Receipt Structure
+## Production requirements
 
-```c
-typedef struct {
-    uint64_t receipt_id;       // Monotonic counter
-    uint64_t timestamp_us;     // Microsecond precision
-    gate_result_t result;      // GATE_OK or specific failure code
-    uint32_t agent_id;
-    char action[32];
-    char resource[256];
-    uint8_t cap_snapshot[64];   // HMAC of cap that allowed/denied
-    uint8_t gate_state_hash[32]; // Current gate Merkle root
-    uint8_t prev_receipt_hash[32]; // Hash of previous receipt
-    uint8_t this_receipt_hash[32]; // Hash of this receipt
-} receipt_t;
-```
+1. Define canonical, versioned receipt encoding and include request/payload digests.
+2. Separate the audit key from capability issuance and verification keys.
+3. Persist intent and outcome records with crash-consistent semantics.
+4. Anchor ledger checkpoints externally or in a separate trust domain.
+5. Define retention, capacity, rotation, export, and recovery procedures.
+6. Test tampering, truncation, reordered records, process crashes, disk-full conditions, and clock rollback.
 
----
-
-## Merkle Tree Operations
-
-```
-Receipt Created
-       │
-       ▼
-  Hash receipt
-       │
-       ▼
-  Append to Merkle tree
-       │
-       ▼
-  New root = Hash(left_child || right_child)
-       │
-       ▼
-  Root stored in BeskarVault (Slot 0 — device identity)
-       │
-       ▼
-  Receipt appended to rolling receipt log
-```
-
----
-
-## Properties
-
-| Property | Mechanism |
-|----------|-----------|
-| **Append-only** | New receipts append; no insert/delete |
-| **Tamper-evident** | Changing receipt N changes root |
-| **Non-repudiation** | Gate state hash binds receipt to system state |
-| **Verifiable** | Any party with root can verify full chain |
-| **Efficient** | Membership proof = O(log n) |
-| **Quantum-safe** | SHA3-256, not SHA-256 |
-
----
-
-## Use Cases
-
-- **Audit**: "What did Agent 5 do between 2:00–2:30 AM?"
-- **Forensics**: Compromised agent? Trace exactly what it accessed
-- **Compliance**: Immutable record for regulated environments
-- **Attestation**: Quote includes current Merkle root = audit history bound to identity
-
----
-
-## Integration Points
-
-- **Mandalorian Gate (Step 10)**: Every call → receipt → ledger
-- **Helm**: Aggregates receipts, forwards to Shield Ledger
-- **Aegis**: Monitors ledger for anomaly patterns
-- **BeskarVault**: Holds the Merkle root in tamper-evident slot
-
----
-
-## Files
-
-| File | Role |
-|------|------|
-| `beskarcore/include/continuous_guardian.h` | Public API |
-| `beskarcore/src/continuous_guardian.c` | Guardian — gate audit wrapper |
-| `beskarcore/src/merkle_ledger.c` | Merkle tree implementation |
-| `beskarcore/src/logging.c` | Structured log output |
-| `beskarcore/src/monitoring.c` | Receipt monitoring |
-| `tests/comprehensive/test_mandalorian_gate.c` | Receipt generation tests |
-
----
-
-*The Ledger does not forget. The Ledger does not forgive.*
+A hash chain is a useful integrity mechanism, but in-memory chaining alone does not make a log immutable.
