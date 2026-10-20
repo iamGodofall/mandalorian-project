@@ -95,6 +95,13 @@ bool policy_quiet_hours_contains(int hour, int start_hour, int end_hour)
     return hour >= start_hour || hour < end_hour;
 }
 
+static bool is_system_config_path(const char *resource)
+{
+    return resource != NULL &&
+           (strcmp(resource, "/etc") == 0 ||
+            strncmp(resource, "/etc/", sizeof("/etc/") - 1U) == 0);
+}
+
 static policy_agent_state_t *find_or_allocate_agent(uint32_t agent_id)
 {
     size_t i;
@@ -190,7 +197,7 @@ bool policy_evaluate(const mandalorian_request_t *req,
         goto done;
     }
 
-    if (strstr(req->resource, "/etc/") != NULL && state->trust_level < 3) {
+    if (is_system_config_path(req->resource) && state->trust_level < 3) {
         LOG_WARN("Policy: high-risk resource denied agent=%u", req->agent_id);
         goto done;
     }
