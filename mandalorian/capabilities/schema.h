@@ -15,7 +15,7 @@
 #define MANDALORIAN_ACTION_SIZE      32
 #define MANDALORIAN_RESOURCE_SIZE   256
 #define MANDALORIAN_CONSTRAINTS_SIZE 256
-#define MANDALORIAN_SIGNATURE_SIZE   64
+#define MANDALORIAN_SIGNATURE_SIZE   32
 #define MANDALORIAN_CAP_ID_SIZE      32
 
 typedef struct {
@@ -24,8 +24,7 @@ typedef struct {
     char resource[MANDALORIAN_RESOURCE_SIZE];        /* e.g. "/workspace" plus wildcard */
     char constraints[MANDALORIAN_CONSTRAINTS_SIZE];  /* "maxSize=10KB" */
     uint64_t expiry;                                 /* Unix timestamp */
-    uint8_t signature[MANDALORIAN_SIGNATURE_SIZE];   /* HMAC-SHA3-256, tag in
-                                                      * the first 32 bytes */
+    uint8_t signature[MANDALORIAN_SIGNATURE_SIZE];   /* Exact 32-byte HMAC-SHA3-256 tag */
     char cap_id[MANDALORIAN_CAP_ID_SIZE];            /* Unique ID */
 } mandalorian_cap_t;
 
