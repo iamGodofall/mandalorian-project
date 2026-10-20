@@ -75,7 +75,7 @@ capabilities/
   schema.h                   # Capability schema
   issuer.c                   # Capability issuance
 core/
-  gate.c                     # 9-step enforcement pipeline
+  gate.c                     # authorization, replay guard, reserved receipts
   policy.c                   # Trust and quota policy
   receipt.c                  # Receipt generation
   verifier.c                 # Capability verification
