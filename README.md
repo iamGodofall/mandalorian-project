@@ -9,11 +9,11 @@
 
 # Mandalorian Project — Sovereign Mobile Computing
 
-**Betrayal-Resistant Architecture Built on seL4 Microkernel**
+**Research prototype for capability-oriented, sovereignty-focused computing**
 
 > *"Sovereignty is not a feature — it is the foundation."*
 
-The Mandalorian Project builds the world's first **betrayal-resistant mobile computing platform** — a system mathematically incapable of violating user trust, even under coercion, legal compulsion, or physical capture.
+The Mandalorian Project is a research and development effort exploring a sovereignty-focused mobile computing architecture. The repository contains a host-buildable C prototype, policy and capability experiments, cryptographic primitives, architecture scaffolding, and a seL4-oriented target design. It does **not** currently deliver a secure mobile operating system, a formally verified end-to-end platform, hardware-backed isolation, or a system proven resistant to coercion or physical capture.
 
 **Live documentation:** [https://iamgodofall.github.io/mandalorian-project/](https://iamgodofall.github.io/mandalorian-project/)
 
@@ -21,26 +21,26 @@ The Mandalorian Project builds the world's first **betrayal-resistant mobile com
 
 ## The Problem
 
-Conventional smartphones *claim* security while retaining backdoors for vendors, governments, and "lawful access." The Mandalorian Phone implements **provable sovereignty**:
+The project investigates how a mobile platform could reduce unnecessary trust in vendors and remote services. The following are **design goals, not current guarantees**:
 
-- No entity — not even the manufacturer — can access user data without explicit, real-time consent
-- All security decisions are cryptographically logged to an immutable Shield Ledger
-- Hardware-enforced integrity checks operate continuously without network dependency
-- Every line of code is reproducibly built and formally verified where it matters most
+- **Target:** sensitive operations require explicit, auditable authorization.
+- **Target:** audit evidence is integrity-protected and eventually durable, with externally verifiable checkpoints.
+- **Target:** hardware-backed integrity and key protection work without a cloud dependency.
+- **Target:** critical components have reproducible builds, defined verification evidence, and independent review.
 
 ---
 
-## Architecture
+## Target Architecture (Not Yet Delivered)
 
 ```mermaid
 graph TB
-    subgraph Hardware["Hardware Layer (RISC-V + Custom SoC)"]
+    subgraph Hardware["Target hardware (not implemented)"]
         HSM["BeskarVault HSM<br/>32 Key Slots / 5 Security Levels"]
         WDT["Hardware Watchdog<br/>50ms Integrity Checks"]
         TRNG["True Random Number Generator"]
     end
 
-    subgraph Kernel["seL4 Microkernel"]
+    subgraph Kernel["Target kernel integration (not built here)"]
         CAP["Capability-based IPC<br/>Aegis Agent Monitor"]
         Ipc["Inter-process Communication"]
     end
