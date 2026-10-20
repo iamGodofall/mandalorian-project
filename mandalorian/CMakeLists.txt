@@ -30,7 +30,7 @@ target_include_directories(mandalorian_core PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/crypto
 )
 
-target_link_libraries(mandalorian_core PUBLIC beskarcore)
+target_link_libraries(mandalorian_core PUBLIC beskarcore Threads::Threads)
 
 if(BUILD_DEMOS)
     add_executable(constrained-agent-demo examples/constrained-agent-demo.c)
