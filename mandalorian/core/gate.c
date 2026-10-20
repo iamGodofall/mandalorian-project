@@ -42,7 +42,8 @@ static int safe_text_field(const char *value, size_t capacity)
 const char *gate_result_to_string(gate_result_t result)
 {
     switch (result) {
-    case GATE_OK:                 return "OK";
+    case GATE_OK:                 return "EXECUTED_AND_RECORDED";
+    case GATE_SIMULATED:           return "SIMULATED_NOT_EXECUTED";
     case GATE_SIG_FAIL:           return "SIGNATURE_INVALID";
     case GATE_EXPIRED:            return "CAPABILITY_EXPIRED";
     case GATE_SUBJECT_MISMATCH:   return "SUBJECT_MISMATCH";
@@ -199,8 +200,21 @@ gate_result_t mandalorian_execute(mandalorian_request_t *req,
         }
     }
 
-    /* Step 8: execute. */
+    /* Step 8: execute. The current host backend is deliberately simulated.
+     * Do not collapse that result into GATE_OK: callers must be able to
+     * distinguish authorization success from an operation actually performed. */
     exec_res = executor_perform(req);
+    if (exec_res == EXEC_SIMULATED) {
+        if (gate_record_decision(req, cap, GATE_SIMULATED,
+                                 gate_result_to_string(GATE_SIMULATED),
+                                 &reservation) != 0) {
+            if (reservation.active) {
+                (void)release_ledger_reservation(&reservation);
+            }
+            return GATE_AUDIT_FAIL_AFTER_EXECUTION;
+        }
+        return GATE_SIMULATED;
+    }
     if (exec_res != EXEC_OK) {
         if (gate_record_decision(req, cap, GATE_EXEC_FAIL,
                                  gate_result_to_string(GATE_EXEC_FAIL),
