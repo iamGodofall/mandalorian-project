@@ -2,7 +2,7 @@
 
 Status: engineering assessment, not a certification or independent audit
 Assessment date: 2026-10-20
-Scope: repository source and documentation on the `master` branch as inspected for this review
+Scope: repository source and documentation on the `research/security-posture-2026-10` review branch
 
 ## Executive assessment
 
@@ -77,7 +77,7 @@ The current verifier code uses a process-global HMAC-SHA3-256 key. With a shared
 
 ### P1: Make audit semantics explicit
 
-The gate records ordinary denial paths through a helper, but null request or capability pointers return before receipt creation. Define which failures are receipted, what happens if receipt generation or ledger append fails, how concurrent events are ordered, and whether the ledger is durable. A hash chain detects some forms of modification only when the trusted root is retained independently. An in-memory append-only structure is not durable or tamper-proof against a process or host administrator.
+The gate now distinguishes an audit failure before execution from a receipt failure after execution, verifies receipt authentication before append, and no longer silently ignores a failed ledger append. Malformed requests that cannot safely be formatted still return early without a receipt. The success path can still execute before its final receipt is appended; `GATE_AUDIT_FAIL_AFTER_EXECUTION` therefore means the operation may have happened and callers must not blindly retry. This remains a bounded in-memory ledger with no concurrency-safe reservation or durability guarantee. A hash chain detects some forms of modification only when the trusted root is retained independently; it is not tamper-proof against a process or host administrator.
 
 ### P1: Add property-oriented security tests
 
@@ -101,6 +101,7 @@ The review branch now includes an initial hardening pass, with regression tests 
 - The gate checks request string termination and safe log text before logging, and rejects malformed capabilities before receipt formatting.
 - Resource matching rejects relative paths, backslashes, repeated separators, and explicit `.` or `..` path segments. This is lexical filtering only. A real filesystem executor still needs platform-specific canonicalization and symlink-safe access.
 - Regression tests cover unterminated capability fields, oversized issuer inputs, malformed size constraints, and malformed capability rejection at the gate.
+- Gate receipt handling verifies the receipt MAC and checks ledger append results. Distinct `GATE_AUDIT_FAIL` and `GATE_AUDIT_FAIL_AFTER_EXECUTION` outcomes prevent a failed audit write from being reported as ordinary success; tests force ledger exhaustion to exercise both paths.
 
 The latest review-branch CI run passed build/test, crypto-vector, AddressSanitizer/UBSan, documentation, duplicate-symbol, and source-hygiene jobs. This is useful regression evidence, not an independent audit or proof of production security. Resource canonicalization still requires platform-specific treatment, and the shared HMAC key model remains a trust-boundary limitation.
 
@@ -126,7 +127,7 @@ A failed or unexecuted check must be reported as such, not converted to a pass.
 1. Freeze security claims to the current evidence and reconcile contradictory status documents.
 2. Harden input validation and canonical resource matching, with regression tests.
 3. Define capability issuer/verifier trust and key lifecycle.
-4. Add gate-bypass checks and audit failure semantics.
+4. Add gate-bypass checks, concurrency-safe audit reservation, and durable audit failure semantics.
 5. Introduce fuzzing and stronger CI provenance controls.
 6. Replace messaging placeholders only through a reviewed protocol/library integration.
 7. Validate the seL4 and hardware path separately from host simulation.
