@@ -11,7 +11,8 @@
 #include "../core/gate.h"
 
 typedef enum {
-    EXEC_OK,
+    EXEC_OK, /* A real operation completed. */
+    EXEC_SIMULATED, /* A demo operation was simulated, not performed. */
     EXEC_DENIED,
     EXEC_ERROR
 } exec_result_t;
