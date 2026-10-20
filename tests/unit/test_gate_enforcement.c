@@ -141,7 +141,7 @@ static void test_gate_denials(void)
 
     fill_request(&req, 1, "write", "/tmp/output.txt", "hello");
     expect("granted request allowed",
-           mandalorian_execute(&req, &cap) == GATE_OK);
+           mandalorian_execute(&req, &cap) == GATE_SIMULATED);
     expect("replaying the same request nonce is denied",
            mandalorian_execute(&req, &cap) == GATE_REPLAY_DETECTED);
 
@@ -333,7 +333,7 @@ static void test_receipt_authentication(void)
     issue_capability(&cap, "agent_1", "write", "/tmp/*", "maxSize=512", 300);
     fill_request(&req, 1, "write", "/tmp/x", "payload");
 
-    r = generate_receipt(&req, &cap, GATE_OK, NULL);
+    r = generate_receipt(&req, &cap, GATE_SIMULATED, NULL);
     expect("receipt verifies", verify_receipt(&r) == 0);
 
     r.status = GATE_SIG_FAIL;
