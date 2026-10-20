@@ -18,20 +18,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Added
-- Hardware Abstraction Layer (HAL) for BeskarVault with 3 build modes
-- Comprehensive test suite with 11 passing tests
-- Fuzzing infrastructure for security testing
-- CI/CD pipeline with GitHub Actions
-- Security audit script with 15 automated checks
-- Contributing guidelines and code standards
+### Security and correctness — 2026-10-20
+- Isolated policy state by complete agent ID, synchronized mutable state, and added minute/day rollover semantics.
+- Added concurrent policy regression tests and checks that adapter file_write actions are subject to quiet-hours policy.
+- Synchronized issuer/verifier key snapshots and receipt key/ID state to avoid in-process races.
+- Introduced GATE_SIMULATED / EXEC_SIMULATED so simulated file operations cannot be mistaken for real side effects.
+- Added automated security-contract checks and a dedicated GitHub Actions workflow.
+- Rewrote security and architecture documentation to separate host implementation from target design and to disclose remaining limitations.
+- Added a claim-to-evidence assurance ledger and a prioritized release-gate roadmap.
 
-### Security
-- Fixed buffer overflow vulnerabilities (sprintf → snprintf, strcpy → strncpy)
-- Added input validation to all public APIs
-- Removed emergency backdoor key (VAULT_KEY_EMERGENCY)
-- Added compile-time checks to prevent simulation code in production
-- Implemented secure memory handling patterns
+### Validation caveat
+This changelog records repository changes, not a security certification. Earlier release entries are historical and do not establish that every named target feature was delivered or independently verified.
 
 ## [0.2.0] - 2026-02-26
 
