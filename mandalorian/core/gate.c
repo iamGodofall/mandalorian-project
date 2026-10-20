@@ -27,6 +27,17 @@
 #include "receipt.h"
 #include "verifier.h"
 
+static int safe_text_field(const char *value, size_t capacity)
+{
+    size_t i;
+    for (i = 0; i < capacity; ++i) {
+        unsigned char ch = (unsigned char)value[i];
+        if (ch == '\\0') return 1;
+        if (ch < 0x20 || ch == 0x7f || ch == '|') return 0;
+    }
+    return 0;
+}
+
 const char *gate_result_to_string(gate_result_t result)
 {
     switch (result) {
@@ -72,14 +83,21 @@ gate_result_t mandalorian_execute(mandalorian_request_t *req,
 
     /* Validate caller-controlled fixed-size fields before logging or passing
      * them to strcmp/receipt formatting. Unterminated arrays are hostile input. */
-    if (strnlen(req->action, sizeof(req->action)) >= sizeof(req->action)) {
+    char cap_encoding[1024];
+    if (!safe_text_field(req->action, sizeof(req->action))) {
         return GATE_ACTION_INVALID;
     }
-    if (strnlen(req->resource, sizeof(req->resource)) >= sizeof(req->resource)) {
+    if (!safe_text_field(req->resource, sizeof(req->resource))) {
         return GATE_RESOURCE_VIOLATION;
     }
     if (strnlen(req->payload, sizeof(req->payload)) >= sizeof(req->payload)) {
         return GATE_CONSTRAINT_FAIL;
+    }
+    /* A malformed capability must be rejected before gate_deny() formats it
+     * into a receipt or log entry. A normal but incorrectly signed capability
+     * still follows the audited denial path below. */
+    if (verifier_serialise_cap(cap, cap_encoding, sizeof(cap_encoding)) < 0) {
+        return GATE_SIG_FAIL;
     }
 
     LOG_INFO("Gate: processing request from agent %u: %s %s",
