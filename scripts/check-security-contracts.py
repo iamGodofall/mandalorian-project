@@ -15,32 +15,36 @@ def read(path: str) -> str:
 checks = {
     "gate has a distinct simulated result": ("mandalorian/core/gate.h", r"\bGATE_SIMULATED\b"),
     "gate handles simulated execution separately": ("mandalorian/core/gate.c", r"if\s*\(exec_res\s*==\s*EXEC_SIMULATED\)"),
-    "executor marks both file operations simulated": ("mandalorian/runtime/executor.c", r"return EXEC_SIMULATED;"),
+    "executor marks simulated operations": ("mandalorian/runtime/executor.c", r"return EXEC_SIMULATED;"),
     "OpenClaw never maps simulation to ordinary success": ("mandalorian/agent/openclaw-adapter.c", r"case GATE_SIMULATED:\s*return -14"),
     "policy state is synchronized": ("mandalorian/core/policy.c", r"pthread_mutex_t policy_mutex"),
     "policy compares complete agent IDs": ("mandalorian/core/policy.c", r"agents\[i\]\.agent_id\s*==\s*agent_id"),
     "policy rejects unterminated request fields": ("mandalorian/core/policy.c", r"request_fields_terminated"),
+    "quiet hours cover file_write adapter actions": ("mandalorian/core/policy.c", r'strcmp\(req->action, "file_write"\) == 0'),
+    "issuer key state is synchronized": ("mandalorian/capabilities/issuer.c", r"pthread_mutex_t issuer_key_mutex"),
     "verifier key state is synchronized": ("mandalorian/core/verifier.c", r"pthread_mutex_t cap_key_mutex"),
     "receipt key and ID state is synchronized": ("mandalorian/core/receipt.c", r"pthread_mutex_t receipt_mutex"),
+    "gate docs disclose host isolation limit": ("docs/architecture/gate.md", r"not an OS isolation boundary"),
+    "messaging docs disclose non-production status": ("docs/architecture/link.md", r"not production end-to-end encryption"),
     "README labels target architecture honestly": ("README.md", r"Target Architecture \(Not Yet Delivered\)"),
 }
 failed = []
 for label, (path, pattern) in checks.items():
-    content = read(path)
-    if not re.search(pattern, content, re.MULTILINE):
+    if not re.search(pattern, read(path), re.MULTILINE):
         failed.append(label)
         print(f"FAIL: {label}")
     else:
         print(f"PASS: {label}")
 
-readme = read("README.md").lower()
-for unsupported in ("world's first", "mathematically incapable", "provable sovereignty"):
-    if unsupported in readme:
-        failed.append(f"README contains unsupported absolute claim: {unsupported}")
-        print(f"FAIL: README contains unsupported absolute claim: {unsupported}")
+public_docs = ["README.md", "PROJECT_REPORT.md", "docs/index.md", "docs/architecture/overview.md"]
+for path in public_docs:
+    content = read(path).lower()
+    for unsupported in ("world's first", "mathematically incapable", "provable sovereignty", "no bypass paths"):
+        if unsupported in content:
+            failed.append(f"{path} contains unsupported absolute claim: {unsupported}")
+            print(f"FAIL: {path} contains unsupported absolute claim: {unsupported}")
 
-# Guard the single host executor entry point. Definitions and declarations are
-# expected; only gate.c may call it as a function.
+# Definitions are allowed; the only call site must be the gate.
 callers = set()
 for p in (ROOT / "mandalorian").rglob("*.c"):
     for line in p.read_text(encoding="utf-8", errors="replace").splitlines():
