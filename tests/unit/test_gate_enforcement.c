@@ -232,6 +232,54 @@ static void test_gate_denials(void)
     }
 }
 
+static void test_malformed_inputs(void)
+{
+    mandalorian_cap_t cap;
+    mandalorian_request_t req;
+    char encoded[1024];
+    char too_long_subject[MANDALORIAN_SUBJECT_SIZE + 8];
+
+    memset(&cap, 0, sizeof(cap));
+    strncpy(cap.subject, "agent_1", sizeof(cap.subject) - 1);
+    strncpy(cap.action, "write", sizeof(cap.action) - 1);
+    strncpy(cap.resource, "/tmp/*", sizeof(cap.resource) - 1);
+    strncpy(cap.constraints, "maxSize=10", sizeof(cap.constraints) - 1);
+    strncpy(cap.cap_id, "test", sizeof(cap.cap_id) - 1);
+    expect("canonical capability serializes",
+           verifier_serialise_cap(&cap, encoded, sizeof(encoded)) > 0);
+
+    memset(cap.subject, 'A', sizeof(cap.subject));
+    expect("unterminated signed field rejected",
+           verifier_serialise_cap(&cap, encoded, sizeof(encoded)) < 0);
+
+    memset(&cap, 0, sizeof(cap));
+    strncpy(cap.subject, "agent_1", sizeof(cap.subject) - 1);
+    strncpy(cap.action, "write", sizeof(cap.action) - 1);
+    strncpy(cap.resource, "/tmp/*", sizeof(cap.resource) - 1);
+    strncpy(cap.cap_id, "test", sizeof(cap.cap_id) - 1);
+    strncpy(cap.constraints, "maxSize=10KBjunk", sizeof(cap.constraints) - 1);
+    expect("constraint trailing garbage rejected",
+           verifier_check_constraints(&cap, "123") == false);
+
+    strncpy(cap.constraints, "maxSize=999999999999999999999999999999999999999",
+            sizeof(cap.constraints) - 1);
+    expect("constraint integer overflow rejected",
+           verifier_check_constraints(&cap, "123") == false);
+
+    memset(too_long_subject, 'S', sizeof(too_long_subject));
+    too_long_subject[sizeof(too_long_subject) - 1] = '\\0';
+    issuer_set_key(test_key, sizeof(test_key));
+    expect("issuer rejects oversized subject instead of truncating",
+           issue_capability(&cap, too_long_subject, "write", "/tmp/*",
+                            "maxSize=10", 60) != 0);
+
+    memset(&req, 0, sizeof(req));
+    memset(req.action, 'A', sizeof(req.action));
+    memset(&cap, 0, sizeof(cap));
+    expect("unterminated request action denied safely",
+           mandalorian_execute(&req, &cap) == GATE_ACTION_INVALID);
+}
+
 static void test_receipt_authentication(void)
 {
     mandalorian_request_t req;
@@ -258,6 +306,7 @@ int main(void)
 
     test_hmac_vectors();
     test_gate_denials();
+    test_malformed_inputs();
     test_receipt_authentication();
 
     printf("\n%d checks, %d failures\n", checks, failures);
