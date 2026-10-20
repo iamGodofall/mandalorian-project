@@ -11,7 +11,7 @@ static unsigned failures;
 #define CHECK(condition) do { \
     ++checks; \
     if (!(condition)) { \
-        fprintf(stderr, "FAIL %s:%d: %s\\n", __FILE__, __LINE__, #condition); \
+        fprintf(stderr, "FAIL %s:%d: %s\n", __FILE__, __LINE__, #condition); \
         ++failures; \
     } \
 } while (0)
@@ -79,13 +79,13 @@ int main(void)
             cases[i].request = make_request(12345U);
             cases[i].allowed = 0;
             if (pthread_create(&threads[i], NULL, evaluate_once, &cases[i]) != 0) {
-                fprintf(stderr, "FAIL: pthread_create at worker %u\\n", i);
+                fprintf(stderr, "FAIL: pthread_create at worker %u\n", i);
                 return 1;
             }
         }
         for (i = 0; i < 32; ++i) {
             if (pthread_join(threads[i], NULL) != 0) {
-                fprintf(stderr, "FAIL: pthread_join at worker %u\\n", i);
+                fprintf(stderr, "FAIL: pthread_join at worker %u\n", i);
                 return 1;
             }
             allowed += (unsigned)cases[i].allowed;
@@ -126,6 +126,6 @@ int main(void)
     (void)snprintf(a.action, sizeof(a.action), "write");
     CHECK(!policy_evaluate(&a, NULL));
 
-    printf("Policy tests: %u checks, %u failures\\n", checks, failures);
+    printf("Policy tests: %u checks, %u failures\n", checks, failures);
     return failures == 0 ? 0 : 1;
 }
