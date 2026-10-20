@@ -37,6 +37,7 @@ typedef struct {
 
 static ledger_entry_t ledger[LEDGER_MAX_ENTRIES];
 static int entry_count = 0;
+static int reserved_slots = 0;
 static uint8_t root_hash[LEDGER_HASH_SIZE] = {0};
 static pthread_mutex_t ledger_mutex = PTHREAD_MUTEX_INITIALIZER;
 
@@ -60,13 +61,15 @@ static void serialise_entry(const ledger_entry_t *entry,
 /* Caller holds ledger_mutex. Keep append and root advancement in one
  * critical section so concurrent gate decisions cannot fork the hash chain. */
 static int add_ledger_entry_locked(const char *event_type,
-                                   const uint8_t *data_hash)
+                                   const uint8_t *data_hash,
+                                   int consumes_reservation)
 {
     uint8_t wire[LEDGER_ENTRY_WIRE_SIZE];
     ledger_entry_t *entry;
 
-    if (entry_count >= LEDGER_MAX_ENTRIES) {
-        LOG_ERROR("Shield Ledger full at %d entries", LEDGER_MAX_ENTRIES);
+    if (entry_count >= LEDGER_MAX_ENTRIES ||
+        (!consumes_reservation && entry_count + reserved_slots >= LEDGER_MAX_ENTRIES)) {
+        LOG_ERROR("Shield Ledger full or reserved at %d entries", LEDGER_MAX_ENTRIES);
         return -1;
     }
 
@@ -102,10 +105,70 @@ int add_ledger_entry(const char *event_type, const uint8_t *data_hash)
     if (pthread_mutex_lock(&ledger_mutex) != 0) {
         return -1;
     }
-    result = add_ledger_entry_locked(event_type, data_hash);
+    result = add_ledger_entry_locked(event_type, data_hash, 0);
     (void)pthread_mutex_unlock(&ledger_mutex);
     return result;
 }
+int reserve_ledger_entry(ledger_reservation_t *reservation)
+{
+    if (reservation == NULL || reservation->active) {
+        return -1;
+    }
+    if (pthread_mutex_lock(&ledger_mutex) != 0) {
+        return -1;
+    }
+    if (entry_count + reserved_slots >= LEDGER_MAX_ENTRIES) {
+        (void)pthread_mutex_unlock(&ledger_mutex);
+        return -1;
+    }
+    reserved_slots++;
+    reservation->active = 1;
+    (void)pthread_mutex_unlock(&ledger_mutex);
+    return 0;
+}
+
+int release_ledger_reservation(ledger_reservation_t *reservation)
+{
+    if (reservation == NULL || !reservation->active) {
+        return -1;
+    }
+    if (pthread_mutex_lock(&ledger_mutex) != 0) {
+        return -1;
+    }
+    if (reserved_slots <= 0) {
+        (void)pthread_mutex_unlock(&ledger_mutex);
+        return -1;
+    }
+    reserved_slots--;
+    reservation->active = 0;
+    (void)pthread_mutex_unlock(&ledger_mutex);
+    return 0;
+}
+
+int add_reserved_ledger_entry(ledger_reservation_t *reservation,
+                              const char *event_type,
+                              const uint8_t *data_hash)
+{
+    int result;
+
+    if (reservation == NULL || !reservation->active ||
+        event_type == NULL || data_hash == NULL) {
+        return -1;
+    }
+    if (pthread_mutex_lock(&ledger_mutex) != 0) {
+        return -1;
+    }
+    if (!reservation->active || reserved_slots <= 0) {
+        (void)pthread_mutex_unlock(&ledger_mutex);
+        return -1;
+    }
+    reserved_slots--;
+    reservation->active = 0;
+    result = add_ledger_entry_locked(event_type, data_hash, 1);
+    (void)pthread_mutex_unlock(&ledger_mutex);
+    return result;
+}
+
 int append_receipt(const uint8_t *receipt_hash)
 {
     return add_ledger_entry("MANDALORIAN_RECEIPT", receipt_hash);
@@ -134,7 +197,8 @@ int init_shield_ledger(void)
     entry_count = 0;
     memset(root_hash, 0, sizeof(root_hash));
     memset(ledger, 0, sizeof(ledger));
-    result = add_ledger_entry_locked("INIT", genesis);
+    reserved_slots = 0;
+    result = add_ledger_entry_locked("INIT", genesis, 0);
     (void)pthread_mutex_unlock(&ledger_mutex);
     return result;
 }
