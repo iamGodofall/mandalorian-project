@@ -1,6 +1,6 @@
 # Mandalorian Project — Roadmap Pointer
 
-The authoritative, maintained priority list is [the root TODO.md](../../TODO.md).
+The authoritative, maintained priority list is [the root TODO.md](https://github.com/iamGodofall/mandalorian-project/blob/master/TODO.md).
 
 This duplicate document previously labelled target architecture and aspirational features as production-ready. Those checkboxes are withdrawn and must not be used as evidence of implementation.
 
