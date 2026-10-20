@@ -75,6 +75,7 @@ bool policy_evaluate(const mandalorian_request_t *req,
 {
     time_t wall_now;
     struct tm local_tm;
+    struct timespec monotonic_now;
     uint64_t minute_epoch, day_epoch, payload_size, daily_quota;
     policy_agent_state_t *state;
     bool allowed = false;
@@ -84,12 +85,16 @@ bool policy_evaluate(const mandalorian_request_t *req,
         return false;
     }
     wall_now = time(NULL);
-    if (wall_now < 0 || localtime_r(&wall_now, &local_tm) == NULL) {
+    if (wall_now < 0 || localtime_r(&wall_now, &local_tm) == NULL ||
+        clock_gettime(CLOCK_MONOTONIC, &monotonic_now) != 0 ||
+        monotonic_now.tv_sec < 0) {
         return false;
     }
 
-    minute_epoch = (uint64_t)wall_now / 60U;
-    day_epoch = (uint64_t)wall_now / 86400U;
+    /* Rate and quota windows use monotonic time, so wall-clock changes cannot
+     * reset counters. These buckets are process-local and restart-local. */
+    minute_epoch = (uint64_t)monotonic_now.tv_sec / 60U;
+    day_epoch = (uint64_t)monotonic_now.tv_sec / 86400U;
     payload_size = (uint64_t)strnlen(req->payload, sizeof(req->payload));
 
     if (pthread_mutex_lock(&policy_mutex) != 0) {
