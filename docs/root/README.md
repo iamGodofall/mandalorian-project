@@ -6,13 +6,13 @@ Mandalorian explores sovereignty-focused computing, capability-scoped authorizat
 
 ## Start here
 
-- [Root README](../../README.md) — current project description and build instructions.
-- [Evidence-led project report](../../PROJECT_REPORT.md) — implemented components, trust boundaries, and limitations.
+- [Root README](https://github.com/iamGodofall/mandalorian-project/blob/master/README.md) — current project description and build instructions.
+- [Evidence-led project report](https://github.com/iamGodofall/mandalorian-project/blob/master/PROJECT_REPORT.md) — implemented components, trust boundaries, and limitations.
 - [Security posture](../security/SECURITY_POSTURE_2026-10.md) — threat model, known gaps, and release gates.
 - [Security assurance cases](../security/ASSURANCE_CASES.md) — claim-to-evidence map.
-- [Current roadmap](../../TODO.md) — prioritized engineering work.
-- [Security policy](../../SECURITY.md) — responsible vulnerability disclosure.
-- [Commercial licensing draft](../../COMMERCIAL_LICENSE.md) — offerings limited to documented rights and contracted engineering; not a production-readiness statement.
+- [Current roadmap](https://github.com/iamGodofall/mandalorian-project/blob/master/TODO.md) — prioritized engineering work.
+- [Security policy](https://github.com/iamGodofall/mandalorian-project/blob/master/SECURITY.md) — responsible vulnerability disclosure.
+- [Commercial licensing draft](https://github.com/iamGodofall/mandalorian-project/blob/master/COMMERCIAL_LICENSE.md) — offerings limited to documented rights and contracted engineering; not a production-readiness statement.
 
 ## Evidence-backed current state
 
