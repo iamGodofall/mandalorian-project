@@ -45,7 +45,16 @@ int issue_capability(mandalorian_cap_t *cap, const char *subject,
     int len;
 
     if (cap == NULL || subject == NULL || action == NULL ||
-        resource == NULL) {
+        resource == NULL ||
+        strnlen(subject, MANDALORIAN_SUBJECT_SIZE) >= MANDALORIAN_SUBJECT_SIZE ||
+        strnlen(action, MANDALORIAN_ACTION_SIZE) >= MANDALORIAN_ACTION_SIZE ||
+        strnlen(resource, MANDALORIAN_RESOURCE_SIZE) >= MANDALORIAN_RESOURCE_SIZE ||
+        (constraints != NULL &&
+         strnlen(constraints, MANDALORIAN_CONSTRAINTS_SIZE) >= MANDALORIAN_CONSTRAINTS_SIZE) ||
+        strchr(subject, '|') != NULL || strchr(action, '|') != NULL ||
+        strchr(resource, '|') != NULL ||
+        (constraints != NULL && strchr(constraints, '|') != NULL)) {
+        LOG_WARN("Issuer: malformed or oversized capability field");
         return -1;
     }
     if (!issuer_key_set) {
