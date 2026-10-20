@@ -35,6 +35,7 @@
 #include "merkle_ledger.h"
 
 static int initialised = 0;
+static uint64_t next_fuzz_nonce = 1;
 static mandalorian_cap_t granted;      /* wildcard grant: "/workspace/*"  */
 static mandalorian_cap_t granted_exact; /* bare prefix grant: "/workspace" */
 
@@ -111,6 +112,7 @@ int gate_fuzz_one(const uint8_t *data, size_t size)
     memcpy(&forged, data, size < sizeof(forged) ? size : sizeof(forged));
     memset(&req, 0, sizeof(req));
     req.agent_id = 1;
+    req.request_nonce = next_fuzz_nonce++;
     copy_field(req.action, sizeof(req.action), data, third);
     copy_field(req.resource, sizeof(req.resource), data + third, third);
     copy_field(req.payload, sizeof(req.payload), data + 2 * third, size - 2 * third);
@@ -125,6 +127,7 @@ int gate_fuzz_one(const uint8_t *data, size_t size)
      * "/workspace/" may be accepted. */
     memset(&req, 0, sizeof(req));
     req.agent_id = 1;
+    req.request_nonce = next_fuzz_nonce++;
     strncpy(req.action, "write", sizeof(req.action) - 1);
     copy_field(req.resource, sizeof(req.resource), data, third);
     copy_field(req.payload, sizeof(req.payload), data + third, size - third);
@@ -151,6 +154,7 @@ int gate_fuzz_one(const uint8_t *data, size_t size)
      * resource string and no other. */
     memset(&req, 0, sizeof(req));
     req.agent_id = 1;
+    req.request_nonce = next_fuzz_nonce++;
     strncpy(req.action, "write", sizeof(req.action) - 1);
     copy_field(req.resource, sizeof(req.resource), data, third);
     copy_field(req.payload, sizeof(req.payload), data + third, size - third);
