@@ -62,7 +62,8 @@ const char *gate_result_to_string(gate_result_t result)
 static int gate_record_decision(const mandalorian_request_t *req,
                                const mandalorian_cap_t *cap,
                                gate_result_t status,
-                               const char *reason)
+                               const char *reason,
+                               ledger_reservation_t *reservation)
 {
     receipt_t receipt = generate_receipt(req, cap, status, reason);
 
@@ -70,7 +71,8 @@ static int gate_record_decision(const mandalorian_request_t *req,
         LOG_ERROR("Gate: receipt authentication failed; decision is unrecorded");
         return -1;
     }
-    if (log_receipt(&receipt) != 0) {
+    if ((reservation != NULL ? log_receipt_reserved(&receipt, reservation)
+                             : log_receipt(&receipt)) != 0) {
         LOG_ERROR("Gate: ledger append failed; decision is unrecorded");
         return -1;
     }
@@ -85,7 +87,7 @@ static gate_result_t gate_deny(const mandalorian_request_t *req,
                                gate_result_t reason)
 {
     if (gate_record_decision(req, cap, reason,
-                             gate_result_to_string(reason)) != 0) {
+                             gate_result_to_string(reason), NULL) != 0) {
         LOG_ERROR("Gate: DENIED but audit record failed");
         return GATE_AUDIT_FAIL;
     }
@@ -99,7 +101,7 @@ gate_result_t mandalorian_execute(mandalorian_request_t *req,
                                   mandalorian_cap_t *cap)
 {
     exec_result_t exec_res;
-    receipt_t receipt;
+    ledger_reservation_t reservation = LEDGER_RESERVATION_INIT;
 
     if (req == NULL || cap == NULL) {
         return GATE_SIG_FAIL;
@@ -160,26 +162,39 @@ gate_result_t mandalorian_execute(mandalorian_request_t *req,
         return gate_deny(req, cap, GATE_POLICY_DENY);
     }
 
-    /* A missing receipt key is knowable before execution. Fail closed now
-     * rather than performing the operation and discovering afterward that its
-     * outcome cannot be authenticated. Ledger exhaustion can still race with
-     * execution until the ledger gains an atomic reservation API. */
+    /* Verify that receipts can be authenticated and reserve ledger capacity
+     * before invoking the executor. The reservation prevents concurrent audit
+     * events from consuming the slot needed for this request's outcome. */
     if (!receipt_key_is_set()) {
         LOG_ERROR("Gate: receipt key unavailable; refusing to execute");
+        return GATE_AUDIT_FAIL;
+    }
+    if (reserve_ledger_entry(&reservation) != 0) {
+        LOG_ERROR("Gate: no ledger capacity available; refusing to execute");
         return GATE_AUDIT_FAIL;
     }
 
     /* Step 8: execute. */
     exec_res = executor_perform(req);
     if (exec_res != EXEC_OK) {
-        return gate_deny(req, cap, GATE_EXEC_FAIL);
+        if (gate_record_decision(req, cap, GATE_EXEC_FAIL,
+                                 gate_result_to_string(GATE_EXEC_FAIL),
+                                 &reservation) != 0) {
+            if (reservation.active) {
+                (void)release_ledger_reservation(&reservation);
+            }
+            return GATE_AUDIT_FAIL_AFTER_EXECUTION;
+        }
+        return GATE_EXEC_FAIL;
     }
 
-    /* Step 9: receipt. An execution may already have occurred at this
-     * point. Report a distinct result if its outcome cannot be recorded:
-     * callers must not blindly retry because that could repeat side effects. */
-    receipt = generate_receipt(req, cap, GATE_OK, NULL);
-    if (verify_receipt(&receipt) != 0 || log_receipt(&receipt) != 0) {
+    /* Step 9: record the outcome using the slot reserved before execution.
+     * If this unexpectedly fails, the operation may already have happened;
+     * callers must not blindly retry. */
+    if (gate_record_decision(req, cap, GATE_OK, NULL, &reservation) != 0) {
+        if (reservation.active) {
+            (void)release_ledger_reservation(&reservation);
+        }
         LOG_ERROR("Gate: execution completed/attempted but outcome receipt failed");
         return GATE_AUDIT_FAIL_AFTER_EXECUTION;
     }
