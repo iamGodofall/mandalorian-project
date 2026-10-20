@@ -149,7 +149,7 @@ ctest --test-dir build-asan --output-on-failure
 ### Run the demos
 
 ```bash
-./build/mandalorian/constrained-agent-demo   # gate enforcement, nine steps
+./build/mandalorian/constrained-agent-demo   # capability gate, replay protection and audit receipts
 ./build/beskarcore/demo                      # SHA3-256 + Merkle ledger
 ./build/beskarcore/demo_continuous_guardian  # Continuous Guardian
 ./build/beskarcore/demo_beskar_vault         # HSM key lifecycle
