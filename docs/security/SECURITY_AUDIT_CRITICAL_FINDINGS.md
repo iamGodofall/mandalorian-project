@@ -1,6 +1,13 @@
-# Critical Security Findings - Immediate Action Required
+# Historical Security Findings — Status Reconciliation
 
-## 🔴 CRITICAL: Backdoor Detected in Key Hierarchy
+> **Historical record, not a live audit or current issue tracker.** This document contains findings and proposed patches from an earlier review. Some findings have since changed; its old “required action” lists and line numbers are not authoritative. The current host prototype still has important security limitations. Consult [Security posture](SECURITY_POSTURE_2026-10.md), [Security assurance cases](ASSURANCE_CASES.md), and the current source before acting on any finding.
+>
+> **Reconciled status (2026-10-20):**
+> - The `VAULT_KEY_EMERGENCY` enum is absent from the current `beskar_vault.h`. This is evidence about that enum only—not proof that the whole system has no bypasses.
+> - XOR-based vault/message simulation code still exists in the repository. It is not production cryptography and must not protect real secrets. The production-build guard does not turn the simulation into a secure implementation.
+> - Other historical findings require fresh source-level verification before being labelled fixed or open. Do not use the checklists below as a release gate without revalidating them.
+>
+## Historical finding: backdoor-like key type
 
 ### Finding: `VAULT_KEY_EMERGENCY` - Law Enforcement Backdoor
 
@@ -20,7 +27,7 @@ VAULT_KEY_EMERGENCY = 6,          // Law enforcement (optional)
 - Destroys credibility with security-conscious users
 - Makes the entire "sovereign computing" claim hypocritical
 
-**Required Action**: **REMOVE IMMEDIATELY**
+**Historical action recorded:** the enum was subsequently removed from the current header; re-audit the full key hierarchy before making broader claims.
 
 ```c
 // CORRECTED - NO BACKDOORS
@@ -38,7 +45,7 @@ typedef enum {
 
 ---
 
-## 🔴 CRITICAL: Information Leakage via printf
+## Historical finding: possible information leakage via printf
 
 ### Finding: stdout/stderr Information Disclosure
 
@@ -171,7 +178,7 @@ int get_hardware_entropy(uint8_t *buf, size_t len);
 
 ---
 
-## 🟡 HIGH: XOR "Encryption" (Not Real Crypto)
+## Historical finding: XOR simulation is not cryptography
 
 ### Finding: XOR used for encryption simulation
 
