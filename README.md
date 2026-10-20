@@ -95,11 +95,11 @@ before relying on any row.
 
 | Component | Name | Purpose | Status |
 |-----------|------|---------|--------|
-| **Device** | Mandalorian Phone | RISC-V-based sovereign mobile hardware | Dev: VisionFive 2 (JH7110) / Prod: Custom SoC (Phase 3) |
-| **Core OS** | BeskarCore | seL4-based betrayal-resistant foundation | Phase 1 development |
-| **Attestation** | Helm | Post-quantum sovereign attestation co-processor | Phase 2 (discrete HSM) |
-| **Privacy Agent** | Aegis | IPC monitoring + consent enforcement | Integrated into BeskarCore |
-| **Runtime** | WebAssembly | Cross-platform app execution (native-first) | Phase 1 |
+| **Device** | Mandalorian Phone | Sovereignty-focused mobile platform concept | No complete phone or target board integration demonstrated |
+| **Core OS** | BeskarCore | Capability-oriented OS foundation | Host components and target scaffolding; no demonstrated seL4 deployment |
+| **Attestation** | Helm | Device measurement and policy concept | Host scaffold; no demonstrated post-quantum or hardware attestation |
+| **Privacy Agent** | Aegis | IPC monitoring and consent enforcement concept | Target integration not demonstrated |
+| **Runtime** | WebAssembly | Cross-platform app execution concept | Partial scaffolding; not a complete device runtime |
 
 ---
 
@@ -112,7 +112,7 @@ before relying on any row.
 | Tamper mesh | No | Requires custom PCB (Phase 2) |
 | Memory encryption | No | Custom silicon required (Phase 3) |
 
-> VisionFive 2 is suitable **only for software development and architectural validation**. True betrayal resistance requires custom hardware.
+> VisionFive 2 can support software development and architectural experiments, but it is not a secure phone platform. Hardware-backed claims require target integration and independent validation; a real OS-enforced execution boundary is a separate prerequisite.
 
 ---
 
