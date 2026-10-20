@@ -77,6 +77,24 @@ static bool request_fields_terminated(const mandalorian_request_t *req)
            memchr(req->payload, '\0', sizeof(req->payload)) != NULL;
 }
 
+bool policy_quiet_hours_contains(int hour, int start_hour, int end_hour)
+{
+    if (hour < 0 || hour > 23 ||
+        start_hour < 0 || start_hour > 23 ||
+        end_hour < 0 || end_hour > 24 ||
+        start_hour == end_hour) {
+        return false;
+    }
+    if (end_hour == 24) {
+        return hour >= start_hour;
+    }
+    if (start_hour < end_hour) {
+        return hour >= start_hour && hour < end_hour;
+    }
+    /* Overnight window, for example [22:00, 06:00). */
+    return hour >= start_hour || hour < end_hour;
+}
+
 static policy_agent_state_t *find_or_allocate_agent(uint32_t agent_id)
 {
     size_t i;
@@ -156,11 +174,10 @@ bool policy_evaluate(const mandalorian_request_t *req,
     }
     state->requests_in_minute++;
 
-    if (quiet_hours_start != quiet_hours_end &&
-        (strcmp(req->action, "write") == 0 ||
+    if ((strcmp(req->action, "write") == 0 ||
          strcmp(req->action, "file_write") == 0) &&
-        local_tm.tm_hour >= quiet_hours_start &&
-        local_tm.tm_hour < quiet_hours_end) {
+        policy_quiet_hours_contains(local_tm.tm_hour,
+                                    quiet_hours_start, quiet_hours_end)) {
         LOG_WARN("Policy: quiet hours block write agent=%u", req->agent_id);
         goto done;
     }
