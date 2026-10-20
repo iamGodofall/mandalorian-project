@@ -101,7 +101,7 @@ The review branch now includes an initial hardening pass, with regression tests 
 - The gate checks request string termination and safe log text before logging, and rejects malformed capabilities before receipt formatting.
 - Regression tests cover unterminated capability fields, oversized issuer inputs, malformed size constraints, and malformed capability rejection at the gate.
 
-These changes are under CI validation on the review branch. They are not yet a completed or independently reviewed security fix. Resource canonicalization still requires platform-specific treatment, and the shared HMAC key model remains a trust-boundary limitation.
+The latest review-branch CI run passed build/test, crypto-vector, AddressSanitizer/UBSan, documentation, duplicate-symbol, and source-hygiene jobs. This is useful regression evidence, not an independent audit or proof of production security. Resource canonicalization still requires platform-specific treatment, and the shared HMAC key model remains a trust-boundary limitation.
 
 ## 7. Release gate
 
