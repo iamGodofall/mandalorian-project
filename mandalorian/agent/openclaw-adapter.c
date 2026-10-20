@@ -3,9 +3,11 @@
  * 
  * Translates OpenClaw agent tool invocations (exec, read, write, process, etc.)
  * into mandalorian_request_t structs and routes them through the Mandalorian Gate.
- * Every tool call is capability-checked, logged, and receipted.
+ * Every accepted request is capability-checked by the gate. The gate owns the
+ * authoritative receipt path; this adapter returns a compact receipt to callers
+ * but does not append a second, unauthenticated ledger record.
  *
- * This is the sovereign security integration point: AI agent → gate → OS.
+ * The executor remains simulated; this is not yet an AI-agent-to-OS isolation boundary.
  */
 
 #include <errno.h>
@@ -121,7 +123,7 @@ int openclaw_forward(
     const char*          resource,
     const char*          payload,      // optional
     mandalorian_cap_t*   cap,         // pre-verified by gate before this call
-    mandalorian_receipt_t* receipt_out // OUT — NULL to skip logging
+    mandalorian_receipt_t* receipt_out // OUT — optional compact decision receipt
 ) {
     /* Validate the tool index before indexing TOOL_NAMES. Never use atoi(),
      * and never silently truncate a caller's resource or payload into a
