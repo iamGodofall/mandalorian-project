@@ -82,6 +82,10 @@ Tool Call Received
 
 ## Step Details
 
+### Input Validation and Nonce
+
+The gate rejects unterminated or unsafe fixed-size fields and a zero request nonce before authorization. Each caller must provide a unique nonce; the OpenClaw and Helm adapters obtain one from the secure random source. The nonce is included in the receipt data.
+
 ### Signature Verification
 
 ```c
@@ -155,6 +159,14 @@ if (!policy_evaluate(req, cap)) {
 ```
 
 Dynamic security policy from Helm. Can revoke capabilities in real-time based on threat signals or schedule changes.
+
+### Audit Capacity Reservation
+
+Before invoking the executor, the gate verifies that receipt authentication is configured and reserves one ledger slot under the ledger mutex. Ordinary writers cannot consume reserved capacity. If no slot is available, the request is rejected before execution.
+
+### Replay Guard
+
+The gate atomically consumes the `(agent_id, request_nonce)` pair only after authorization and audit capacity reservation. A repeated pair is denied. The bounded, process-local cache keeps entries until the capability expiry and fails closed when no slot is available. This is not durable replay protection across process restarts, and it does not stop an authorized caller from deliberately creating a new request with a new nonce.
 
 ### Executor
 
