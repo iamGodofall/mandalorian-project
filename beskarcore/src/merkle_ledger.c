@@ -12,6 +12,7 @@
 
 #include "merkle_ledger.h"
 
+#include <pthread.h>
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
@@ -37,6 +38,7 @@ typedef struct {
 static ledger_entry_t ledger[LEDGER_MAX_ENTRIES];
 static int entry_count = 0;
 static uint8_t root_hash[LEDGER_HASH_SIZE] = {0};
+static pthread_mutex_t ledger_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 /* Serialise an entry into a canonical, endian-independent byte layout. */
 static void serialise_entry(const ledger_entry_t *entry,
@@ -55,14 +57,14 @@ static void serialise_entry(const ledger_entry_t *entry,
     memcpy(out + offset, entry->prev_hash, LEDGER_HASH_SIZE);
 }
 
-int add_ledger_entry(const char *event_type, const uint8_t *data_hash)
+/* Caller holds ledger_mutex. Keep append and root advancement in one
+ * critical section so concurrent gate decisions cannot fork the hash chain. */
+static int add_ledger_entry_locked(const char *event_type,
+                                   const uint8_t *data_hash)
 {
     uint8_t wire[LEDGER_ENTRY_WIRE_SIZE];
     ledger_entry_t *entry;
 
-    if (event_type == NULL || data_hash == NULL) {
-        return -1;
-    }
     if (entry_count >= LEDGER_MAX_ENTRIES) {
         LOG_ERROR("Shield Ledger full at %d entries", LEDGER_MAX_ENTRIES);
         return -1;
@@ -83,15 +85,27 @@ int add_ledger_entry(const char *event_type, const uint8_t *data_hash)
     }
 
     entry_count++;
-
-    /* The root is binary, not text. Printing it with %.8s — as this did —
-     * emits whatever those bytes happen to look like in the terminal. */
+    /* The root is binary, not text; log only a short hexadecimal prefix. */
     LOG_INFO("Shield Ledger: +%s #%d root=%02x%02x%02x%02x...",
              entry->event_type, entry_count,
              root_hash[0], root_hash[1], root_hash[2], root_hash[3]);
     return 0;
 }
 
+int add_ledger_entry(const char *event_type, const uint8_t *data_hash)
+{
+    int result;
+
+    if (event_type == NULL || data_hash == NULL) {
+        return -1;
+    }
+    if (pthread_mutex_lock(&ledger_mutex) != 0) {
+        return -1;
+    }
+    result = add_ledger_entry_locked(event_type, data_hash);
+    (void)pthread_mutex_unlock(&ledger_mutex);
+    return result;
+}
 int append_receipt(const uint8_t *receipt_hash)
 {
     return add_ledger_entry("MANDALORIAN_RECEIPT", receipt_hash);
@@ -102,26 +116,39 @@ int get_root_hash(uint8_t *hash)
     if (hash == NULL) {
         return -1;
     }
+    if (pthread_mutex_lock(&ledger_mutex) != 0) {
+        return -1;
+    }
     memcpy(hash, root_hash, LEDGER_HASH_SIZE);
+    (void)pthread_mutex_unlock(&ledger_mutex);
     return 0;
 }
-
 int init_shield_ledger(void)
 {
     uint8_t genesis[LEDGER_HASH_SIZE] = {0};
+    int result;
 
+    if (pthread_mutex_lock(&ledger_mutex) != 0) {
+        return -1;
+    }
     entry_count = 0;
     memset(root_hash, 0, sizeof(root_hash));
     memset(ledger, 0, sizeof(ledger));
-
-    return add_ledger_entry("INIT", genesis);
+    result = add_ledger_entry_locked("INIT", genesis);
+    (void)pthread_mutex_unlock(&ledger_mutex);
+    return result;
 }
-
 int get_ledger_entry_count(void)
 {
-    return entry_count;
-}
+    int count;
 
+    if (pthread_mutex_lock(&ledger_mutex) != 0) {
+        return -1;
+    }
+    count = entry_count;
+    (void)pthread_mutex_unlock(&ledger_mutex);
+    return count;
+}
 /**
  * @brief Append a named event with free-text detail to the ledger.
  *
