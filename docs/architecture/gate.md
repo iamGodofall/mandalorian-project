@@ -60,7 +60,7 @@ The verifier permits exact resource matches or a trailing wildcard and rejects c
 
 ## Policy and replay state
 
-Policy counters are bounded, synchronized, keyed by the complete 32-bit agent ID, and roll over per minute/day in the host process. The replay cache is bounded and mutex-protected. Both are process-local; restart loses state. They are not a distributed authorization service or durable transaction store.
+Policy counters are bounded, synchronized, keyed by the complete 32-bit agent ID, and use monotonic per-minute and 24-hour buckets in the host process. The replay cache is bounded and mutex-protected. Both are process-local; restart loses state. They are not a distributed authorization service or durable transaction store.
 
 ## Audit evidence
 
