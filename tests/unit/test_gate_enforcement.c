@@ -230,6 +230,18 @@ static void test_gate_denials(void)
         expect("writes allowed again outside quiet hours",
                mandalorian_execute(&req, &cap) == GATE_OK);
     }
+
+    /* Expiry is exclusive: a capability with expiry == now is already invalid.
+     * TTL zero is deterministic with the corrected >= comparison. */
+    {
+        mandalorian_cap_t zero_ttl_cap;
+        fill_request(&req, 1, "write", "/tmp/output.txt", "hi");
+        expect("zero-TTL capability can be issued for boundary testing",
+               issue_capability(&zero_ttl_cap, "agent_1", "write", "/tmp/*",
+                                "maxSize=512", 0) == 0);
+        expect("capability expiring at the current second is rejected",
+               mandalorian_execute(&req, &zero_ttl_cap) == GATE_EXPIRED);
+    }
 }
 
 static void test_malformed_inputs(void)
