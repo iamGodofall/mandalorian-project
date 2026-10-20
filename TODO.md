@@ -7,7 +7,7 @@
 - [x] CMake host build and automated CI for the buildable components.
 - [x] Capability authentication using HMAC-SHA3-256 and bounded field validation.
 - [x] Action, lexical resource, and payload-constraint checks.
-- [x] Synchronized, bounded policy state keyed by complete agent ID, with per-minute rate limits and daily quota rollover.
+- [x] Synchronized, bounded policy state keyed by complete agent ID, with monotonic per-minute rate limits and rolling 24-hour quota buckets.
 - [x] Bounded, process-local replay guard with duplicate detection and fail-closed exhaustion behavior.
 - [x] HMAC-authenticated receipts and a mutex-protected, in-memory hash-chained ledger with reserved receipt capacity.
 - [x] Explicit simulation result: GATE_SIMULATED means authorization passed but no file operation occurred.
