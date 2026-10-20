@@ -121,7 +121,8 @@ bool policy_evaluate(const mandalorian_request_t *req,
     state->requests_in_minute++;
 
     if (quiet_hours_start != quiet_hours_end &&
-        strcmp(req->action, "write") == 0 &&
+        (strcmp(req->action, "write") == 0 ||
+         strcmp(req->action, "file_write") == 0) &&
         local_tm.tm_hour >= quiet_hours_start &&
         local_tm.tm_hour < quiet_hours_end) {
         LOG_WARN("Policy: quiet hours block write agent=%u", req->agent_id);
