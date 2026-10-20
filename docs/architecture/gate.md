@@ -12,54 +12,54 @@ Implemented in `mandalorian/core/gate.c`, enforced by `mandalorian_execute()`.
 
 ---
 
-## 9-Step Enforcement Pipeline
+## Enforcement Pipeline
 
 ```
 Tool Call Received
         |
         v
 +--------------------+
-| 1. SIGNATURE       |  verify_cap_signature(cap) valid?
+| 1. INPUT           |  bounded fields and nonzero request nonce?\n+--------------------+\n        |\n        v\n+--------------------+\n| 2. SIGNATURE       |  verify_cap_signature(cap) valid?
 +--------------------+
         |
         v
 +--------------------+
-| 2. EXPIRY          |  time(NULL) < cap->expiry?
+| 3. EXPIRY          |  time(NULL) < cap->expiry?
 +--------------------+
         |
         v
 +--------------------+
-| 3. SUBJECT         |  cap->subject == agent_id_to_str(req->agent_id)?
+| 4. SUBJECT         |  cap->subject == agent_id_to_str(req->agent_id)?
 +--------------------+
         |
         v
 +--------------------+
-| 4. ACTION          |  verifier_validate_action(cap, req->action)?
+| 5. ACTION          |  verifier_validate_action(cap, req->action)?
 +--------------------+
         |
         v
 +--------------------+
-| 5. RESOURCE        |  verifier_validate_resource(cap, req->resource)?
+| 6. RESOURCE        |  verifier_validate_resource(cap, req->resource)?
 +--------------------+
         |
         v
 +--------------------+
-| 6. CONSTRAINTS     |  verifier_check_constraints(cap, req->payload)?
+| 7. CONSTRAINTS     |  verifier_check_constraints(cap, req->payload)?
 +--------------------+
         |
         v
 +--------------------+
-| 7. POLICY          |  policy_evaluate(req, cap) ALLOWs call?
+| 8. POLICY          |  policy_evaluate(req, cap) ALLOWs call?
 +--------------------+
         |
         v
 +--------------------+
-| 8. EXECUTE         |  executor_perform(req) performs the operation
+| 9. AUDIT RESERVE   |  receipt key available + ledger slot reserved?\n+--------------------+\n        |\n        v\n+--------------------+\n| 10. REPLAY GUARD   |  consume (agent_id, request_nonce) atomically?\n+--------------------+\n        |\n        v\n+--------------------+\n| 11. EXECUTE        |  executor_perform(req) performs the operation
 +--------------------+
         |
         v
 +--------------------+
-| 9. RECEIPT         |  generate_receipt() + log_receipt() to Shield Ledger
+| 12. RECEIPT        |  authenticate + append using reserved ledger slot
 +--------------------+
 ```
 
@@ -165,7 +165,7 @@ if (verify_receipt(&receipt) != 0 ||
 LOG_INFO("Gate: SUCCESS - authenticated receipt recorded");
 ```
 
-The gate verifies the receipt MAC and checks the ledger append result. Denial receipt failures return `GATE_AUDIT_FAIL`; a receipt failure after execution returns `GATE_AUDIT_FAIL_AFTER_EXECUTION`. In that latter case, the operation may already have happened, so callers must not blindly retry. Malformed inputs that cannot safely be formatted may be rejected before a receipt can be created. The ledger is currently in-memory and bounded, not durable.
+The gate verifies the receipt MAC and consumes a ledger slot reserved before execution. It atomically consumes a nonzero per-request nonce after authorization; duplicate nonces are denied and the bounded replay cache fails closed when full. Denial receipt failures return `GATE_AUDIT_FAIL`; a receipt failure after execution returns `GATE_AUDIT_FAIL_AFTER_EXECUTION`. In that latter case, the operation may already have happened, so callers must not blindly retry. Malformed inputs that cannot safely be formatted may be rejected before a receipt can be created. Both the ledger and replay cache are process-local and non-durable.
 
 ---
 
@@ -183,7 +183,7 @@ The gate verifies the receipt MAC and checks the ledger append result. Denial re
 | `GATE_POLICY_DENY` | Helm policy denied |
 | `GATE_EXEC_FAIL` | Executor error |
 | `GATE_AUDIT_FAIL` | Decision receipt could not be authenticated or recorded before execution; operation not attempted on the denial path |
-| `GATE_AUDIT_FAIL_AFTER_EXECUTION` | Operation was attempted/completed, but the outcome receipt could not be authenticated or recorded; outcome must be reconciled, not blindly retried |
+| `GATE_AUDIT_FAIL_AFTER_EXECUTION` | Operation was attempted/completed, but the outcome receipt could not be authenticated or recorded; outcome must be reconciled, not blindly retried |\n| `GATE_REPLAY_NONCE_INVALID` | Request nonce is zero or otherwise invalid |\n| `GATE_REPLAY_DETECTED` | Same agent/nonce pair was already consumed before expiry |\n| `GATE_REPLAY_CACHE_FULL` | Replay cache has no free/expired slot; request fails closed |
 
 ---
 
