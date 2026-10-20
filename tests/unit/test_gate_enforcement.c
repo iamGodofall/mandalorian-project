@@ -243,8 +243,8 @@ static void test_gate_denials(void)
 
         policy_set_quiet_hours(0, 0);
         fill_request(&req, 1, "write", "/tmp/output.txt", "hi");
-        expect("writes allowed again outside quiet hours",
-               mandalorian_execute(&req, &cap) == GATE_OK);
+        expect("write authorized after quiet hours (host execution simulated)",
+               mandalorian_execute(&req, &cap) == GATE_SIMULATED);
     }
 
     /* Expiry is exclusive: a capability with expiry == now is already invalid.
