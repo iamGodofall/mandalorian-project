@@ -1,6 +1,6 @@
 site_name: Mandalorian Project
 site_url: https://iamgodofall.github.io/mandalorian-project/
-site_description: Sovereign Mobile Computing — Betrayal-Resistant Architecture on seL4
+site_description: Research prototype for capability-oriented, sovereignty-focused mobile computing
 site_author: Themba Mpehle
 
 docs_dir: docs
@@ -57,6 +57,7 @@ nav:
     - BeskarLink: architecture/link.md
     - Shield Ledger: architecture/ledger.md
   - Security:
+    - Assurance Cases: security/ASSURANCE_CASES.md
     - Security Audit: security/SECURITY_AUDIT_CRITICAL_FINDINGS.md
     - Critical Fixes: security/CRITICAL_SECURITY_FIXES.md
     - BlackBerry Enhancements: security/BLACKBERRY_ENHANCEMENTS.md
