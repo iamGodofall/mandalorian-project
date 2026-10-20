@@ -181,6 +181,7 @@ Full documentation is live at **https://iamGodofall.github.io/mandalorian-projec
 | [Security](https://iamgodofall.github.io/mandalorian-project/security/) | Audit findings, critical fixes, bypass resistance |
 | [API Reference](https://iamgodofall.github.io/mandalorian-project/api/) | Full API documentation |
 | [FOSDEM 2026 Talk](https://iamgodofall.github.io/mandalorian-project/fosdem2026_talk_outline/) | Presentation outline and abstract |
+| [Security posture and threat model](docs/security/SECURITY_POSTURE_2026-10.md) | Trust boundaries, code-review findings, release gates, and evidence limits |
 
 ---
 
