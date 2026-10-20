@@ -109,7 +109,7 @@ gate_result_t mandalorian_execute(mandalorian_request_t *req,
     }
 
     /* Step 2: expiry. */
-    if ((uint64_t)time(NULL) > cap->expiry) {
+    if ((uint64_t)time(NULL) >= cap->expiry) {
         return gate_deny(req, cap, GATE_EXPIRED);
     }
 
