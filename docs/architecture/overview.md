@@ -1,277 +1,60 @@
-# Architecture Overview
+# Architecture Overview — Target Design and Current Evidence
 
-> From silicon to application — every layer designed for sovereignty.
+> **Status:** the diagrams in this document describe an intended architecture, not a delivered mobile platform. The current code is a host-buildable prototype. seL4 enforcement, a custom SoC, an HSM, verified boot, and production messaging have not been demonstrated by this repository.
 
----
+## Design objective
 
-## The Problem
+Mandalorian explores a sovereignty-focused device architecture that minimizes ambient authority, makes sensitive actions explicitly authorized, and produces reviewable evidence. Its security claims must eventually be enforced by the operating system and hardware, not by a C library alone.
 
-Every phone today is a **betrayal machine**:
-- The OS can be coerced to backdoor your apps
-- The baseband modem has full DMA access to application memory
-- Firmware updates can install hidden capabilities
-- Compelled compliance is invisible and undetectable
-- A court order, a NSL, a warrant — your phone betrays you
+## Target trust model
 
-**The Mandalorian Project** starts from a different premise: the device must be mathematically incapable of betraying the user, regardless of who tries to compel it.
+1. **Complete mediation:** privileged operations should be reachable only through a narrowly privileged executor whose authority is constrained by OS capabilities or pre-opened handles.
+2. **Least privilege:** agent-facing components should not inherit general filesystem, process, or network authority.
+3. **Explicit authorization:** capabilities should bind the subject, audience, action, resource, payload digest, policy version, validity interval, and unique request identifier.
+4. **Auditable outcomes:** operation intent, actual outcome, and audit evidence should have defined crash semantics and durable checkpoints.
+5. **Reviewed cryptography:** use established, versioned protocol implementations and conformance suites; do not claim a protocol is secure because a diagram names it.
+6. **Honest failure semantics:** simulated work, authorization success, actual execution, and uncertain audit outcomes must remain distinguishable.
 
----
+## Current host prototype
 
-## Design Principles
-
-1. **No bypass paths** — The Mandalorian Gate is the only execution entry point. There is no debug mode, no recovery path, no maintenance channel that circumvents it.
-2. **Minimal trusted computing base** — seL4 is ~15K LOC of formally verified code. Everything else is outside the TCB.
-3. **Defense in depth** — 7 security layers, each designed to fail closed (never open).
-4. **Tamper-evident, not just tamper-resistant** — If you try to tamper, we know.
-5. **Post-quantum from day one** — No waiting for NIST final standards. Dilithium + Kyber are deployed.
-
----
-
-## System Architecture
-
-```
-+------------------------------------------------------------------+
-|                          Mandalorian Device                        |
-|                                                                   |
-|  +----------------------------------------------------------+   |
-|  |                        VeridianOS                          |   |
-|  |              Android compatibility / iOS runtime          |   |
-|  |                   Phase 1 target                         |   |
-|  +----------------------------+------------------------------+   |
-|                               |                                   |
-|  +----------------------------v------------------------------+   |
-|  |                      Mandalorian Gate                     |   |
-|  |  Capability/policy gate + replay guard (host prototype) |   |
-|  |      exec - read - write - process - web - cron - memory  |   |
-|  +----------------------------+------------------------------+   |
-|                               |                                   |
-|  +------------+ +-------------+ +-------------+ +---------------+  |
-|  |    Helm   | | BeskarVault | | BeskarLink  | |     Aegis     |  |
-|  |Attest.    | |    (HSM)    | | (Messaging) | |  Real-time    |  |
-|  | PQ ID     | |  32 slots   | |  Signal+PQ  | |   Monitor     |  |
-|  +-----------+ +-------------+ +-------------+ +-------+-------+  |
-|                                                        |          |
-|                                              +---------v-------+  |
-|                                              |   Shield Ledger |  |
-|                                              |     Merkle      |  |
-|                                              +-----------------+  |
-|                                                                   |
-|  ==============================================================  |
-|  ===================== seL4 Microkernel =========================  |
-|  ========= Formally verified - Capability-based - 15K LOC ======  |
-|  ==============================================================  |
-|                                                                   |
-|  +----------+  +----------+  +----------+  +----------+           |
-|  |  ARM /   |  |  RISC-V  |  |  WiFi/BT  |  | Cellular |           |
-|  |  RISC-V  |  |  JH7110   |  |  Baseband |  | Baseband |           |
-|  | Apps CPU |  | Secure    |  | (untrusted|  |(untrusted |           |
-|  |          |  |  World    |  |    ed)    |  |    ed)   |           |
-|  +----------+  +----------+  +----------+  +----------+           |
-|                                                                   |
-+------------------------------------------------------------------+
-```
-
----
-
-## Security Layers
-
-| Layer | Component | What It Does |
-|-------|-----------|-------------|
-| 1 | **seL4 Microkernel** | Capability-based isolation between all components |
-| 2 | **Verified Boot** | SHA3-256 + Ed25519 chain of trust from ROM to OS |
-| 3 | **Continuous Guardian** | 50ms integrity checks on running system |
-| 4 | **Mandalorian Gate** | Single enforcement point for all operations |
-| 5 | **Helm Attestation** | Post-quantum identity + dynamic policy + revocation |
-| 6 | **BeskarVault HSM** | Hardware key storage, tamper response |
-| 7 | **Shield Ledger** | Immutable Merkle audit trail of every decision |
-
----
-
-## Trust Model
-
-```
-TRUSTED (verified boot chain):
-  ROM -> Bootloader -> seL4 Kernel -> Helm -> Mandalorian Gate
-
-UNTRUSTED (isolated, no direct hardware access):
-  - Android/iOS userspace apps
-  - WiFi/BT baseband
-  - Cellular baseband
-  - Any third-party firmware
-
-BOUNDARY (enforced by seL4 capabilities):
-  - Gate must approve every cross-domain operation
-  - Baseband has DMA to untrusted memory only
-  - Apps cannot access HSM keys directly
-```
-
----
-
-## Key Security Innovations
-
-### 1. Single Enforcement Point
-No OS-level discretionary access control. The Mandalorian Gate is the **only** path from intent to action. The OS itself must request capabilities from Helm and present them to the Gate.
-
-### 2. Continuous Guardian
-Unlike traditional verified boot (only checked at boot), the Guardian runs in a secured execution environment and performs rolling integrity measurements every 50ms using SHA3-256.
-
-### 3. Post-Quantum Identity
-Compound identities (Dilithium + Ed25519) mean that even a quantum computer cannot forge a Mandalorian identity. This protects against:
-- Stale state capture (harvest now, decrypt later)
-- Future key compromise
-- Quantum-enabled adversary
-
-### 4. Sovereign Key Storage
-Keys in BeskarVault cannot be extracted. Physical tampering triggers zeroization. The best an attacker can do is destroy the key — not steal it.
-
-### 5. Airlock Mode
-Emergency self-destruct. One command -> all data zeroized, new device identity generated, old identity irrecoverably destroyed.
-
----
-
-## Hardware Requirements
-
-| Component | Current (Dev) | Target (Production) |
-|-----------|-------------|---------------------|
-| CPU | RISC-V JH7110 (StarFive VisionFive 2) | Custom Mandalorian SoC |
-| Secure World | JH7110's built-in trusted execution | Integrated into custom SoC |
-| HSM | Software simulation (BeskarVault) | Discrete TPM/HSM + tamper mesh |
-| Baseband | QCA6234 (untrusted, DMA-isolated) | Isolated RISC-V core |
-| Memory | 8GB LPDDR4 | LPDDR5 + memory encryption |
-| Storage | NVMe SSD | Encrypted NVMe with integrity |
-
-**Reality check**: The JH7110 is a development board. Real Mandalorian hardware requires custom silicon. This is a 3-5 year roadmap.
-
----
-
-## OpenClaw Agent Integration
-
-AI agents (via OpenClaw) connect through the OpenClaw Adapter:
-```
-OpenClaw Agent
+```text
+Untrusted request
       |
-      | Tool call (exec/read/write/process/web/memory/cron)
+Bounded input validation + capability MAC
       |
-      v
-openclaw-adapter.c
-      | Builds mandalorian_request_t
+Subject/action/resource/constraint checks
       |
-      v
-Mandalorian Gate (capability checks + replay guard; host prototype)
-      | Helm policy check
-      | BeskarVault HMAC verification
-      | Receipt logged to Shield Ledger
+Synchronized contextual policy
       |
-      v
-Result returned to agent
+Process-local replay guard + audit reservation
+      |
+Simulated executor
+      |
+HMAC receipt + in-memory hash chain
 ```
 
-Every AI action = one capability check = one receipt = immutable audit trail.
+The gate returns `GATE_SIMULATED` when its current demo executor simulates a file operation. That result means no file I/O occurred. The gate library cannot stop a hostile process from bypassing it and using ambient operating-system privileges.
 
-This means: **AI agents operating on Mandalorian are themselves capability-bound and auditable.** A compromised agent can only do what its capability allows, and everything it does is logged.
+## Component status
 
----
-
-## What Makes This Different
-
-| Property | Regular Phone | Mandalorian |
-|----------|--------------|-------------|
-| OS can be backdoored | Yes | No (Gate blocks unauthorized ops) |
-| Baseband has DMA to app RAM | Yes | No (isolated by seL4) |
-| Firmware updates are opaque | Yes | No (verified boot + Guardian) |
-| Keys extractable via hardware attack | Yes | No (BeskarVault zeroizes) |
-| Audit trail of OS-level ops | No | Yes (Shield Ledger) |
-| Post-quantum key exchange | No | Yes (Kyber-768) |
-| Formal verification of TCB | No | Yes (seL4 is formally verified) |
-| Sovereign key storage | No | Yes (Airlock mode) |
-
----
-
-## The Sandbox: One Runtime, Any App
-
-**Sandbox is the main trick.** VeridianOS doesn't trust Android or iOS permission models — it replaces them entirely.
-
-### How It Works
-
-Every app (Android `.apk` or iOS `.ipa`) runs inside a **seL4-isolated sandbox domain** with:
-
-| Capability | Default | User Control |
+| Component | Current evidence | Not yet established |
 |---|---|---|
-| Network | Denied | Grant per-session |
-| Camera | Denied | Grant per-session |
-| Microphone | Denied | Grant per-session |
-| Storage | App-only | Revocable |
-| Notifications | App-only | Revocable |
-| Location | Denied | Grant per-session |
+| Mandalorian Gate | Host-side capability/policy prototype with tests | OS-enforced complete mediation |
+| Helm | Attestation and orchestration scaffold | Production remote attestation or post-quantum signatures |
+| BeskarVault | Software key-lifecycle model | Hardware security module or tamper-resistant key storage |
+| BeskarLink | Messaging scaffold | Production Signal-compatible E2EE, DH/X3DH, or post-quantum security |
+| Shield Ledger | Bounded in-memory hash chain and authenticated receipts | Crash durability, external anchoring, or resistance to privileged memory modification |
+| Aegis / VeridianOS | Monitoring and sandboxing concepts with host code | Integrated phone OS and verified isolation |
+| seL4/CAmkES | Reference/submodule and target scaffolding | Built, booted, and adversarially tested target image |
 
-### Android Apps (Waydroid Container)
+## Implementation sequence
 
-Android runs in a **Waydroid container** on top of VeridianOS/seL4:
+1. Build a real least-privilege executor and demonstrate that untrusted code cannot call around it.
+2. Replace path-only authorization with OS-mediated handles and symlink-safe operations.
+3. Define a canonical authenticated request envelope and separate issuer, verifier, and audit key domains.
+4. Define durable replay and audit behavior under crashes, retries, clock changes, and partial side effects.
+5. Integrate the target seL4/CAmkES system and test bypass attempts.
+6. Replace incomplete messaging code with reviewed protocol implementations and run conformance vectors.
+7. Establish reproducible builds, provenance, signed releases, and independent security review.
 
-```
-Android App -> Waydroid Container -> VeridianOS -> seL4 Microkernel
-                     |
-              microG (open GMS)
-              Aegis permission mediator
-              Network blocklist (Facebook, Mixpanel, etc.)
-```
-
-- Pure AOSP image, no Google Play Services
-- microG replaces Google Services (open-source reimplementation)
-- All tracker domains firewalled by default via Aegis
-- Permission prompts go through Aegis — not Android's built-in (untrusted) system
-
-### iOS Apps (OpenSwiftUI)
-
-iOS apps don't run in a emulator — their **UI layer is reimplemented** from public Apple Developer documentation:
-
-```
-iOS App Source -> OpenSwiftUI SDK -> VeridianOS renderer (Skia)
-                      |
-              Hardened NSURLSession (blocklist active)
-              Encrypted UserDefaults (BeskarCore key)
-              No iCloud, no App Store APIs
-```
-
-OpenSwiftUI reimplements only **public UIKit/SwiftUI APIs** (Apache 2.0, no Apple code). Apps built for iOS can be recompiled against OpenSwiftUI instead of Apple's frameworks.
-
-### seL4 Sandbox Core (`app_sandbox.c`)
-
-Each sandbox domain gets its own seL4 capabilities:
-
-- **Endpoint** — IPC with other domains (policy-enforced)
-- **TCB** — Thread control block (CPU quota enforcement)
-- **VSpace** — Virtual address space (memory isolation)
-- **CSpace** — Capability space (least-privilege derivation)
-
-Quota enforcement runs continuously — apps that exceed memory/CPU limits are terminated or throttled automatically.
-
-### Cross-App IPC
-
-Apps can only communicate if Aegis approves — based on shared capability grants. No silent app-to-app talking.
-
----
-
-## Phase Roadmap
-
-```
-Phase 0 (NOW)    -- Production-ready software foundation
-                   seL4 + Gate + Helm + Vault + Ledger + Link
-                   All tests passing. Windows build working.
-                   CI/CD operational.
-
-Phase 1 (Q2 2026) -- Formal verification extends to Gate
-                   Reproducible builds
-                   VisionFive 2 hardware demo
-                   Keybase live demo
-
-Phase 2 (Q3-Q4 2026) -- VeridianOS Android compatibility
-                   WASM runtime
-                   Discrete HSM prototype
-                   BeskarLink production
-
-Phase 3 (2027+)  -- Custom RISC-V SoC tape-out
-                   Integrated tamper mesh
-                   Memory encryption in hardware
-                   Mandalorian Phone: production hardware
-```
+See [Security assurance cases](../security/ASSURANCE_CASES.md) for the claim-to-evidence ledger.
