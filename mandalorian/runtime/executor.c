@@ -40,7 +40,7 @@ exec_result_t executor_perform(const mandalorian_request_t *req)
     if (strcmp(req->action, "file_read") == 0 ||
         strcmp(req->action, "read") == 0) {
         LOG_INFO("Executor: simulated read of %s", req->resource);
-        return EXEC_OK;
+        return EXEC_SIMULATED;
     }
 
     /* Previously this returned EXEC_OK for everything, so an unimplemented
