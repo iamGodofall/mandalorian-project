@@ -25,7 +25,7 @@ The rule for this project is simple: a security claim must point to code, a test
 ## Result semantics
 
 - `GATE_OK`: reserved for a real executor completing an operation and having its result recorded.
-- `GATE_SIMULATED`: authorization and audit passed, but the current host executor simulated the operation; no file operation occurred.
+- `GATE_SIMULATED`: authorization and audit passed, but the current host executor simulated the operation; no file operation occurred, for reads as well as writes.
 - `GATE_EXEC_FAIL`: the executor returned failure and the failure receipt was recorded.
 - `GATE_AUDIT_FAIL`: audit preconditions or denial receipt recording failed before the gate attempted execution.
 - `GATE_AUDIT_FAIL_AFTER_EXECUTION`: execution may already have occurred; callers must not blindly retry.
