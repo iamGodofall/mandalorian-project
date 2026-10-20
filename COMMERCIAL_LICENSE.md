@@ -2,7 +2,7 @@
 
 ## Commercial purpose
 
-The Mandalorian Project is an open security research and systems project with a separate commercial licensing path for organizations that need proprietary use rights, paid support, integration work, or contractual delivery.
+The Mandalorian Project is an source-available security research and systems project with a separate commercial licensing path for organizations that need proprietary use rights, paid support, integration work, or contractual delivery.
 
 This document describes what is being sold. It does not claim certifications, production hardware, classified capability, or regulatory approval unless those items are separately demonstrated and contracted.
 
@@ -97,7 +97,7 @@ For enterprise engagements, invoicing and bank payment are preferred over embedd
 
 ## Intellectual property
 
-The open-source portion of the project remains governed by its published license. Commercial terms grant the rights stated in the signed agreement and do not retroactively alter the open-source license.
+The source-available portion of the project remains governed by its published license. Commercial terms grant the rights stated in the signed agreement and do not retroactively alter the open-source license.
 
 No customer receives rights beyond the contract.
 
