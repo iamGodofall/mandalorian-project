@@ -121,6 +121,39 @@ bool verifier_validate_action(const mandalorian_cap_t *cap,
     return strcmp(cap->action, req_action) == 0;
 }
 
+/* Resource names use a conservative POSIX-style path grammar at this
+ * layer. Platform-specific canonicalization and symlink resolution belong
+ * in the privileged executor before real filesystem access. */
+static bool resource_syntax_is_safe(const char *value, size_t capacity)
+{
+    size_t len = strnlen(value, capacity);
+    size_t start = 0;
+    size_t i;
+
+    if (len == 0 || len >= capacity || value[0] != '/') return false;
+    for (i = 0; i < len; ++i) {
+        if (value[i] == '\\\\') return false;
+        if (value[i] == '/') {
+            size_t segment_len = i - start;
+            if (i != 0 && segment_len == 0) return false;
+            if ((segment_len == 1 && value[start] == '.') ||
+                (segment_len == 2 && value[start] == '.' &&
+                 value[start + 1] == '.')) return false;
+            start = i + 1;
+        }
+    }
+
+    /* The final segment may be '*' only in a capability pattern. */
+    {
+        size_t segment_len = len - start;
+        if (segment_len == 0 ||
+            (segment_len == 1 && value[start] == '.') ||
+            (segment_len == 2 && value[start] == '.' &&
+             value[start + 1] == '.')) return false;
+    }
+    return true;
+}
+
 bool verifier_validate_resource(const mandalorian_cap_t *cap,
                                 const char *req_resource)
 {
@@ -130,17 +163,16 @@ bool verifier_validate_resource(const mandalorian_cap_t *cap,
         !field_is_canonical(cap->resource, sizeof(cap->resource)) ||
         strnlen(req_resource, MANDALORIAN_RESOURCE_SIZE) >= MANDALORIAN_RESOURCE_SIZE) return false;
 
-    /* Reject traversal outright. Without this, a "/workspace/*" grant is
-     * satisfied by "/workspace/../etc/shadow". */
-    if (strstr(req_resource, "..") != NULL) {
-        LOG_WARN("Verifier: path traversal rejected: %s", req_resource);
+    /* Reject ambiguous paths before matching. This is lexical validation,
+     * not a substitute for canonicalization and symlink-safe openat() in a
+     * real privileged filesystem executor. */
+    if (!resource_syntax_is_safe(cap->resource, sizeof(cap->resource)) ||
+        !resource_syntax_is_safe(req_resource, MANDALORIAN_RESOURCE_SIZE)) {
+        LOG_WARN("Verifier: malformed resource path rejected");
         return false;
     }
 
     pattern_len = strnlen(cap->resource, MANDALORIAN_RESOURCE_SIZE);
-    if (pattern_len == 0) {
-        return false;
-    }
 
     /* Trailing '*': the request must start with the literal prefix before it. */
     if (cap->resource[pattern_len - 1] == '*') {
