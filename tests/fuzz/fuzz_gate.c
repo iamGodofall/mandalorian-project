@@ -9,7 +9,7 @@
  * Two properties are asserted on every input, and they are the properties that
  * matter more than "does not crash":
  *
- *   1. The gate never returns GATE_OK for a capability it did not issue.
+ *   1. The gate never accepts a capability it did not issue (real or simulated result).
  *      Random bytes must not authenticate.
  *   2. A granted capability is never satisfied by a request outside its
  *      resource pattern, whatever the request contains.
@@ -118,7 +118,7 @@ int gate_fuzz_one(const uint8_t *data, size_t size)
     copy_field(req.payload, sizeof(req.payload), data + 2 * third, size - 2 * third);
 
     r = mandalorian_execute(&req, &forged);
-    if (r == GATE_OK) {
+    if (r == GATE_OK || r == GATE_SIMULATED) {
         fprintf(stderr, "FUZZ FAIL: forged capability authenticated\n");
         return 1;
     }
