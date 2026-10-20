@@ -16,6 +16,7 @@
 
 typedef struct {
     uint32_t agent_id;
+    uint64_t request_nonce; /* caller-generated unique nonce; zero is invalid */
     char action[MANDALORIAN_ACTION_SIZE];
     char resource[MANDALORIAN_RESOURCE_SIZE];
     char payload[MANDALORIAN_MAX_PAYLOAD];  /* file data etc. */
@@ -34,7 +35,10 @@ typedef enum {
     /* The decision could not be recorded; no execution was attempted on this path. */
     GATE_AUDIT_FAIL,
     /* Execution was attempted/completed, but its outcome receipt was not recorded. */
-    GATE_AUDIT_FAIL_AFTER_EXECUTION
+    GATE_AUDIT_FAIL_AFTER_EXECUTION,
+    GATE_REPLAY_NONCE_INVALID,
+    GATE_REPLAY_DETECTED,
+    GATE_REPLAY_CACHE_FULL
 } gate_result_t;
 
 /**
