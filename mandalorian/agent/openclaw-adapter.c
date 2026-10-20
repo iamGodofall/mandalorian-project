@@ -181,6 +181,9 @@ int openclaw_forward(
         case GATE_AUDIT_FAIL:       return -9;   // no execution; audit unavailable
         case GATE_AUDIT_FAIL_AFTER_EXECUTION:
                                     return -10;  // may have executed; do not blindly retry
+        case GATE_REPLAY_NONCE_INVALID: return -11;
+        case GATE_REPLAY_DETECTED:   return -12;  // duplicate request; do not retry same nonce
+        case GATE_REPLAY_CACHE_FULL: return -13;  // fail closed; retry with backoff/new nonce
         default:                    return -99;
     }
 }
