@@ -247,6 +247,17 @@ static void test_gate_denials(void)
                mandalorian_execute(&req, &cap) == GATE_SIMULATED);
     }
 
+    /* Read and write are both simulations until a real executor exists. */
+    {
+        mandalorian_cap_t read_cap;
+        fill_request(&req, 1, "file_read", "/tmp/output.txt", "");
+        expect("read capability can be issued",
+               issue_capability(&read_cap, "agent_1", "file_read", "/tmp/*",
+                                "maxSize=512", 300) == 0);
+        expect("simulated read is not reported as a real execution",
+               mandalorian_execute(&req, &read_cap) == GATE_SIMULATED);
+    }
+
     /* Expiry is exclusive: a capability with expiry == now is already invalid.
      * TTL zero is deterministic with the corrected >= comparison. */
     {
