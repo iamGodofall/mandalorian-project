@@ -73,7 +73,39 @@ int main(void)
         return 1;
     }
 
-    printf("PASS: %d concurrent appends preserved ledger count and root\n",
+    /* A reservation must protect its slot from ordinary concurrent-style
+     * writers, then be consumed exactly once by the reserved append. */
+    {
+        ledger_reservation_t reservation = LEDGER_RESERVATION_INIT;
+        uint8_t digest[LEDGER_HASH_SIZE] = {0};
+
+        if (reserve_ledger_entry(&reservation) != 0) {
+            fprintf(stderr, "FAIL: could not reserve a ledger slot\n");
+            return 1;
+        }
+        while (get_ledger_entry_count() < LEDGER_MAX_ENTRIES - 1) {
+            if (add_ledger_entry("FILL", digest) != 0) {
+                fprintf(stderr, "FAIL: ordinary append consumed reserved capacity\n");
+                return 1;
+            }
+        }
+        if (add_ledger_entry("SHOULD_NOT_FIT", digest) == 0) {
+            fprintf(stderr, "FAIL: ordinary append stole the reserved slot\n");
+            return 1;
+        }
+        if (add_reserved_ledger_entry(&reservation, "RESERVED", digest) != 0 ||
+            reservation.active != 0 ||
+            get_ledger_entry_count() != LEDGER_MAX_ENTRIES) {
+            fprintf(stderr, "FAIL: reserved append did not consume its slot\n");
+            return 1;
+        }
+        if (release_ledger_reservation(&reservation) == 0) {
+            fprintf(stderr, "FAIL: consumed reservation released twice\n");
+            return 1;
+        }
+    }
+
+    printf("PASS: %d concurrent appends and reserved-slot accounting passed\n",
            THREAD_COUNT * APPENDS_PER_THREAD);
     return 0;
 }
