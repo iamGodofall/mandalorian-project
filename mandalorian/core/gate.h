@@ -44,9 +44,10 @@ typedef enum {
 /**
  * @brief Single entry point — verifies capability, applies policy, executes.
  *
- * The nine steps are: signature, expiry, subject binding, action, resource,
- * constraints, policy, execution, receipt. A failure at any step returns
- * without reaching the next.
+ * The pipeline validates request fields and nonce, authenticates and scopes the
+ * capability, checks policy, reserves audit capacity, atomically consumes the
+ * nonce, executes, and records an authenticated outcome receipt. A zero nonce
+ * is invalid; a duplicate or exhausted replay cache fails closed.
  *
  * @return GATE_OK when the request was executed and receipted.
  */
