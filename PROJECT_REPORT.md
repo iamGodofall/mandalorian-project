@@ -17,7 +17,7 @@ The governing rule is: **authorization is not execution, a receipt is not proof 
 - Contextual policy with exact agent-ID state, synchronization, per-minute request limits, daily quota rollover, quiet-hours checks, and high-risk resource checks.
 - A bounded process-local request replay guard that rejects duplicate agent/nonce pairs and fails closed when exhausted.
 - HMAC-authenticated decision receipts and a mutex-protected, in-memory hash-chained ledger with reserved append capacity.
-- Explicit result semantics: `GATE_SIMULATED` means authorization and audit passed but no real file operation occurred.
+- Explicit result semantics: `GATE_SIMULATED` means authorization and audit passed but no real file operation occurred, for reads as well as writes.
 - Unit tests for SHA-3 vectors, secure randomness, gate enforcement, replay behavior, ledger concurrency, and policy isolation; CI includes sanitizers, source hygiene, static analysis, and bounded fuzzing.
 
 These statements describe repository code and tests only. They are not claims of independent review or production readiness.
