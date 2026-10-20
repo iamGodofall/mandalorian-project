@@ -25,6 +25,7 @@
 #include "logging.h"
 #include "policy.h"
 #include "receipt.h"
+#include "replay_guard.h"
 #include "verifier.h"
 
 static int safe_text_field(const char *value, size_t capacity)
@@ -53,6 +54,9 @@ const char *gate_result_to_string(gate_result_t result)
     case GATE_AUDIT_FAIL:         return "AUDIT_FAILURE_NOT_EXECUTED";
     case GATE_AUDIT_FAIL_AFTER_EXECUTION:
                                   return "EXECUTION_OUTCOME_UNRECORDED";
+    case GATE_REPLAY_NONCE_INVALID: return "REQUEST_NONCE_INVALID";
+    case GATE_REPLAY_DETECTED:     return "REQUEST_REPLAY_DETECTED";
+    case GATE_REPLAY_CACHE_FULL:   return "REPLAY_CACHE_FULL";
     default:                      return "UNKNOWN";
     }
 }
@@ -116,6 +120,9 @@ gate_result_t mandalorian_execute(mandalorian_request_t *req,
     if (!safe_text_field(req->resource, sizeof(req->resource))) {
         return GATE_RESOURCE_VIOLATION;
     }
+    if (req->request_nonce == 0) {
+        return GATE_REPLAY_NONCE_INVALID;
+    }
     if (strnlen(req->payload, sizeof(req->payload)) >= sizeof(req->payload)) {
         return GATE_CONSTRAINT_FAIL;
     }
@@ -172,6 +179,24 @@ gate_result_t mandalorian_execute(mandalorian_request_t *req,
     if (reserve_ledger_entry(&reservation) != 0) {
         LOG_ERROR("Gate: no ledger capacity available; refusing to execute");
         return GATE_AUDIT_FAIL;
+    }
+
+    /* Consume the nonce atomically only after authorization and audit capacity
+     * are established. A duplicate cannot reach the executor. */
+    {
+        replay_guard_result_t replay = replay_guard_consume(
+            req->agent_id, req->request_nonce, cap->expiry,
+            (uint64_t)time(NULL));
+        if (replay != REPLAY_GUARD_CONSUMED) {
+            (void)release_ledger_reservation(&reservation);
+            if (replay == REPLAY_GUARD_DUPLICATE) {
+                return gate_deny(req, cap, GATE_REPLAY_DETECTED);
+            }
+            if (replay == REPLAY_GUARD_FULL) {
+                return gate_deny(req, cap, GATE_REPLAY_CACHE_FULL);
+            }
+            return gate_deny(req, cap, GATE_REPLAY_NONCE_INVALID);
+        }
     }
 
     /* Step 8: execute. */
