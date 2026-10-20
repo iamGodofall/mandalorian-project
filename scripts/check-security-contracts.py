@@ -23,6 +23,7 @@ checks = {
     "OpenClaw never maps simulation to ordinary success": ("mandalorian/agent/openclaw-adapter.c", r"case GATE_SIMULATED:\s*return -14"),
     "policy state is synchronized": ("mandalorian/core/policy.c", r"pthread_mutex_t policy_mutex"),
     "policy windows use monotonic time": ("mandalorian/core/policy.c", r"CLOCK_MONOTONIC"),
+    "sensitive system paths use a component boundary": ("mandalorian/core/policy.c", r'strncmp\(resource, "/etc/", sizeof\("/etc/"\) - 1U\)'),
     "policy compares complete agent IDs": ("mandalorian/core/policy.c", r"agents\[i\]\.agent_id\s*==\s*agent_id"),
     "policy rejects unterminated request fields": ("mandalorian/core/policy.c", r"request_fields_terminated"),
     "quiet hours cover file_write adapter actions": ("mandalorian/core/policy.c", r'strcmp\(req->action, "file_write"\) == 0'),
