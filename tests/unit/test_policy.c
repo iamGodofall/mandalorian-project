@@ -88,7 +88,18 @@ int main(void)
     a = make_request(99U);
     (void)snprintf(a.resource, sizeof(a.resource), "/etc/shadow");
     assert(!policy_evaluate(&a, NULL));
-    policy_set_trust(99U, 3);
+    policy_reset_all();
+    policy_set_quiet_hours(0, 0);
+    a = make_request(98U);
+    (void)snprintf(a.resource, sizeof(a.resource), "/etc");
+    assert(!policy_evaluate(&a, NULL)); /* exact sensitive root is protected */
+    policy_reset_all();
+    policy_set_quiet_hours(0, 0);
+    a = make_request(97U);
+    (void)snprintf(a.resource, sizeof(a.resource), "/tmp/etc/private");
+    assert(policy_evaluate(&a, NULL)); /* textual substring is not the /etc root */
+    policy_set_trust(97U, 3);
+    (void)snprintf(a.resource, sizeof(a.resource), "/etc/shadow");
     assert(policy_evaluate(&a, NULL));
 
     policy_reset_all();
