@@ -25,7 +25,7 @@ checks = {
     "policy windows use monotonic time": ("mandalorian/core/policy.c", r"CLOCK_MONOTONIC"),
     "sensitive system paths use a component boundary": ("mandalorian/core/policy.c", r'strncmp\(resource, "/etc/", sizeof\("/etc/"\) - 1U\)'),
     "policy compares complete agent IDs": ("mandalorian/core/policy.c", r"agents\[i\]\.agent_id\s*==\s*agent_id"),
-    "policy tests remain active with NDEBUG": ("tests/unit/test_policy.c", r"#define CHECK\\(condition\\)"),
+    "policy tests remain active with NDEBUG": ("tests/unit/test_policy.c", r"#define CHECK\(condition\)"),
     "policy rejects unterminated request fields": ("mandalorian/core/policy.c", r"request_fields_terminated"),
     "quiet hours cover file_write adapter actions": ("mandalorian/core/policy.c", r'strcmp\(req->action, "file_write"\) == 0'),
     "issuer key state is synchronized": ("mandalorian/capabilities/issuer.c", r"pthread_mutex_t issuer_key_mutex"),
