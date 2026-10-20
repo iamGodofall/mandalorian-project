@@ -73,13 +73,13 @@ gate_result_t mandalorian_execute(mandalorian_request_t *req,
     /* Validate caller-controlled fixed-size fields before logging or passing
      * them to strcmp/receipt formatting. Unterminated arrays are hostile input. */
     if (strnlen(req->action, sizeof(req->action)) >= sizeof(req->action)) {
-        return gate_deny(req, cap, GATE_ACTION_INVALID);
+        return GATE_ACTION_INVALID;
     }
     if (strnlen(req->resource, sizeof(req->resource)) >= sizeof(req->resource)) {
-        return gate_deny(req, cap, GATE_RESOURCE_VIOLATION);
+        return GATE_RESOURCE_VIOLATION;
     }
     if (strnlen(req->payload, sizeof(req->payload)) >= sizeof(req->payload)) {
-        return gate_deny(req, cap, GATE_CONSTRAINT_FAIL);
+        return GATE_CONSTRAINT_FAIL;
     }
 
     LOG_INFO("Gate: processing request from agent %u: %s %s",
