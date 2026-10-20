@@ -200,7 +200,8 @@ The gate verifies the receipt MAC and consumes a ledger slot reserved before exe
 
 | Result | Meaning |
 |--------|---------|
-| `GATE_OK` | Allowed |
+| `GATE_OK` | A real executor performed the operation and the result was receipted |
+| `GATE_SIMULATED` | Authorization and audit passed, but the host executor simulated the operation; no file operation occurred |
 | `GATE_SIG_FAIL` | Capability signature invalid |
 | `GATE_EXPIRED` | Capability expired |
 | `GATE_SUBJECT_MISMATCH` | Wrong agent |
