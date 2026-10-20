@@ -24,6 +24,8 @@
 
 #include "gate.h"
 
+#include <errno.h>
+#include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -44,25 +46,35 @@ int verifier_set_key(const uint8_t *key, size_t key_len)
     return 0;
 }
 
+/* Fixed-size arrays are not guaranteed to contain a NUL terminator.
+ * Delimiters and control characters are forbidden in authenticated fields. */
+static bool field_is_canonical(const char *field, size_t capacity)
+{
+    size_t i;
+    for (i = 0; i < capacity; ++i) {
+        unsigned char ch = (unsigned char)field[i];
+        if (ch == '\0') return true;
+        if (ch == '|' || ch < 0x20 || ch == 0x7f) return false;
+    }
+    return false;
+}
+
 int verifier_serialise_cap(const mandalorian_cap_t *cap, char *out,
                            size_t out_len)
 {
     int written;
+    if (cap == NULL || out == NULL || out_len == 0 ||
+        !field_is_canonical(cap->subject, sizeof(cap->subject)) ||
+        !field_is_canonical(cap->action, sizeof(cap->action)) ||
+        !field_is_canonical(cap->resource, sizeof(cap->resource)) ||
+        !field_is_canonical(cap->constraints, sizeof(cap->constraints)) ||
+        !field_is_canonical(cap->cap_id, sizeof(cap->cap_id))) return -1;
 
-    if (cap == NULL || out == NULL) {
-        return -1;
-    }
-
-    /* Field separator is '|', and every field is fixed-width and NUL-padded by
-     * the schema, so no field can contain a separator and shift the parse. */
     written = snprintf(out, out_len, "%s|%s|%s|%s|%llu|%s",
                        cap->subject, cap->action, cap->resource,
                        cap->constraints,
                        (unsigned long long)cap->expiry, cap->cap_id);
-
-    if (written < 0 || (size_t)written >= out_len) {
-        return -1;
-    }
+    if (written < 0 || (size_t)written >= out_len) return -1;
     return written;
 }
 
@@ -104,7 +116,9 @@ bool verifier_validate_action(const mandalorian_cap_t *cap,
     if (cap == NULL || req_action == NULL) {
         return false;
     }
-    return strncmp(cap->action, req_action, MANDALORIAN_ACTION_SIZE) == 0;
+    if (!field_is_canonical(cap->action, sizeof(cap->action)) ||
+        strnlen(req_action, MANDALORIAN_ACTION_SIZE) >= MANDALORIAN_ACTION_SIZE) return false;
+    return strcmp(cap->action, req_action) == 0;
 }
 
 bool verifier_validate_resource(const mandalorian_cap_t *cap,
@@ -112,9 +126,9 @@ bool verifier_validate_resource(const mandalorian_cap_t *cap,
 {
     size_t pattern_len;
 
-    if (cap == NULL || req_resource == NULL) {
-        return false;
-    }
+    if (cap == NULL || req_resource == NULL ||
+        !field_is_canonical(cap->resource, sizeof(cap->resource)) ||
+        strnlen(req_resource, MANDALORIAN_RESOURCE_SIZE) >= MANDALORIAN_RESOURCE_SIZE) return false;
 
     /* Reject traversal outright. Without this, a "/workspace/*" grant is
      * satisfied by "/workspace/../etc/shadow". */
@@ -145,50 +159,43 @@ bool verifier_validate_resource(const mandalorian_cap_t *cap,
 bool verifier_check_constraints(const mandalorian_cap_t *cap,
                                 const char *payload)
 {
-    const char *max_size;
+    const char *p;
     unsigned long limit;
+    unsigned long multiplier = 1;
     char *end;
     size_t payload_len;
 
-    if (cap == NULL || payload == NULL) {
-        return false;
-    }
+    if (cap == NULL || payload == NULL ||
+        !field_is_canonical(cap->constraints, sizeof(cap->constraints)) ||
+        strnlen(payload, MANDALORIAN_MAX_PAYLOAD) >= MANDALORIAN_MAX_PAYLOAD) return false;
+    payload_len = strlen(payload);
+    if (cap->constraints[0] == '\0') return true;
 
-    payload_len = strnlen(payload, MANDALORIAN_MAX_PAYLOAD);
+    /* Supported grammar: maxSize=<decimal>[K|M][B]. Reject unknown syntax,
+     * signs, whitespace, trailing garbage and arithmetic overflow. */
+    if (strncmp(cap->constraints, "maxSize=", 8) != 0) return false;
+    p = cap->constraints + 8;
+    if (*p < '0' || *p > '9') return false;
 
-    /* No constraints declared means no constraint to violate. */
-    if (cap->constraints[0] == '\0') {
-        return true;
-    }
-
-    max_size = strstr(cap->constraints, "maxSize=");
-    if (max_size == NULL) {
-        /* An unrecognised constraint is not an absent one. Deny rather than
-         * silently ignoring a restriction the issuer meant to apply. */
-        LOG_WARN("Verifier: unrecognised constraint '%s'; denying",
-                 cap->constraints);
-        return false;
-    }
-
-    max_size += strlen("maxSize=");
-    limit = strtoul(max_size, &end, 10);
-    if (end == max_size) {
-        LOG_WARN("Verifier: malformed maxSize in '%s'; denying",
-                 cap->constraints);
-        return false;
-    }
-
+    errno = 0;
+    limit = strtoul(p, &end, 10);
+    if (errno == ERANGE || end == p) return false;
     if (*end == 'K' || *end == 'k') {
-        limit *= 1024UL;
+        multiplier = 1024UL;
+        ++end;
     } else if (*end == 'M' || *end == 'm') {
-        limit *= 1024UL * 1024UL;
+        multiplier = 1024UL * 1024UL;
+        ++end;
     }
-
-    if (payload_len > limit) {
-        LOG_WARN("Verifier: payload %zu exceeds maxSize %lu", payload_len,
-                 limit);
+    if (*end == 'B' || *end == 'b') ++end;
+    if (*end != '\0' || limit > ULONG_MAX / multiplier) {
+        LOG_WARN("Verifier: malformed or overflowing maxSize; denying");
         return false;
     }
-
+    limit *= multiplier;
+    if (payload_len > limit) {
+        LOG_WARN("Verifier: payload %zu exceeds maxSize %lu", payload_len, limit);
+        return false;
+    }
     return true;
 }
