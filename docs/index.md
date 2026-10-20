@@ -11,7 +11,7 @@ Welcome to the Mandalorian Project. This is the documentation hub for the world'
 The Mandalorian Project is building a mobile phone that **cannot betray its user** — not by policy, not by coercion, not even if the creators are compelled to. It achieves this through:
 
 - **seL4 Microkernel** — Formally verified capability-based security
-- **Mandalorian Gate** — 9-step cryptographic enforcement point, no bypass paths
+- **Mandalorian Gate** — host-side capability/policy enforcement with nonce replay checks and reserved outcome receipts; executor simulated
 - **Helm Attestation** — Post-quantum cryptographic identity (CRYSTALS-Dilithium + Ed25519)
 - **BeskarVault** — Hardware security module with 32 key slots and tamper response
 - **Shield Ledger** — Immutable Merkle tree audit trail, every action receipted
@@ -26,7 +26,7 @@ The Mandalorian Project is building a mobile phone that **cannot betray its user
 |                                                                   |
 |  +----------+    +------------+      +-------------------------+ |
 |  | VeridianOS|    |   Aegis    |      |   Mandalorian Gate      | |
-|  | Android/ | <-> | Real-time | <->  | (9-step enforcer)       | |
+|  | Android/ | <-> | Real-time | <->  | (host-side gate)        | |
 |  |   iOS    |    |  Monitor   |      | No bypass. Ever.        | |
 |  +----------+    +------------+      +------------+-------------+ |
 |                                                  |                |
@@ -54,8 +54,8 @@ The Mandalorian Project is building a mobile phone that **cannot betray its user
 | [Helm Attestation](architecture/helm.md) | Attestation workflow scaffold | Prototype; cryptographic placeholders remain |
 | [BeskarVault](architecture/vault.md) | In-process key-lifecycle model | Not an HSM; hardware integration unverified |
 | [BeskarLink](architecture/link.md) | Messaging and key-exchange scaffold | Not production-safe; protocol and crypto review required |
-| [Shield Ledger](architecture/ledger.md) | Immutable Merkle audit trail | Production |
-| [Security Audit](security/SECURITY_AUDIT_CRITICAL_FINDINGS.md) | SHA3-256 + Ed25519 boot chain | Production |
+| [Shield Ledger](architecture/ledger.md) | Bounded in-memory hash-chain audit log | Prototype; no crash durability |
+| [Security Audit](security/SECURITY_AUDIT_CRITICAL_FINDINGS.md) | Findings and remediation tracking | Review document; not certification |
 | [VeridianOS](https://github.com/iamGodofall/mandalorian-project) | Android (Waydroid) / iOS (OpenSwiftUI) compatibility | Phase 1 |
 
 ---
@@ -85,7 +85,7 @@ cd tests/comprehensive
 
 | Property | Mechanism |
 |----------|-----------|
-| **No bypass paths** | Mandalorian Gate is the only execution entry point |
+| **Gate integration requirement** | Intended execution paths must be mediated by the gate; this repository does not prove OS-level no-bypass enforcement |
 | **Tamper-evident** | ROM-resident Continuous Guardian with 50ms integrity checks |
 | **Post-quantum identity** | CRYSTALS-Dilithium + Ed25519 compound signatures |
 | **Sovereign key storage** | BeskarVault HSM, keys never leave device |
