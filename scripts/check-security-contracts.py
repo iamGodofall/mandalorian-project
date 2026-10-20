@@ -45,6 +45,8 @@ for label, (path, pattern) in checks.items():
 public_docs = [
     "README.md", "PROJECT_REPORT.md", "docs/index.md", "docs/architecture/overview.md",
     "index.html", "mandate/PRODUCT_BRIEF.md", "helm/README.md", "beskarcore/README.md",
+    "docs/root/README.md", "docs/root/TODO.md",
+    "docs/security/BYPASS_RESISTANCE_ROADMAP.md", "COMMERCIAL_LICENSE.md",
 ]
 for path in public_docs:
     content = read(path).lower()
