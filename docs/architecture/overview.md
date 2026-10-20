@@ -157,7 +157,7 @@ openclaw-adapter.c
       | Builds mandalorian_request_t
       |
       v
-Mandalorian Gate (9-step enforcement)
+Mandalorian Gate (capability checks + replay guard; host prototype)
       | Helm policy check
       | BeskarVault HMAC verification
       | Receipt logged to Shield Ledger
