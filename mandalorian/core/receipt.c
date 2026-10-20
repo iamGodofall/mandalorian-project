@@ -61,34 +61,88 @@ bool receipt_key_is_set(void)
 }
 
 /*
- * MAC covers everything up to the signature field.
- *
- * Must be offsetof(), not sizeof(receipt_t) - MANDALORIAN_SIGNATURE_SIZE:
- * receipt_t contains a uint64_t, so the struct is 8-aligned and carries four
- * bytes of trailing padding after signature[64]. Subtracting the signature
- * size from the total therefore reaches four bytes *into* the signature — the
- * MAC would cover part of its own output, and verification of a
- * freshly-generated receipt failed. Caught by test_gate_enforcement.
+ * Receipts use an explicit fixed-width, little-endian wire encoding. Never MAC
+ * a C struct's object representation: it contains ABI-dependent padding and
+ * may copy uninitialized bytes from a caller's request. Fixed arrays are
+ * encoded at their declared widths; all numeric fields have specified byte
+ * order. The signature itself is excluded from the MAC input.
  */
+#define RECEIPT_BODY_SIZE (4U + 8U + MANDALORIAN_ACTION_SIZE + \
+                           MANDALORIAN_RESOURCE_SIZE + MANDALORIAN_MAX_PAYLOAD + \
+                           MANDALORIAN_CAP_ID_SIZE + 8U + 4U + 256U)
+#define RECEIPT_ENCODED_SIZE (RECEIPT_BODY_SIZE + MANDALORIAN_SIGNATURE_SIZE)
+
+static void encode_u32_le(uint8_t *out, uint32_t value)
+{
+    out[0] = (uint8_t)value;
+    out[1] = (uint8_t)(value >> 8);
+    out[2] = (uint8_t)(value >> 16);
+    out[3] = (uint8_t)(value >> 24);
+}
+
+static void encode_u64_le(uint8_t *out, uint64_t value)
+{
+    unsigned i;
+    for (i = 0; i < 8; ++i) {
+        out[i] = (uint8_t)(value >> (i * 8U));
+    }
+}
+
+static size_t receipt_encode_body(const receipt_t *r, uint8_t *out)
+{
+    size_t offset = 0;
+    if (r == NULL || out == NULL) {
+        return 0;
+    }
+
+    encode_u32_le(out + offset, r->req.agent_id);
+    offset += 4;
+    encode_u64_le(out + offset, r->req.request_nonce);
+    offset += 8;
+    memcpy(out + offset, r->req.action, sizeof(r->req.action));
+    offset += sizeof(r->req.action);
+    memcpy(out + offset, r->req.resource, sizeof(r->req.resource));
+    offset += sizeof(r->req.resource);
+    memcpy(out + offset, r->req.payload, sizeof(r->req.payload));
+    offset += sizeof(r->req.payload);
+    memcpy(out + offset, r->cap_id, sizeof(r->cap_id));
+    offset += sizeof(r->cap_id);
+    encode_u64_le(out + offset, r->timestamp);
+    offset += 8;
+    encode_u32_le(out + offset, (uint32_t)r->status);
+    offset += 4;
+    memcpy(out + offset, r->reason, sizeof(r->reason));
+    offset += sizeof(r->reason);
+    return offset;
+}
+
 static int receipt_mac(const receipt_t *r, uint8_t *out)
 {
-    const size_t signed_len = offsetof(receipt_t, signature);
     uint8_t key_snapshot[MANDALORIAN_CAP_KEY_SIZE];
+    uint8_t encoded[RECEIPT_BODY_SIZE];
+    size_t encoded_len;
     int result;
 
+    encoded_len = receipt_encode_body(r, encoded);
+    if (encoded_len != sizeof(encoded)) {
+        return -1;
+    }
     if (pthread_mutex_lock(&receipt_mutex) != 0) {
+        memset(encoded, 0, sizeof(encoded));
         return -1;
     }
     if (!receipt_key_set) {
         (void)pthread_mutex_unlock(&receipt_mutex);
+        memset(encoded, 0, sizeof(encoded));
         return -1;
     }
     memcpy(key_snapshot, receipt_key, sizeof(key_snapshot));
     (void)pthread_mutex_unlock(&receipt_mutex);
 
     result = hmac_sha3_256(out, key_snapshot, sizeof(key_snapshot),
-                           (const uint8_t *)r, signed_len);
+                           encoded, encoded_len);
     memset(key_snapshot, 0, sizeof(key_snapshot));
+    memset(encoded, 0, sizeof(encoded));
     return result;
 }
 
@@ -103,10 +157,14 @@ receipt_t generate_receipt(const mandalorian_request_t *req,
     memset(&r, 0, sizeof(r));
 
     if (req != NULL) {
-        r.req = *req;
+        r.req.agent_id = req->agent_id;
+        r.req.request_nonce = req->request_nonce;
+        memcpy(r.req.action, req->action, sizeof(r.req.action));
+        memcpy(r.req.resource, req->resource, sizeof(r.req.resource));
+        memcpy(r.req.payload, req->payload, sizeof(r.req.payload));
     }
     if (cap != NULL) {
-        strncpy(r.cap_id, cap->cap_id, sizeof(r.cap_id) - 1);
+        memcpy(r.cap_id, cap->cap_id, sizeof(r.cap_id));
     }
     r.timestamp = (uint64_t)time(NULL);
     r.status = status;
@@ -132,14 +190,23 @@ static int log_receipt_internal(const receipt_t *r,
                                 ledger_reservation_t *reservation)
 {
     uint8_t receipt_hash[LEDGER_HASH_SIZE];
+    uint8_t encoded[RECEIPT_ENCODED_SIZE];
+    size_t body_len;
 
     if (r == NULL) {
         return -1;
     }
-    if (sha3_256(receipt_hash, (const uint8_t *)r, sizeof(*r)) != 0) {
+    body_len = receipt_encode_body(r, encoded);
+    if (body_len != RECEIPT_BODY_SIZE) {
+        return -1;
+    }
+    memcpy(encoded + body_len, r->signature, sizeof(r->signature));
+    if (sha3_256(receipt_hash, encoded, sizeof(encoded)) != 0) {
+        memset(encoded, 0, sizeof(encoded));
         LOG_ERROR("Receipt: hashing failed");
         return -1;
     }
+    memset(encoded, 0, sizeof(encoded));
 
     if (reservation != NULL) {
         if (add_reserved_ledger_entry(reservation, "MANDALORIAN_RECEIPT",
