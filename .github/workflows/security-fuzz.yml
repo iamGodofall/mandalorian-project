@@ -3,15 +3,13 @@ name: Mandalorian Security Fuzzing
 on:
   pull_request:
     branches: [master]
-  push:
-    branches: [master, 'research/**']
   workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: mandalorian-fuzz-${{ github.workflow }}-${{ github.ref }}
+  group: mandalorian-fuzz-${{ github.workflow }}-${{ github.head_ref || github.ref_name }}
   cancel-in-progress: true
 
 jobs:
