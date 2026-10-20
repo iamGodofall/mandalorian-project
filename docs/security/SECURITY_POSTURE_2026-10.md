@@ -91,7 +91,19 @@ Pin third-party actions to full commit SHAs, pin dependencies and submodules to 
 
 Use the labels `implemented`, `simulated`, `partial`, `not implemented`, and `independently verified` consistently across README, TODO, project status, and marketing material. In particular, the roadmap's checked boxes for seL4 integration, hardware security, Signal-compatible messaging, and post-quantum attestation should be reconciled with the more cautious status statements in README and source comments.
 
-## 6. Release gate
+## 6. Changes introduced on the review branch
+
+The review branch now includes an initial hardening pass, with regression tests added alongside the changes:
+
+- Capability serialization rejects unterminated fixed-size fields, delimiter characters, and control characters before string formatting.
+- Capability issuance rejects oversized subject, action, resource, and constraint fields instead of silently truncating them.
+- Constraint parsing accepts only the documented maxSize grammar, rejects trailing garbage and malformed numbers, and checks arithmetic overflow before applying K/M multipliers.
+- The gate checks request string termination and safe log text before logging, and rejects malformed capabilities before receipt formatting.
+- Regression tests cover unterminated capability fields, oversized issuer inputs, malformed size constraints, and malformed capability rejection at the gate.
+
+These changes are under CI validation on the review branch. They are not yet a completed or independently reviewed security fix. Resource canonicalization still requires platform-specific treatment, and the shared HMAC key model remains a trust-boundary limitation.
+
+## 7. Release gate
 
 Do not label a release production-ready until all applicable checks pass:
 
@@ -108,7 +120,7 @@ Do not label a release production-ready until all applicable checks pass:
 
 A failed or unexecuted check must be reported as such, not converted to a pass.
 
-## 7. Recommended sequence
+## 8. Recommended sequence
 
 1. Freeze security claims to the current evidence and reconcile contradictory status documents.
 2. Harden input validation and canonical resource matching, with regression tests.
@@ -118,7 +130,7 @@ A failed or unexecuted check must be reported as such, not converted to a pass.
 6. Replace messaging placeholders only through a reviewed protocol/library integration.
 7. Validate the seL4 and hardware path separately from host simulation.
 
-## 8. References
+## 9. References
 
 - seL4 project and verification information: https://sel4.systems/
 - seL4 documentation: https://docs.sel4.systems/
