@@ -415,8 +415,8 @@ make  # Builds lib + demo
 **Key Features Live:**
 - Gate: host-side capability/policy checks, replay guard and reserved audit receipts; executor simulated
 - Policy: Trust/quotas/env rules
-- Crypto: libsodium Ed25519
-- Receipts: Merkle immutable log
+- Capability authentication: HMAC-SHA3-256; Ed25519/PQ integrations are not established as production-ready
+- Receipts: bounded in-memory hash-chain ledger; no crash durability or independent tamper-proof guarantee
 - Helm/OpenClaw integrated
 
 #### Building BeskarCore
