@@ -1,6 +1,14 @@
-Mandalorian Project - Dual Licensing Model
+Mandalorian Project — Dual Licensing Model (Custom License Draft)
 
 Copyright (c) 2025-2026 Themba Enock Mpehle and The Mandalorian Project Contributors
+
+IMPORTANT LICENSE NOTICE
+This is a custom source-available license, not an OSI-approved Open Source Initiative
+license. Its restrictions may affect compatibility with other projects and may not
+satisfy every user's definition of free/open-source software. This document has not
+been represented as reviewed by legal counsel. Obtain qualified legal review before
+relying on it for distribution, sublicensing, or commercial transactions. The actual
+grant and conditions below control; marketing summaries do not replace them.
 
 ================================================================================
 LICENSE OPTIONS
@@ -8,7 +16,7 @@ LICENSE OPTIONS
 
 This software is available under TWO licenses:
 
-1. MANDALORIAN SOVEREIGNTY LICENSE (Open Source)
+1. MANDALORIAN SOVEREIGNTY LICENSE (Custom source-available license; not OSI-approved)
    - For individuals, researchers, and non-commercial use
    - Full source code available
    - No backdoors, ever
@@ -20,7 +28,7 @@ This software is available under TWO licenses:
    - See Section B below
 
 ================================================================================
-SECTION A: MANDALORIAN SOVEREIGNTY LICENSE v1.0 (Open Source)
+SECTION A: MANDALORIAN SOVEREIGNTY LICENSE v1.0 (Custom source-available license)
 ================================================================================
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
