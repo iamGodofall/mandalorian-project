@@ -43,6 +43,11 @@ int receipt_set_key(const uint8_t *key, size_t key_len)
     return 0;
 }
 
+bool receipt_key_is_set(void)
+{
+    return receipt_key_set;
+}
+
 /*
  * MAC covers everything up to the signature field.
  *
