@@ -6,7 +6,7 @@
 
 <!-- Open Graph / Social Media Meta Tags -->
 <meta property="og:title" content="Mandalorian Project — Sovereign Mobile Computing" />
-<meta property="og:description" content="Betrayal-resistant mobile computing built on formally verified seL4 microkernel. Capability-based isolation with post-quantum cryptography. Zero cloud dependency." />
+<meta property="og:description" content="Research prototype for capability-oriented, sovereignty-focused mobile computing. Host executor is simulated; target OS isolation, hardware security, and post-quantum messaging are not demonstrated." />
 <meta property="og:image" content="https://iamgodofall.github.io/mandalorian-project/docs/white-banner.png" />
 <meta property="og:url" content="https://iamgodofall.github.io/mandalorian-project/" />
 <meta property="og:type" content="website" />
@@ -15,7 +15,7 @@
 <!-- Twitter Card Meta Tags -->
 <meta name="twitter:card" content="summary_large_image" />
 <meta name="twitter:title" content="Mandalorian Project — Sovereign Mobile Computing" />
-<meta name="twitter:description" content="Betrayal-resistant mobile computing built on formally verified seL4 microkernel." />
+<meta name="twitter:description" content="Research prototype exploring capability-oriented mobile computing; not a delivered secure phone." />
 <meta name="twitter:image" content="https://iamgodofall.github.io/mandalorian-project/docs/white-banner.png" />
 
 <title>Mandalorian Project — Sovereign Mobile Computing</title>
@@ -601,13 +601,11 @@ body {
 
   <!-- Main Glass Card -->
   <div class="glass-card" id="glassCard">
-    <div class="badge">Sovereign by Design</div>
-    <h1>Betrayal-Resistant Mobile Computing</h1>
-    <p class="subtitle">Built on formally verified microkernel architecture</p>
+    <div class="badge">Research Prototype</div>
+    <h1>Sovereignty-Focused Computing Research</h1>
+    <p class="subtitle">Host C prototype · target architecture in development</p>
     <p>
-      Capability-based isolation. Post-quantum cryptographic foundations. 
-      Hardware-enforced integrity with zero cloud dependency. 
-      The world's first mobile platform mathematically incapable of violating user trust.
+      Capability-oriented authorization and audit experiments. The current executor is simulated; no file operation occurs on the simulated path. OS-enforced isolation, a hardware security module, post-quantum messaging, and a production phone are not delivered.
     </p>
     
     <div class="cta-group">
@@ -623,10 +621,10 @@ body {
   <!-- Footer -->
   <div class="footer-overlay">
     <div class="footer-left">
-      <span>seL4 Microkernel</span>
-      <span>RISC-V Architecture</span>
-      <span>Post-Quantum</span>
-      <span>Zero Trust</span>
+      <span>Host Prototype</span>
+      <span>Target: seL4/RISC-V</span>
+      <span>Post-Quantum: Not Implemented</span>
+      <span>Security Research</span>
     </div>
     <div>© 2026 Mandalorian Project</div>
   </div>
@@ -636,49 +634,49 @@ body {
 <section class="local-sovereignty">
   <div class="sovereignty-container">
     <div class="section-header">
-      <span>Local First Architecture</span>
-      <h2>Your Data, Your Device, Your Control</h2>
-      <p>We believe in sovereignty — your computing should run locally, not in someone else's cloud.</p>
+      <span>Local-First Design Goal</span>
+      <h2>Control Through Verifiable Engineering</h2>
+      <p>Local-first operation is a target requirement, not a claim about a shipped Mandalorian device. Current code is a host prototype, not a complete mobile operating system.</p>
     </div>
     
     <div class="feature-cards">
       <div class="feature-card">
         <div class="icon">💾</div>
         <h3>Massive Local Storage</h3>
-        <p>Every Mandalorian device comes with <strong>2TB of encrypted local storage</strong>. Your data stays on your device — not in the cloud.</p>
+        <p>Target requirement: user-controlled storage with a documented encryption, backup, and recovery model. No Mandalorian device is shipping today.</p>
       </div>
       
       <div class="feature-card">
         <div class="icon">☁️🚫</div>
         <h3>Zero Cloud Dependency</h3>
-        <p>All security decisions happen locally on your device. No servers, no cloud APIs, no dependency on network connectivity for core functionality.</p>
+        <p>Local-first operation is a design goal. The current host prototype does not implement a complete mobile OS or demonstrate offline device-wide enforcement.</p>
       </div>
       
       <div class="feature-card">
         <div class="icon">🔐</div>
         <h3>Hardware Encryption</h3>
-        <p>AES-256-GCM encryption with keys stored in dedicated HSM. Private keys never leave the secure enclave.</p>
+        <p>Hardware-backed key custody is a future requirement. The current repository models key lifecycle in software and does not include a physical HSM or secure enclave.</p>
       </div>
     </div>
     
     <div class="cloud-warning">
-      <h3>⚠️ The Cloud "Strong-Arming" Problem</h3>
-      <p>Modern devices have been deliberately designed with <strong>minimized local storage</strong> to force users into cloud subscriptions. This is manipulation, not convenience.</p>
-      <p>The technology for full local computing existed <em>decades before</em> the cloud frenzy. We chose to bring it back — with modern security.</p>
+      <h3>Engineering Trade-offs</h3>
+      <p>Local-first computing can reduce dependence on remote services, but it still requires secure updates, backup, recovery, and hardware maintenance.</p>
+      <p>Those properties must be implemented and tested on a real target device before they can be promised to users.</p>
     </div>
     
     <div class="storage-specs">
       <div class="spec-item">
-        <div class="spec-value">2TB</div>
-        <div class="spec-label">Local Storage</div>
+        <div class="spec-value">TBD</div>
+        <div class="spec-label">Target Storage</div>
       </div>
       <div class="spec-item">
-        <div class="spec-value">AES-256</div>
-        <div class="spec-label">Encryption</div>
+        <div class="spec-value">Planned</div>
+        <div class="spec-label">Hardware Key Protection</div>
       </div>
       <div class="spec-item">
-        <div class="spec-value">0%</div>
-        <div class="spec-label">Cloud Dependency</div>
+        <div class="spec-value">Goal</div>
+        <div class="spec-label">Cloud Dependence</div>
       </div>
     </div>
   </div>
