@@ -276,6 +276,12 @@ static void test_malformed_inputs(void)
     expect("canonical capability serializes",
            verifier_serialise_cap(&cap, encoded, sizeof(encoded)) > 0);
 
+    memset(&req, 0, sizeof(req));
+    strncpy(req.action, "write", sizeof(req.action) - 1);
+    strncpy(req.resource, "/tmp/x", sizeof(req.resource) - 1);
+    expect("zero request nonce is rejected",
+           mandalorian_execute(&req, &cap) == GATE_REPLAY_NONCE_INVALID);
+
     memset(cap.subject, 'A', sizeof(cap.subject));
     expect("unterminated signed field rejected",
            verifier_serialise_cap(&cap, encoded, sizeof(encoded)) < 0);
