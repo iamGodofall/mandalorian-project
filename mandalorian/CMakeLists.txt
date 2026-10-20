@@ -12,6 +12,7 @@
 
 add_library(mandalorian_core STATIC
     core/gate.c
+    core/replay_guard.c
     core/verifier.c
     core/policy.c
     core/receipt.c
