@@ -171,13 +171,20 @@ void policy_set_trust(uint32_t agent_id, int level)
 void policy_reset_daily_quota(uint32_t agent_id)
 {
     size_t i;
+    struct timespec monotonic_now;
+    uint64_t quota_epoch = UINT64_MAX;
+
+    if (clock_gettime(CLOCK_MONOTONIC, &monotonic_now) == 0 &&
+        monotonic_now.tv_sec >= 0) {
+        quota_epoch = (uint64_t)monotonic_now.tv_sec / 86400U;
+    }
     if (pthread_mutex_lock(&policy_mutex) != 0) {
         return;
     }
     for (i = 0; i < POLICY_AGENT_SLOTS; ++i) {
         if (agents[i].occupied && agents[i].agent_id == agent_id) {
             agents[i].quota_bytes = 0;
-            agents[i].day_epoch = (uint64_t)time(NULL) / 86400U;
+            agents[i].day_epoch = quota_epoch;
             break;
         }
     }
