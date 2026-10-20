@@ -71,27 +71,12 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND.
 SECTION B: COMMERCIAL LICENSE (Enterprise/Government)
 ================================================================================
 
-For organizations requiring:
-- Proprietary use without copyleft obligations
-- Commercial support and SLAs
-- Custom feature development
-- White-label licensing
-- Government/defense sovereign deployments
+Commercial use rights, support, and engineering are available only under a separate written agreement. The agreement must define the licensed release, scope, term, support obligations, deliverables, acceptance criteria, and price.
+
+The commercial offering and current technical limitations are described in [COMMERCIAL_LICENSE.md](COMMERCIAL_LICENSE.md). That document is a proposal guide, not a binding offer or a promise of production capability. No certification, hardware integration, security clearance, regulatory approval, or production deployment is included unless specifically demonstrated and expressly contracted.
 
 Contact: info@socialfeed.co.za
 Subject: "Mandalorian Commercial License Inquiry"
-
-Pricing Tiers:
-- Enterprise: $50,000 - $500,000/year per organization
-- Government/Defense: Custom pricing ($1M+)
-- Hardware OEM: Per-device licensing
-
-Commercial licenses include:
-- Dedicated support channel
-- Priority security updates
-- Custom HSM integration
-- Compliance documentation
-- Training and onboarding
 
 ================================================================================
 WHICH LICENSE SHOULD I CHOOSE?
@@ -99,7 +84,7 @@ WHICH LICENSE SHOULD I CHOOSE?
 
 Choose MANDALORIAN SOVEREIGNTY LICENSE if:
 ✓ You are an individual user or researcher
-✓ You are building open-source projects
+✓ You are building source-available or community projects under compatible terms
 ✓ You believe in software freedom and transparency
 ✓ You will share your improvements with the community
 
