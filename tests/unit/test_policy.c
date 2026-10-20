@@ -34,6 +34,18 @@ int main(void)
     mandalorian_request_t a, b, malformed;
     unsigned i;
 
+    /* Overnight windows must cover late-night and early-morning hours. */
+    assert(policy_quiet_hours_contains(22, 22, 6));
+    assert(policy_quiet_hours_contains(23, 22, 6));
+    assert(policy_quiet_hours_contains(0, 22, 6));
+    assert(policy_quiet_hours_contains(5, 22, 6));
+    assert(!policy_quiet_hours_contains(6, 22, 6));
+    assert(!policy_quiet_hours_contains(12, 22, 6));
+    assert(policy_quiet_hours_contains(23, 20, 24));
+    assert(!policy_quiet_hours_contains(19, 20, 24));
+    assert(!policy_quiet_hours_contains(3, 3, 3));
+    assert(!policy_quiet_hours_contains(24, 22, 6));
+
     policy_reset_all();
     policy_set_quiet_hours(0, 0); /* deterministic: quiet-hours disabled */
     a = make_request(1U);
