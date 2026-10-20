@@ -329,6 +329,39 @@ static void test_receipt_authentication(void)
     expect("tampered receipt rejected", verify_receipt(&r) != 0);
 }
 
+static void test_audit_failure_semantics(void)
+{
+    mandalorian_request_t req;
+    mandalorian_cap_t cap;
+    uint8_t digest[LEDGER_HASH_SIZE] = {0};
+
+    issuer_set_key(test_key, sizeof(test_key));
+    verifier_set_key(test_key, sizeof(test_key));
+    receipt_set_key(test_key, sizeof(test_key));
+    policy_set_quiet_hours(0, 0);
+    expect("audit-failure test capability issued",
+           issue_capability(&cap, "agent_1", "write", "/tmp/*",
+                            "maxSize=512", 300) == 0);
+
+    /* Exhaust the bounded in-memory ledger to force receipt append failure. */
+    expect("ledger can be reset for audit-failure test", init_shield_ledger() == 0);
+    while (get_ledger_entry_count() < LEDGER_MAX_ENTRIES) {
+        if (add_ledger_entry("TEST_FILL", digest) != 0) {
+            expect("fill ledger to capacity", 0);
+            return;
+        }
+    }
+    expect("ledger reached capacity", get_ledger_entry_count() == LEDGER_MAX_ENTRIES);
+
+    fill_request(&req, 1, "write", "/etc/passwd", "x");
+    expect("denial whose receipt cannot be recorded exposes audit failure",
+           mandalorian_execute(&req, &cap) == GATE_AUDIT_FAIL);
+
+    fill_request(&req, 1, "write", "/tmp/audit-failure.txt", "x");
+    expect("execution with an unrecordable outcome never reports full success",
+           mandalorian_execute(&req, &cap) == GATE_AUDIT_FAIL_AFTER_EXECUTION);
+}
+
 int main(void)
 {
     printf("Mandalorian gate enforcement tests\n");
@@ -337,6 +370,7 @@ int main(void)
     test_gate_denials();
     test_malformed_inputs();
     test_receipt_authentication();
+    test_audit_failure_semantics();
 
     printf("\n%d checks, %d failures\n", checks, failures);
     return failures == 0 ? 0 : 1;
