@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/iamGodofall/mandalorian-project/actions/workflows/ci.yml/badge.svg)](https://github.com/iamGodofall/mandalorian-project/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-Mandalorian%20Sovereignty%20License-blue)](LICENSE)
-[![Platform](https://img.shields.io/badge/platform-seL4%2BRISC--V-C0172C)](https://github.com/seL4/seL4)
+[![Platform](https://img.shields.io/badge/platform-target%20design%20only-orange)](https://github.com/seL4/seL4)
 [![Docs](https://img.shields.io/badge/docs-live-brightgreen)](https://iamgodofall.github.io/mandalorian-project/)
 
 ---
