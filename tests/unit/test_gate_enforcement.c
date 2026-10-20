@@ -154,6 +154,18 @@ static void test_gate_denials(void)
     expect("path traversal denied",
            mandalorian_execute(&req, &cap) == GATE_RESOURCE_VIOLATION);
 
+    fill_request(&req, 1, "write", "/tmpEvil/secret", "x");
+    expect("sibling path sharing a textual prefix denied",
+           mandalorian_execute(&req, &cap) == GATE_RESOURCE_VIOLATION);
+
+    fill_request(&req, 1, "write", "/tmp//secret", "x");
+    expect("repeated path separator denied",
+           mandalorian_execute(&req, &cap) == GATE_RESOURCE_VIOLATION);
+
+    fill_request(&req, 1, "write", "/tmp\\\\secret", "x");
+    expect("backslash path separator denied",
+           mandalorian_execute(&req, &cap) == GATE_RESOURCE_VIOLATION);
+
     fill_request(&req, 1, "read", "/tmp/output.txt", "x");
     expect("ungranted action denied",
            mandalorian_execute(&req, &cap) == GATE_ACTION_INVALID);
