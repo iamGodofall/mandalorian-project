@@ -97,7 +97,7 @@ For enterprise engagements, invoicing and bank payment are preferred over embedd
 
 ## Intellectual property
 
-The source-available portion of the project remains governed by its published license. Commercial terms grant the rights stated in the signed agreement and do not retroactively alter the open-source license.
+The source-available portion of the project remains governed by its published license. Commercial terms grant the rights stated in the signed agreement and do not retroactively alter the published license.
 
 No customer receives rights beyond the contract.
 
