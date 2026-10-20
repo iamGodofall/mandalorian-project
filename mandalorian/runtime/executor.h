@@ -2,7 +2,8 @@
  * @file executor.h
  * @brief Controlled execution — gate step 8.
  *
- * Reachable only from the gate. Nothing else may call executor_perform().
+ * The gate is the only intended C call site. This source-level convention is
+ * not an OS isolation boundary; the current backend simulates file operations.
  */
 
 #ifndef MANDALORIAN_EXECUTOR_H
