@@ -28,6 +28,11 @@ add_executable(test_replay_guard unit/test_replay_guard.c)
 target_link_libraries(test_replay_guard PRIVATE mandalorian_core)
 add_test(NAME ReplayGuard COMMAND test_replay_guard)
 
+
+add_executable(test_policy unit/test_policy.c)
+target_link_libraries(test_policy PRIVATE mandalorian_core)
+add_test(NAME Policy COMMAND test_policy)
+
 add_executable(test_gate_enforcement unit/test_gate_enforcement.c)
 target_link_libraries(test_gate_enforcement PRIVATE mandalorian_core)
 add_test(NAME GateEnforcement COMMAND test_gate_enforcement)
