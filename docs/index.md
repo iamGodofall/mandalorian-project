@@ -9,7 +9,7 @@ Mandalorian is a research and development project exploring capability-oriented,
 - [Security assurance cases](security/ASSURANCE_CASES.md) — claims mapped to code, tests, status, and residual gaps.
 - [Security posture and threat model](security/SECURITY_POSTURE_2026-10.md) — threat boundaries and release gates.
 - [Security status](security/README.md) — implemented protections and critical limitations.
-- [Project report](../PROJECT_REPORT.md) — current evidence-led assessment and roadmap.
+- [Project report](https://github.com/iamGodofall/mandalorian-project/blob/master/PROJECT_REPORT.md) — current evidence-led assessment and roadmap.
 - [Repository structure](full_project_structure.md) — source and documentation inventory.
 
 ## Current implementation snapshot
