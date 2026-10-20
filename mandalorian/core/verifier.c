@@ -132,7 +132,7 @@ static bool resource_syntax_is_safe(const char *value, size_t capacity)
 
     if (len == 0 || len >= capacity || value[0] != '/') return false;
     for (i = 0; i < len; ++i) {
-        if (value[i] == '\\\\') return false;
+        if (value[i] == '\\') return false;
         if (value[i] == '/') {
             size_t segment_len = i - start;
             if (i != 0 && segment_len == 0) return false;
@@ -143,7 +143,7 @@ static bool resource_syntax_is_safe(const char *value, size_t capacity)
         }
     }
 
-    /* The final segment may be '*' only in a capability pattern. */
+    /* Empty and dot segments are rejected in both grants and requests. */
     {
         size_t segment_len = len - start;
         if (segment_len == 0 ||
