@@ -24,6 +24,10 @@ add_executable(test_ledger_concurrency unit/test_ledger_concurrency.c)
 target_link_libraries(test_ledger_concurrency PRIVATE beskarcore)
 add_test(NAME LedgerConcurrency COMMAND test_ledger_concurrency)
 
+add_executable(test_replay_guard unit/test_replay_guard.c)
+target_link_libraries(test_replay_guard PRIVATE mandalorian_core)
+add_test(NAME ReplayGuard COMMAND test_replay_guard)
+
 add_executable(test_gate_enforcement unit/test_gate_enforcement.c)
 target_link_libraries(test_gate_enforcement PRIVATE mandalorian_core)
 add_test(NAME GateEnforcement COMMAND test_gate_enforcement)
