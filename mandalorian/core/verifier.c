@@ -26,6 +26,7 @@
 
 #include <errno.h>
 #include <limits.h>
+#include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -35,14 +36,19 @@
 
 static uint8_t cap_key[MANDALORIAN_CAP_KEY_SIZE];
 static bool cap_key_set = false;
+static pthread_mutex_t cap_key_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 int verifier_set_key(const uint8_t *key, size_t key_len)
 {
     if (key == NULL || key_len != MANDALORIAN_CAP_KEY_SIZE) {
         return -1;
     }
+    if (pthread_mutex_lock(&cap_key_mutex) != 0) {
+        return -1;
+    }
     memcpy(cap_key, key, MANDALORIAN_CAP_KEY_SIZE);
     cap_key_set = true;
+    (void)pthread_mutex_unlock(&cap_key_mutex);
     return 0;
 }
 
@@ -81,16 +87,11 @@ int verifier_serialise_cap(const mandalorian_cap_t *cap, char *out,
 bool verify_cap_signature(const mandalorian_cap_t *cap)
 {
     uint8_t computed[HMAC_SHA3_256_SIZE];
+    uint8_t key_snapshot[MANDALORIAN_CAP_KEY_SIZE];
     char serialised[1024];
     int len;
 
     if (cap == NULL) {
-        return false;
-    }
-
-    /* Fail closed: an unconfigured verifier must not accept anything. */
-    if (!cap_key_set) {
-        LOG_ERROR("Verifier: no capability key installed; refusing to verify");
         return false;
     }
 
@@ -100,11 +101,26 @@ bool verify_cap_signature(const mandalorian_cap_t *cap)
         return false;
     }
 
-    if (hmac_sha3_256(computed, cap_key, sizeof(cap_key),
+    /* Snapshot key state under lock. Concurrent rotation cannot race the MAC
+     * operation or expose a partially copied key. */
+    if (pthread_mutex_lock(&cap_key_mutex) != 0) {
+        return false;
+    }
+    if (!cap_key_set) {
+        (void)pthread_mutex_unlock(&cap_key_mutex);
+        LOG_ERROR("Verifier: no capability key installed; refusing to verify");
+        return false;
+    }
+    memcpy(key_snapshot, cap_key, sizeof(key_snapshot));
+    (void)pthread_mutex_unlock(&cap_key_mutex);
+
+    if (hmac_sha3_256(computed, key_snapshot, sizeof(key_snapshot),
                       (const uint8_t *)serialised, (size_t)len) != 0) {
+        memset(key_snapshot, 0, sizeof(key_snapshot));
         LOG_ERROR("Verifier: MAC computation failed");
         return false;
     }
+    memset(key_snapshot, 0, sizeof(key_snapshot));
 
     return hmac_constant_time_equal(computed, cap->signature,
                                     HMAC_SHA3_256_SIZE) == 1;
