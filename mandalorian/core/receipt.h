@@ -70,6 +70,8 @@ int verify_receipt(const receipt_t *r);
  * @return 0 on success, -1 on invalid arguments.
  */
 int receipt_set_key(const uint8_t *key, size_t key_len);
+/** Return whether an authentication key is installed for gate receipts. */
+bool receipt_key_is_set(void);
 
 /** @brief Allocate the next receipt id. */
 uint64_t receipt_next_id(void);
