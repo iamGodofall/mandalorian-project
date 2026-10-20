@@ -1,6 +1,7 @@
 /**
- * Mandalorian Gate - Single Enforcement Point Header
- * All requests pass through this gate. No bypass paths.
+ * Mandalorian Gate - Host-side authorization API.
+ * Callers must route operations through this library; this header does not
+ * establish OS-level complete mediation or process isolation.
  */
 #ifndef MANDALORIAN_GATE_H
 #define MANDALORIAN_GATE_H
