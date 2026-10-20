@@ -69,7 +69,7 @@ bool receipt_key_is_set(void)
  */
 #define RECEIPT_BODY_SIZE (4U + 8U + MANDALORIAN_ACTION_SIZE + \
                            MANDALORIAN_RESOURCE_SIZE + MANDALORIAN_MAX_PAYLOAD + \
-                           MANDALORIAN_CAP_ID_SIZE + 8U + 4U + 256U)
+                           MANDALORIAN_CAP_ID_SIZE + 8U + 4U + MANDALORIAN_RECEIPT_REASON_SIZE)
 #define RECEIPT_ENCODED_SIZE (RECEIPT_BODY_SIZE + MANDALORIAN_SIGNATURE_SIZE)
 
 static void encode_u32_le(uint8_t *out, uint32_t value)
@@ -153,7 +153,7 @@ receipt_t generate_receipt(const mandalorian_request_t *req,
     receipt_t r;
     uint8_t mac[HMAC_SHA3_256_SIZE];
 
-    /* Zero the whole struct so the padding the MAC covers is deterministic. */
+    /* Zero the whole object so unused fields and ABI padding do not leak. */
     memset(&r, 0, sizeof(r));
 
     if (req != NULL) {
