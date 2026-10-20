@@ -1,5 +1,7 @@
 #include "../include/performance.h"
 #include "../include/logging.h"
+#include "../include/sha3.h"
+#include "../include/verified_boot.h"
 #include <stdlib.h>
 #include <string.h>
 #include <pthread.h>
