@@ -12,6 +12,7 @@
  * with Python's hmac module.
  */
 
+#include <stddef.h>
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
@@ -349,6 +350,18 @@ static void test_receipt_authentication(void)
 
     r.status = GATE_SIG_FAIL;
     expect("tampered receipt rejected", verify_receipt(&r) != 0);
+
+    r = generate_receipt(&req, &cap, GATE_SIMULATED, "canonical");
+    if (offsetof(mandalorian_request_t, request_nonce) > sizeof(uint32_t)) {
+        receipt_t padding_tampered = r;
+        size_t padding_offset = offsetof(receipt_t, req) +
+            offsetof(mandalorian_request_t, request_nonce) - 1U;
+        ((uint8_t *)&padding_tampered)[padding_offset] ^= 0x5aU;
+        expect("receipt MAC ignores ABI padding bytes",
+               verify_receipt(&padding_tampered) == 0);
+    }
+    r.signature[0] ^= 0x01U;
+    expect("receipt MAC tag tampering rejected", verify_receipt(&r) != 0);
 }
 
 static void test_audit_failure_semantics(void)
