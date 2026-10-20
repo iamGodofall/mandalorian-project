@@ -50,10 +50,10 @@ The Mandalorian Project is building a mobile phone that **cannot betray its user
 
 | Component | Purpose | Status |
 |-----------|---------|--------|
-| [Mandalorian Gate](architecture/gate.md) | 9-step capability enforcement, single entry point | Production |
-| [Helm Attestation](architecture/helm.md) | Post-quantum identity and measurement | Production |
-| [BeskarVault](architecture/vault.md) | Hardware key management (32 slots) | Production |
-| [BeskarLink](architecture/link.md) | Encrypted messaging (Signal + PQ) | Production |
+| [Mandalorian Gate](architecture/gate.md) | Capability/policy gate, nonce replay guard and reserved receipts | Host prototype; simulated executor |
+| [Helm Attestation](architecture/helm.md) | Attestation workflow scaffold | Prototype; cryptographic placeholders remain |
+| [BeskarVault](architecture/vault.md) | In-process key-lifecycle model | Not an HSM; hardware integration unverified |
+| [BeskarLink](architecture/link.md) | Messaging and key-exchange scaffold | Not production-safe; protocol and crypto review required |
 | [Shield Ledger](architecture/ledger.md) | Immutable Merkle audit trail | Production |
 | [Security Audit](security/SECURITY_AUDIT_CRITICAL_FINDINGS.md) | SHA3-256 + Ed25519 boot chain | Production |
 | [VeridianOS](https://github.com/iamGodofall/mandalorian-project) | Android (Waydroid) / iOS (OpenSwiftUI) compatibility | Phase 1 |
