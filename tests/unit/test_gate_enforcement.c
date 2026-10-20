@@ -358,8 +358,8 @@ static void test_audit_failure_semantics(void)
            mandalorian_execute(&req, &cap) == GATE_AUDIT_FAIL);
 
     fill_request(&req, 1, "write", "/tmp/audit-failure.txt", "x");
-    expect("execution with an unrecordable outcome never reports full success",
-           mandalorian_execute(&req, &cap) == GATE_AUDIT_FAIL_AFTER_EXECUTION);
+    expect("full ledger blocks execution before an outcome receipt is needed",
+           mandalorian_execute(&req, &cap) == GATE_AUDIT_FAIL);
 }
 
 int main(void)
