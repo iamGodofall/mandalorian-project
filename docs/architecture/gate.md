@@ -19,7 +19,12 @@ Tool Call Received
         |
         v
 +--------------------+
-| 1. INPUT           |  bounded fields and nonzero request nonce?\n+--------------------+\n        |\n        v\n+--------------------+\n| 2. SIGNATURE       |  verify_cap_signature(cap) valid?
+| 1. INPUT           |  bounded fields and nonzero request nonce?
++--------------------+
+        |
+        v
++--------------------+
+| 2. SIGNATURE       |  verify_cap_signature(cap) valid?
 +--------------------+
         |
         v
@@ -54,7 +59,17 @@ Tool Call Received
         |
         v
 +--------------------+
-| 9. AUDIT RESERVE   |  receipt key available + ledger slot reserved?\n+--------------------+\n        |\n        v\n+--------------------+\n| 10. REPLAY GUARD   |  consume (agent_id, request_nonce) atomically?\n+--------------------+\n        |\n        v\n+--------------------+\n| 11. EXECUTE        |  executor_perform(req) performs the operation
+| 9. AUDIT RESERVE   |  receipt key available + ledger slot reserved?
++--------------------+
+        |
+        v
++--------------------+
+| 10. REPLAY GUARD   |  consume (agent_id, request_nonce) atomically?
++--------------------+
+        |
+        v
++--------------------+
+| 11. EXECUTE        |  executor_perform(req) performs the operation
 +--------------------+
         |
         v
@@ -67,7 +82,7 @@ Tool Call Received
 
 ## Step Details
 
-### Step 1 — Signature Verification
+### Signature Verification
 
 ```c
 if (!verify_cap_signature(cap)) {
@@ -78,7 +93,7 @@ if (!verify_cap_signature(cap)) {
 
 Verifies the capability's cryptographic signature integrity. If the HMAC or Ed25519 signature is invalid, the capability is rejected immediately.
 
-### Step 2 — Expiry Check
+### Expiry Check
 
 ```c
 if (time(NULL) > cap->expiry) {
@@ -89,7 +104,7 @@ if (time(NULL) > cap->expiry) {
 
 Capabilities are time-limited by design. Long-lived capabilities require explicit renewal.
 
-### Step 3 — Subject Binding
+### Subject Binding
 
 ```c
 if (strcmp(cap->subject, agent_id_to_str(req->agent_id)) != 0) {
@@ -100,7 +115,7 @@ if (strcmp(cap->subject, agent_id_to_str(req->agent_id)) != 0) {
 
 A capability issued to Agent A cannot be used by Agent B. Subject string comparison after ID-to-string conversion.
 
-### Step 4 — Action Validation
+### Action Validation
 
 ```c
 if (!verifier_validate_action(cap, req->action)) {
@@ -110,7 +125,7 @@ if (!verifier_validate_action(cap, req->action)) {
 
 Validates the requested action against the capability's granted actions bitmap or list.
 
-### Step 5 — Resource Matching
+### Resource Matching
 
 ```c
 if (!verifier_validate_resource(cap, req->resource)) {
@@ -120,7 +135,7 @@ if (!verifier_validate_resource(cap, req->resource)) {
 
 Pattern matching against `cap->resource`. `/home/agent/*` does not grant `/etc/shadow`.
 
-### Step 6 — Constraint Checks
+### Constraint Checks
 
 ```c
 if (!verifier_check_constraints(cap, req->payload)) {
@@ -130,7 +145,7 @@ if (!verifier_check_constraints(cap, req->payload)) {
 
 Rate limiting, payload size limits, and temporal constraints (business hours, maintenance windows).
 
-### Step 7 — Helm Policy Check
+### Helm Policy Check
 
 ```c
 if (!policy_evaluate(req, cap)) {
@@ -141,7 +156,7 @@ if (!policy_evaluate(req, cap)) {
 
 Dynamic security policy from Helm. Can revoke capabilities in real-time based on threat signals or schedule changes.
 
-### Step 8 — Executor
+### Executor
 
 ```c
 ledger_reservation_t reservation = LEDGER_RESERVATION_INIT;
@@ -154,7 +169,7 @@ exec_result_t exec_res = executor_perform(req);
 
 Currently simulates the operation. The repository does not yet hand real filesystem or process authority through an seL4 object capability; do not treat the host C gate as an OS isolation boundary.
 
-### Step 9 — Receipt
+### Receipt
 
 ```c
 receipt_t receipt = generate_receipt(req, cap, GATE_OK, NULL);
