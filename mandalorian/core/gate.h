@@ -31,7 +31,7 @@ typedef enum {
     GATE_CONSTRAINT_FAIL,
     GATE_POLICY_DENY,
     GATE_EXEC_FAIL,
-    /* The decision could not be durably recorded; no execution was attempted. */
+    /* The decision could not be recorded; no execution was attempted on this path. */
     GATE_AUDIT_FAIL,
     /* Execution was attempted/completed, but its outcome receipt was not recorded. */
     GATE_AUDIT_FAIL_AFTER_EXECUTION
