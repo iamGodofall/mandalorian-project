@@ -251,6 +251,11 @@ static void test_malformed_inputs(void)
     memset(cap.subject, 'A', sizeof(cap.subject));
     expect("unterminated signed field rejected",
            verifier_serialise_cap(&cap, encoded, sizeof(encoded)) < 0);
+    memset(&req, 0, sizeof(req));
+    strncpy(req.action, "write", sizeof(req.action) - 1);
+    strncpy(req.resource, "/tmp/x", sizeof(req.resource) - 1);
+    expect("gate rejects malformed capability before receipt formatting",
+           mandalorian_execute(&req, &cap) == GATE_SIG_FAIL);
 
     memset(&cap, 0, sizeof(cap));
     strncpy(cap.subject, "agent_1", sizeof(cap.subject) - 1);
