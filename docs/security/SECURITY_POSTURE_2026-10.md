@@ -99,6 +99,7 @@ The review branch now includes an initial hardening pass, with regression tests 
 - Capability issuance rejects oversized subject, action, resource, and constraint fields instead of silently truncating them.
 - Constraint parsing accepts only the documented maxSize grammar, rejects trailing garbage and malformed numbers, and checks arithmetic overflow before applying K/M multipliers.
 - The gate checks request string termination and safe log text before logging, and rejects malformed capabilities before receipt formatting.
+- Resource matching rejects relative paths, backslashes, repeated separators, and explicit `.` or `..` path segments. This is lexical filtering only. A real filesystem executor still needs platform-specific canonicalization and symlink-safe access.
 - Regression tests cover unterminated capability fields, oversized issuer inputs, malformed size constraints, and malformed capability rejection at the gate.
 
 The latest review-branch CI run passed build/test, crypto-vector, AddressSanitizer/UBSan, documentation, duplicate-symbol, and source-hygiene jobs. This is useful regression evidence, not an independent audit or proof of production security. Resource canonicalization still requires platform-specific treatment, and the shared HMAC key model remains a trust-boundary limitation.
