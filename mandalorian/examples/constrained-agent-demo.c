@@ -94,8 +94,8 @@ int main(void)
 
     /* Allowed: matches subject, action, resource pattern and size limit. */
     fill_request(&req, 1, "write", "/tmp/output.txt", "Hello Mandalorian!");
-    expect("write to /tmp/output.txt allowed",
-           mandalorian_execute(&req, &cap) == GATE_OK);
+    expect("write request authorized (host operation simulated)",
+           mandalorian_execute(&req, &cap) == GATE_SIMULATED);
 
     /* Denied: outside the granted resource pattern. */
     fill_request(&req, 1, "write", "/etc/passwd", "malicious");
