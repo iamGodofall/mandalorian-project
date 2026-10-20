@@ -60,11 +60,11 @@ The verifier permits exact resource matches or a trailing wildcard and rejects c
 
 ## Policy and replay state
 
-Policy counters are bounded, synchronized, keyed by the complete 32-bit agent ID, and use monotonic per-minute and 24-hour buckets in the host process. The replay cache is bounded and mutex-protected. Both are process-local; restart loses state. They are not a distributed authorization service or durable transaction store.
+Policy counters are bounded, synchronized, keyed by the complete 32-bit agent ID, and use monotonic per-minute and fixed 24-hour elapsed-time buckets in the host process. Quiet-hours windows can cross midnight. The replay cache is bounded and mutex-protected. Both are process-local; restart loses state. They are not a distributed authorization service or durable transaction store.
 
 ## Audit evidence
 
-The gate reserves an in-memory ledger slot before invoking the executor so ordinary concurrent appends cannot steal capacity for the outcome receipt. Receipts are HMAC-authenticated, not publicly verifiable signatures. The ledger is a bounded in-memory hash chain; it is not crash-durable and cannot resist a privileged attacker who can modify process memory.
+The gate reserves an in-memory ledger slot before invoking the executor so ordinary concurrent appends cannot steal capacity for the outcome receipt. Receipts are HMAC-authenticated, not publicly verifiable signatures. Their MAC and ledger digest use an explicit fixed-width, little-endian encoding rather than the C struct's padded memory representation. The ledger is a bounded in-memory hash chain; it is not crash-durable and cannot resist a privileged attacker who can modify process memory.
 
 A receipt proves what this process recorded. It does not prove that a real-world side effect happened correctly.
 
