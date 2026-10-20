@@ -105,20 +105,26 @@ receipt_t generate_receipt(const mandalorian_request_t *req,
     return r;
 }
 
-int log_receipt(const receipt_t *r)
+static int log_receipt_internal(const receipt_t *r,
+                                ledger_reservation_t *reservation)
 {
     uint8_t receipt_hash[LEDGER_HASH_SIZE];
 
     if (r == NULL) {
         return -1;
     }
-
     if (sha3_256(receipt_hash, (const uint8_t *)r, sizeof(*r)) != 0) {
         LOG_ERROR("Receipt: hashing failed");
         return -1;
     }
 
-    if (add_ledger_entry("MANDALORIAN_RECEIPT", receipt_hash) != 0) {
+    if (reservation != NULL) {
+        if (add_reserved_ledger_entry(reservation, "MANDALORIAN_RECEIPT",
+                                      receipt_hash) != 0) {
+            LOG_ERROR("Receipt: reserved ledger append failed");
+            return -1;
+        }
+    } else if (add_ledger_entry("MANDALORIAN_RECEIPT", receipt_hash) != 0) {
         LOG_ERROR("Receipt: ledger append failed");
         return -1;
     }
@@ -128,6 +134,18 @@ int log_receipt(const receipt_t *r)
     return 0;
 }
 
+int log_receipt(const receipt_t *r)
+{
+    return log_receipt_internal(r, NULL);
+}
+
+int log_receipt_reserved(const receipt_t *r, ledger_reservation_t *reservation)
+{
+    if (reservation == NULL) {
+        return -1;
+    }
+    return log_receipt_internal(r, reservation);
+}
 int log_receipt_full(const mandalorian_receipt_t *r)
 {
     uint8_t receipt_hash[LEDGER_HASH_SIZE];
