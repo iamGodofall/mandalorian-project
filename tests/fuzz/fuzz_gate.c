@@ -32,6 +32,7 @@
 #include "policy.h"
 #include "receipt.h"
 #include "verifier.h"
+#include "merkle_ledger.h"
 
 static int initialised = 0;
 static mandalorian_cap_t granted;      /* wildcard grant: "/workspace/*"  */
@@ -91,6 +92,14 @@ int gate_fuzz_one(const uint8_t *data, size_t size)
     size_t third;
 
     fuzz_init();
+
+    /* Keep the bounded ledger from filling across fuzz iterations. Once full,
+     * the gate correctly refuses to claim an audited result, but that would
+     * stop later inputs from exercising the authorization properties. Each
+     * input therefore starts with a fresh test ledger. */
+    if (init_shield_ledger() != 0) {
+        return 1;
+    }
 
     if (size < 8) {
         return 0;
