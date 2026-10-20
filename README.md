@@ -1,7 +1,7 @@
 ![Mandalorian Project — Sovereign Mobile Computing](./docs/banner.png)
 
 [![CI](https://github.com/iamGodofall/mandalorian-project/actions/workflows/ci.yml/badge.svg)](https://github.com/iamGodofall/mandalorian-project/actions/workflows/ci.yml)
-[![License](https://img.shields.io/badge/license-Mandalorian%20Sovereignty%20License-blue)](LICENSE)
+[![License](https://img.shields.io/badge/license-custom%20source--available-blue)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-target%20design%20only-orange)](https://github.com/seL4/seL4)
 [![Docs](https://img.shields.io/badge/docs-live-brightgreen)](https://iamgodofall.github.io/mandalorian-project/)
 
@@ -35,9 +35,9 @@ The project investigates how a mobile platform could reduce unnecessary trust in
 ```mermaid
 graph TB
     subgraph Hardware["Target hardware (not implemented)"]
-        HSM["BeskarVault HSM<br/>32 Key Slots / 5 Security Levels"]
-        WDT["Hardware Watchdog<br/>50ms Integrity Checks"]
-        TRNG["True Random Number Generator"]
+        HSM["Hardware Key Store<br/>Target Requirement"]
+        WDT["Integrity Monitor<br/>Target Requirement"]
+        TRNG["Trusted Entropy Source<br/>Target Requirement"]
     end
 
     subgraph Kernel["Target kernel integration (not built here)"]
@@ -190,19 +190,19 @@ Full documentation is live at **https://iamGodofall.github.io/mandalorian-projec
 
 | Tier | License | Price | Best For |
 |------|---------|-------|----------|
-| **Open Source** | Mandalorian Sovereignty License | Free | Individuals, researchers |
-| **Startup** | Commercial | $10,000/year | Pre-revenue startups |
-| **Growth** | Commercial | $50,000/year | Growing companies |
-| **Enterprise** | Commercial | $250,000/year | Large enterprises |
-| **Government/Defense** | Commercial | $500K–$2M+ | Defense, intelligence |
+| **Source-available** | Mandalorian Sovereignty License | Free under its custom terms | Individuals and researchers |
+| **Startup** | Commercial agreement | From $10,000/year | Defined proprietary use rights and support scope |
+| **Growth** | Commercial agreement | From $50,000/year | Expanded rights and contracted integration |
+| **Enterprise** | Commercial agreement | From $250,000/year | Contracted organization-wide rights and support |
+| **Sovereign / government** | Custom agreement | Quoted by scope | Feasibility assessment and contracted engineering |
 
-The core technology remains open and auditable. [See full license details.](COMMERCIAL_LICENSE.md)
+The published license is a **custom source-available license, not an OSI-approved open-source license**. Commercial prices are starting points in a draft offering, not a binding quotation or a promise of production capability. Only the rights and deliverables in a signed agreement apply. [See the licensing draft.](COMMERCIAL_LICENSE.md)
 
 ---
 
 ## Contributing
 
-All crypto code must pass **Dudect timing analysis** before merge. All security-critical code requires **ACSL annotations** for Frama-C verification. All builds must be **reproducible** bit-for-bit. Any PR introducing backdoor mechanisms is rejected immediately.
+Security-sensitive contributions should include focused adversarial tests, known-answer vectors where applicable, sanitizer coverage, and explicit failure behavior. Dudect timing analysis, Frama-C/ACSL proofs, and bit-for-bit reproducible builds are release goals where applicable, not claims that the current CI already proves them.
 
 [See full contributing guidelines.](CONTRIBUTING.md)
 
@@ -210,14 +210,14 @@ All crypto code must pass **Dudect timing analysis** before merge. All security-
 
 ## Acknowledgments
 
-- [seL4](https://github.com/seL4/seL4) — formally verified microkernel foundation
-- [Signal Protocol](https://signal.org/docs/) — Double Ratchet + X3DH E2EE messaging
-- [HACL* ](https://hacl-star.github.io/)— formally verified constant-time cryptography
-- [OpenTitan](https://github.com/lowRISC/opentitan) — transparent silicon design principles
+- [seL4](https://github.com/seL4/seL4) — target architecture reference; no integrated target is demonstrated here
+- [Signal Protocol](https://signal.org/docs/) — candidate protocol reference for future reviewed messaging work; not integrated
+- [HACL*](https://hacl-star.github.io/) — candidate reference for vetted cryptographic implementation; not claimed as a dependency
+- [OpenTitan](https://github.com/lowRISC/opentitan) — reference for transparent silicon and root-of-trust design
 
 ---
 
-*Last updated: March 24, 2026*  
+*Last updated: October 20, 2026*  
 *Repository: [https://github.com/iamGodofall/mandalorian-project](https://github.com/iamGodofall/mandalorian-project)*  
 *Documentation: [https://iamgodofall.github.io/mandalorian-project/](https://iamgodofall.github.io/mandalorian-project/)*  
 *Contact: info@socialfeed.co.za or landinwest@gmail.com*
