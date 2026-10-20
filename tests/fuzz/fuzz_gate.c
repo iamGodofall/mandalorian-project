@@ -27,6 +27,7 @@
 #include <string.h>
 
 #include "gate.h"
+#include "logging.h"
 #include "issuer.h"
 #include "policy.h"
 #include "receipt.h"
@@ -45,6 +46,8 @@ static const uint8_t fuzz_key[MANDALORIAN_CAP_KEY_SIZE] = {
 
 static void fuzz_init(void)
 {
+    /* Keep high-volume expected denials from drowning out libFuzzer output. */
+    logger_set_level(LOG_LEVEL_FATAL);
     if (initialised) {
         return;
     }
