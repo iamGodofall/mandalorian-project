@@ -148,9 +148,17 @@ gate_result_t mandalorian_execute(mandalorian_request_t *req,
         return gate_deny(req, cap, GATE_EXPIRED);
     }
 
-    /* Step 3: the capability's subject must be this agent. */
-    if (strcmp(cap->subject, agent_id_to_str(req->agent_id)) != 0) {
-        return gate_deny(req, cap, GATE_SUBJECT_MISMATCH);
+    /* Step 3: format the expected subject in this call's stack frame. The
+     * legacy agent_id_to_str() helper returns a shared static buffer and is
+     * not safe for concurrent gate requests. */
+    {
+        char expected_subject[32];
+        int subject_len = snprintf(expected_subject, sizeof(expected_subject),
+                                   "agent_%u", req->agent_id);
+        if (subject_len < 0 || (size_t)subject_len >= sizeof(expected_subject) ||
+            strcmp(cap->subject, expected_subject) != 0) {
+            return gate_deny(req, cap, GATE_SUBJECT_MISMATCH);
+        }
     }
 
     /* Steps 4-6: action, resource, constraints. Reported separately so a
