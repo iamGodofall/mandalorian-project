@@ -150,17 +150,19 @@ if (exec_res != EXEC_OK) {
 }
 ```
 
-Actually performs the operation (read file, exec process, etc.) via the executor subsystem.
+Currently simulates the operation. The repository does not yet hand real filesystem or process authority through an seL4 object capability; do not treat the host C gate as an OS isolation boundary.
 
 ### Step 9 — Receipt
 
 ```c
-receipt_t receipt = generate_receipt(req, cap, EXEC_OK, NULL);
-log_receipt(&receipt);
-LOG_INFO("Gate: SUCCESS - Receipt generated");
+receipt_t receipt = generate_receipt(req, cap, GATE_OK, NULL);
+if (verify_receipt(&receipt) != 0 || log_receipt(&receipt) != 0) {
+    return GATE_AUDIT_FAIL_AFTER_EXECUTION;
+}
+LOG_INFO("Gate: SUCCESS - authenticated receipt recorded");
 ```
 
-Every call, every result, logged. Receipt contains `receipt_id`, timestamp, action, resource, and result. Logged to the Shield Ledger.
+The gate verifies the receipt MAC and checks the ledger append result. Denial receipt failures return `GATE_AUDIT_FAIL`; a receipt failure after execution returns `GATE_AUDIT_FAIL_AFTER_EXECUTION`. In that latter case, the operation may already have happened, so callers must not blindly retry. Malformed inputs that cannot safely be formatted may be rejected before a receipt can be created. The ledger is currently in-memory and bounded, not durable.
 
 ---
 
@@ -177,6 +179,8 @@ Every call, every result, logged. Receipt contains `receipt_id`, timestamp, acti
 | `GATE_CONSTRAINT_FAIL` | Rate/time constraint violated |
 | `GATE_POLICY_DENY` | Helm policy denied |
 | `GATE_EXEC_FAIL` | Executor error |
+| `GATE_AUDIT_FAIL` | Decision receipt could not be authenticated or recorded before execution; operation not attempted on the denial path |
+| `GATE_AUDIT_FAIL_AFTER_EXECUTION` | Operation was attempted/completed, but the outcome receipt could not be authenticated or recorded; outcome must be reconciled, not blindly retried |
 
 ---
 
@@ -188,7 +192,7 @@ gate_result_t mandalorian_execute(mandalorian_request_t *req, mandalorian_cap_t 
              req->agent_id, req->action, req->resource);
 
     if (!verify_cap_signature(cap))        return GATE_SIG_FAIL;
-    if (time(NULL) > cap->expiry)           return GATE_EXPIRED;
+    if ((uint64_t)time(NULL) >= cap->expiry) return GATE_EXPIRED;
     if (strcmp(cap->subject, agent_id_to_str(req->agent_id)) != 0) return GATE_SUBJECT_MISMATCH;
     if (!verifier_validate_action(cap, req->action))              return GATE_ACTION_INVALID;
     if (!verifier_validate_resource(cap, req->resource))           return GATE_RESOURCE_VIOLATION;
@@ -249,7 +253,7 @@ int openclaw_forward(tool_id, agent_id, resource, payload, cap, receipt) {
 }
 ```
 
-Every `exec`, `read`, `write`, `process`, `web`, `memory`, `cron` call = one gate receipt.
+The intended integration routes supported tool calls through the gate. This statement is an architectural requirement, not proof that every production tool path is currently mediated. Receipt creation or ledger append can fail, and malformed input may be rejected before a receipt is available.
 
 ---
 
