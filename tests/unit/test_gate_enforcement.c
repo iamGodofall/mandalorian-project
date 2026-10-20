@@ -272,7 +272,7 @@ static void test_malformed_inputs(void)
            verifier_check_constraints(&cap, "123") == false);
 
     memset(too_long_subject, 'S', sizeof(too_long_subject));
-    too_long_subject[sizeof(too_long_subject) - 1] = '\\0';
+    too_long_subject[sizeof(too_long_subject) - 1] = '\0';
     issuer_set_key(test_key, sizeof(test_key));
     expect("issuer rejects oversized subject instead of truncating",
            issue_capability(&cap, too_long_subject, "write", "/tmp/*",
