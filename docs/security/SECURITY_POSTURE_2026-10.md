@@ -150,3 +150,16 @@ A failed or unexecuted check must be reported as such, not converted to a pass.
 ## Scope and limitations
 
 This is a source-based engineering review of selected repository files, not a complete audit. No clean local build, dynamic analysis, fuzz campaign, hardware test, or independent cryptographic review was performed as part of writing this document. Findings should be validated against the complete current source and deployment configuration before being treated as confirmed vulnerabilities.
+
+
+## 10. Review delta — 2026-10-20
+
+The latest branch adds several regression-focused changes after the initial assessment:
+
+- Policy state now uses exact 32-bit agent IDs rather than modulo aliases, synchronized state access, per-minute request windows, and automatic UTC-day quota rollover. A concurrent regression test checks that one identity cannot exceed the configured rate through parallel calls.
+- Capability verifier key snapshots and receipt key/receipt-ID state are mutex-protected to avoid concurrent key replacement and counter races in the host process.
+- Simulated executor outcomes are distinct from real execution. `GATE_SIMULATED` is recorded when the host demo path simulates a file operation; callers must not interpret it as a real side effect.
+- A security-contract workflow checks selected code invariants and guards against the strongest unsupported README claims.
+- The README, documentation landing page, security overview, and project report now identify the implementation as a host prototype and explicitly disclose the absence of OS-enforced isolation.
+
+These changes still require the current CI run to pass. They do not close the larger gaps listed above: durable replay state, durable/external audit evidence, key separation, symlink-safe filesystem confinement, target seL4 integration, production messaging, or independent review.
