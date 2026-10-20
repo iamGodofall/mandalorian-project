@@ -1,4 +1,6 @@
 # Bypass Resistance Roadmap - Ensuring the Vision Holds True
+> **Status:** proposed future work, not evidence that the current host prototype resists bypass. The gate is a library-level check; OS-enforced confinement and complete mediation remain open requirements.
+
 
 ## Executive Summary
 
