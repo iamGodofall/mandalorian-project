@@ -160,6 +160,15 @@ gate_result_t mandalorian_execute(mandalorian_request_t *req,
         return gate_deny(req, cap, GATE_POLICY_DENY);
     }
 
+    /* A missing receipt key is knowable before execution. Fail closed now
+     * rather than performing the operation and discovering afterward that its
+     * outcome cannot be authenticated. Ledger exhaustion can still race with
+     * execution until the ledger gains an atomic reservation API. */
+    if (!receipt_key_is_set()) {
+        LOG_ERROR("Gate: receipt key unavailable; refusing to execute");
+        return GATE_AUDIT_FAIL;
+    }
+
     /* Step 8: execute. */
     exec_res = executor_perform(req);
     if (exec_res != EXEC_OK) {
