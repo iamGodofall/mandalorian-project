@@ -26,6 +26,7 @@
 
 static int failures = 0;
 static int checks = 0;
+static uint64_t next_test_nonce = 1;
 
 static void expect(const char *what, int condition)
 {
@@ -56,6 +57,7 @@ static void fill_request(mandalorian_request_t *req, uint32_t agent,
 {
     memset(req, 0, sizeof(*req));
     req->agent_id = agent;
+    req->request_nonce = next_test_nonce++;
     strncpy(req->action, action, sizeof(req->action) - 1);
     strncpy(req->resource, resource, sizeof(req->resource) - 1);
     strncpy(req->payload, payload, sizeof(req->payload) - 1);
@@ -140,6 +142,8 @@ static void test_gate_denials(void)
     fill_request(&req, 1, "write", "/tmp/output.txt", "hello");
     expect("granted request allowed",
            mandalorian_execute(&req, &cap) == GATE_OK);
+    expect("replaying the same request nonce is denied",
+           mandalorian_execute(&req, &cap) == GATE_REPLAY_DETECTED);
 
     fill_request(&req, 1, "write", "/etc/passwd", "x");
     expect("resource outside grant denied",
@@ -276,6 +280,7 @@ static void test_malformed_inputs(void)
     expect("unterminated signed field rejected",
            verifier_serialise_cap(&cap, encoded, sizeof(encoded)) < 0);
     memset(&req, 0, sizeof(req));
+    req.request_nonce = next_test_nonce++;
     strncpy(req.action, "write", sizeof(req.action) - 1);
     strncpy(req.resource, "/tmp/x", sizeof(req.resource) - 1);
     expect("gate rejects malformed capability before receipt formatting",
