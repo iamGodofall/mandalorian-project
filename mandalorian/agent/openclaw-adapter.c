@@ -169,7 +169,8 @@ int openclaw_forward(
 
     // ── Step 4: Translate gate_result → OpenClaw errno ───────────────────────
     switch (gr) {
-        case GATE_OK:               return 0;   // success
+        case GATE_OK:               return 0;   // real execution completed and receipted
+        case GATE_SIMULATED:        return -14;  // authorized, but host operation was not performed
         case GATE_SIG_FAIL:         return -1;  // capability invalid
         case GATE_EXPIRED:          return -2;  // capability expired
         case GATE_SUBJECT_MISMATCH: return -3;  // wrong agent
