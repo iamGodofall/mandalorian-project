@@ -17,6 +17,8 @@ checks = {
     "gate handles simulated execution separately": ("mandalorian/core/gate.c", r"if\s*\(exec_res\s*==\s*EXEC_SIMULATED\)"),
     "executor marks simulated operations": ("mandalorian/runtime/executor.c", r"return EXEC_SIMULATED;"),
     "simulated reads are not marked as executed": ("mandalorian/runtime/executor.c", r'LOG_INFO\("Executor: simulated read of %s", req->resource\);\s*return EXEC_SIMULATED;'),
+    "receipt MAC uses canonical field encoding": ("mandalorian/core/receipt.c", r"receipt_encode_body"),
+    "receipt MAC tag has no unused signature tail": ("mandalorian/core/receipt.h", r"signature\[HMAC_SHA3_256_SIZE\]"),
     "overnight quiet hours are handled": ("mandalorian/core/policy.c", r"return hour >= start_hour \|\| hour < end_hour;"),
     "OpenClaw never maps simulation to ordinary success": ("mandalorian/agent/openclaw-adapter.c", r"case GATE_SIMULATED:\s*return -14"),
     "policy state is synchronized": ("mandalorian/core/policy.c", r"pthread_mutex_t policy_mutex"),
