@@ -22,6 +22,7 @@
 #include "../core/verifier.h"
 #include "../runtime/executor.h"
 #include "logging.h"
+#include "secure_random.h"
 
 // ─── OpenClaw Tool IDs ────────────────────────────────────────────────────────
 typedef enum {
@@ -93,6 +94,12 @@ static mandalorian_request_t* build_request(
     const char *action = tool_to_action(tool_id);
     memset(req, 0, sizeof(*req));
     req->agent_id = agent_id;
+    if (secure_random_bytes((uint8_t *)&req->request_nonce,
+                            sizeof(req->request_nonce)) != 0 ||
+        req->request_nonce == 0) {
+        LOG_ERROR("[OpenClaw→Gate] secure request nonce generation failed");
+        return NULL;
+    }
     memcpy(req->action, action, strlen(action) + 1);
     memcpy(req->resource, resource, strlen(resource) + 1);
     if (payload != NULL) {
@@ -146,6 +153,9 @@ int openclaw_forward(
     mandalorian_request_t req_body;
     mandalorian_request_t* req = build_request(tool_id, parsed_agent_id,
                                                resource, payload, &req_body);
+    if (req == NULL) {
+        return -99;
+    }
 
     // ── Step 2: Gate enforces capability + policy + constraints ─────────────
     gate_result_t gr = mandalorian_execute(req, cap);
