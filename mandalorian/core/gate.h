@@ -23,7 +23,8 @@ typedef struct {
 } mandalorian_request_t;
 
 typedef enum {
-    GATE_OK,
+    GATE_OK, /* A real executor performed and receipted the operation. */
+    GATE_SIMULATED, /* Authorization passed, but the host executor only simulated it. */
     GATE_SIG_FAIL,
     GATE_EXPIRED,
     GATE_SUBJECT_MISMATCH,
@@ -49,7 +50,8 @@ typedef enum {
  * nonce, executes, and records an authenticated outcome receipt. A zero nonce
  * is invalid; a duplicate or exhausted replay cache fails closed.
  *
- * @return GATE_OK when the request was executed and receipted.
+ * @return GATE_OK only when a real executor performed and receipted the operation;
+ *         GATE_SIMULATED when the host prototype only simulated it.
  */
 gate_result_t mandalorian_execute(mandalorian_request_t *req,
                                   mandalorian_cap_t *cap);
