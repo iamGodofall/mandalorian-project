@@ -58,6 +58,7 @@ nav:
     - Shield Ledger: architecture/ledger.md
   - Security:
     - Assurance Cases: security/ASSURANCE_CASES.md
+    - Security Posture: security/SECURITY_POSTURE_2026-10.md
     - Security Audit: security/SECURITY_AUDIT_CRITICAL_FINDINGS.md
     - Critical Fixes: security/CRITICAL_SECURITY_FIXES.md
     - BlackBerry Enhancements: security/BLACKBERRY_ENHANCEMENTS.md
