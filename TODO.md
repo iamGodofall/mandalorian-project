@@ -4,14 +4,14 @@
 
 ---
 
-## ✅ Done (Production Ready)
+## Implemented in the host prototype (not production-certified)
 
-- [x] **seL4 Microkernel Integration** — capability-based security foundation
-- [x] **Mandalorian Gate (9-step enforcement)** — no bypass paths; all tests passing
-- [x] **Continuous Guardian** — 50ms SHA3-256 integrity checks (ROM-resident)
-- [x] **Helm — Post-Quantum Attestation** — CRYSTALS-Dilithium signatures + Ed25519
-- [x] **BeskarVault HSM** — 32 key slots, 5 security levels, tamper response
-- [x] **BeskarLink** — Signal Protocol + post-quantum augmentation
+- [x] **seL4 capability model reference** — host-side reference only; not a booted or verified seL4 deployment
+- [x] **Mandalorian Gate** — host-side capability/policy checks, replay guard and reserved receipt capacity; executor is simulated, so this is not an OS isolation boundary
+- [x] **Continuous Guardian prototype** — software integrity-check path; no ROM-resident hardware root-of-trust claim
+- [x] **Helm attestation scaffold** — signature verification includes placeholders and is not production attestation
+- [x] **BeskarVault key-lifecycle model** — not a hardware security module (HSM)
+- [x] **BeskarLink messaging scaffold** — not production-safe until vetted protocol integration and independent cryptographic review
 - [x] **BeskarAppGuard** — 64 granular permissions, 16 categories
 - [x] **BeskarEnterprise** — decentralized policy, zero cloud dependency
 - [x] **Merkle Shield Ledger** — immutable audit trail with receipts
@@ -79,4 +79,4 @@
 
 **Timeline**: 12–18 months to VisionFive 2 + discrete HSM prototype. 3–5 years to custom silicon.
 
-**Investors should know**: This is a hard tech company with real cryptography, real seL4, and a real roadmap — not a mobile app that rebrands Firebase.
+**Investor-facing status**: The repository contains host-side prototypes and integration scaffolds. Production claims require real seL4 deployment, vetted cryptographic implementations, hardware validation, and independent security review.
