@@ -46,11 +46,11 @@ static const uint8_t fuzz_key[MANDALORIAN_CAP_KEY_SIZE] = {
 
 static void fuzz_init(void)
 {
-    /* Keep high-volume expected denials from drowning out libFuzzer output. */
-    logger_set_level(LOG_LEVEL_FATAL);
     if (initialised) {
         return;
     }
+    /* Keep high-volume expected denials from drowning out libFuzzer output. */
+    logger_set_level(LOG_LEVEL_FATAL);
     /* Otherwise the "allowed" arm of every property is vacuous between 02:00
      * and 06:00 local, and the fuzzer proves nothing during those hours. */
     policy_set_quiet_hours(0, 0);
