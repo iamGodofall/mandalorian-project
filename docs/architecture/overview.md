@@ -41,7 +41,7 @@ Every phone today is a **betrayal machine**:
 |                               |                                   |
 |  +----------------------------v------------------------------+   |
 |  |                      Mandalorian Gate                     |   |
-|  |      9-step enforcement pipeline. No bypass. Ever.       |   |
+|  |  Capability/policy gate + replay guard (host prototype) |   |
 |  |      exec - read - write - process - web - cron - memory  |   |
 |  +----------------------------+------------------------------+   |
 |                               |                                   |
