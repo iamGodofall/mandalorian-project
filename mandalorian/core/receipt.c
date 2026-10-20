@@ -19,6 +19,7 @@
 #include "receipt.h"
 
 #include <stddef.h>
+#include <pthread.h>
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
@@ -32,20 +33,31 @@
 static uint8_t receipt_key[MANDALORIAN_CAP_KEY_SIZE];
 static bool receipt_key_set = false;
 static uint64_t next_receipt_id = 1;
+static pthread_mutex_t receipt_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 int receipt_set_key(const uint8_t *key, size_t key_len)
 {
     if (key == NULL || key_len != MANDALORIAN_CAP_KEY_SIZE) {
         return -1;
     }
+    if (pthread_mutex_lock(&receipt_mutex) != 0) {
+        return -1;
+    }
     memcpy(receipt_key, key, MANDALORIAN_CAP_KEY_SIZE);
     receipt_key_set = true;
+    (void)pthread_mutex_unlock(&receipt_mutex);
     return 0;
 }
 
 bool receipt_key_is_set(void)
 {
-    return receipt_key_set;
+    bool is_set;
+    if (pthread_mutex_lock(&receipt_mutex) != 0) {
+        return false;
+    }
+    is_set = receipt_key_set;
+    (void)pthread_mutex_unlock(&receipt_mutex);
+    return is_set;
 }
 
 /*
@@ -61,12 +73,23 @@ bool receipt_key_is_set(void)
 static int receipt_mac(const receipt_t *r, uint8_t *out)
 {
     const size_t signed_len = offsetof(receipt_t, signature);
+    uint8_t key_snapshot[MANDALORIAN_CAP_KEY_SIZE];
+    int result;
 
-    if (!receipt_key_set) {
+    if (pthread_mutex_lock(&receipt_mutex) != 0) {
         return -1;
     }
-    return hmac_sha3_256(out, receipt_key, sizeof(receipt_key),
-                         (const uint8_t *)r, signed_len);
+    if (!receipt_key_set) {
+        (void)pthread_mutex_unlock(&receipt_mutex);
+        return -1;
+    }
+    memcpy(key_snapshot, receipt_key, sizeof(key_snapshot));
+    (void)pthread_mutex_unlock(&receipt_mutex);
+
+    result = hmac_sha3_256(out, key_snapshot, sizeof(key_snapshot),
+                           (const uint8_t *)r, signed_len);
+    memset(key_snapshot, 0, sizeof(key_snapshot));
+    return result;
 }
 
 receipt_t generate_receipt(const mandalorian_request_t *req,
@@ -186,5 +209,11 @@ int verify_receipt(const receipt_t *r)
 
 uint64_t receipt_next_id(void)
 {
-    return next_receipt_id++;
+    uint64_t id;
+    if (pthread_mutex_lock(&receipt_mutex) != 0) {
+        return 0;
+    }
+    id = next_receipt_id++;
+    (void)pthread_mutex_unlock(&receipt_mutex);
+    return id;
 }
