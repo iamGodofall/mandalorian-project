@@ -291,7 +291,7 @@ OpenClaw Tool Call
       │ Builds mandalorian_request_t
       │
       ▼
-Mandalorian Gate (10-step enforcement)
+Mandalorian Gate (capability/policy checks, replay guard, reserved audit receipt)
       │ Helm policy check
       │ BeskarVault HMAC verification
       │ Receipt logged to Shield Ledger
