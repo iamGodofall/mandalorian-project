@@ -144,10 +144,12 @@ Dynamic security policy from Helm. Can revoke capabilities in real-time based on
 ### Step 8 — Executor
 
 ```c
-exec_result_t exec_res = executor_perform(req);
-if (exec_res != EXEC_OK) {
-    return GATE_EXEC_FAIL;
+ledger_reservation_t reservation = LEDGER_RESERVATION_INIT;
+if (!receipt_key_is_set() || reserve_ledger_entry(&reservation) != 0) {
+    return GATE_AUDIT_FAIL;  /* fail before executing */
 }
+exec_result_t exec_res = executor_perform(req);
+/* The outcome must consume the reserved slot, even on executor failure. */
 ```
 
 Currently simulates the operation. The repository does not yet hand real filesystem or process authority through an seL4 object capability; do not treat the host C gate as an OS isolation boundary.
@@ -156,7 +158,8 @@ Currently simulates the operation. The repository does not yet hand real filesys
 
 ```c
 receipt_t receipt = generate_receipt(req, cap, GATE_OK, NULL);
-if (verify_receipt(&receipt) != 0 || log_receipt(&receipt) != 0) {
+if (verify_receipt(&receipt) != 0 ||
+    log_receipt_reserved(&receipt, &reservation) != 0) {
     return GATE_AUDIT_FAIL_AFTER_EXECUTION;
 }
 LOG_INFO("Gate: SUCCESS - authenticated receipt recorded");
