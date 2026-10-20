@@ -13,6 +13,7 @@ def read(path: str) -> str:
     return p.read_text(encoding="utf-8")
 
 checks = {
+    "gate subject comparison avoids shared static buffer": ("mandalorian/core/gate.c", r"snprintf\\(expected_subject, sizeof\\(expected_subject\\),\\s*\"agent_%u\""),
     "gate has a distinct simulated result": ("mandalorian/core/gate.h", r"\bGATE_SIMULATED\b"),
     "gate handles simulated execution separately": ("mandalorian/core/gate.c", r"if\s*\(exec_res\s*==\s*EXEC_SIMULATED\)"),
     "executor marks simulated operations": ("mandalorian/runtime/executor.c", r"return EXEC_SIMULATED;"),
