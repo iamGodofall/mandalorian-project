@@ -34,7 +34,7 @@ exec_result_t executor_perform(const mandalorian_request_t *req)
          * capability rather than the ambient filesystem. */
         LOG_INFO("Executor: simulated write of %zu bytes to %s",
                  strnlen(req->payload, sizeof(req->payload)), req->resource);
-        return EXEC_OK;
+        return EXEC_SIMULATED;
     }
 
     if (strcmp(req->action, "file_read") == 0 ||
