@@ -15,6 +15,7 @@
 #include "issuer.h"
 
 #include <stdio.h>
+#include <pthread.h>
 #include <string.h>
 #include <time.h>
 
@@ -25,14 +26,19 @@
 
 static uint8_t issuer_key[MANDALORIAN_CAP_KEY_SIZE];
 static bool issuer_key_set = false;
+static pthread_mutex_t issuer_key_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 int issuer_set_key(const uint8_t *key, size_t key_len)
 {
     if (key == NULL || key_len != MANDALORIAN_CAP_KEY_SIZE) {
         return -1;
     }
+    if (pthread_mutex_lock(&issuer_key_mutex) != 0) {
+        return -1;
+    }
     memcpy(issuer_key, key, MANDALORIAN_CAP_KEY_SIZE);
     issuer_key_set = true;
+    (void)pthread_mutex_unlock(&issuer_key_mutex);
     return 0;
 }
 
@@ -42,6 +48,7 @@ int issue_capability(mandalorian_cap_t *cap, const char *subject,
 {
     char serialised[1024];
     uint8_t mac[HMAC_SHA3_256_SIZE];
+    uint8_t key_snapshot[MANDALORIAN_CAP_KEY_SIZE];
     int len;
 
     if (cap == NULL || subject == NULL || action == NULL ||
@@ -57,11 +64,6 @@ int issue_capability(mandalorian_cap_t *cap, const char *subject,
         LOG_WARN("Issuer: malformed or oversized capability field");
         return -1;
     }
-    if (!issuer_key_set) {
-        LOG_ERROR("Issuer: no signing key installed");
-        return -1;
-    }
-
     memset(cap, 0, sizeof(*cap));
 
     /* strncpy with an explicit terminator; the originals were strcpy() into
@@ -95,11 +97,25 @@ int issue_capability(mandalorian_cap_t *cap, const char *subject,
         return -1;
     }
 
-    if (hmac_sha3_256(mac, issuer_key, sizeof(issuer_key),
+    /* Snapshot the key under lock so rotation cannot race capability signing. */
+    if (pthread_mutex_lock(&issuer_key_mutex) != 0) {
+        return -1;
+    }
+    if (!issuer_key_set) {
+        (void)pthread_mutex_unlock(&issuer_key_mutex);
+        LOG_ERROR("Issuer: no signing key installed");
+        return -1;
+    }
+    memcpy(key_snapshot, issuer_key, sizeof(key_snapshot));
+    (void)pthread_mutex_unlock(&issuer_key_mutex);
+
+    if (hmac_sha3_256(mac, key_snapshot, sizeof(key_snapshot),
                       (const uint8_t *)serialised, (size_t)len) != 0) {
+        memset(key_snapshot, 0, sizeof(key_snapshot));
         LOG_ERROR("Issuer: MAC computation failed");
         return -1;
     }
+    memset(key_snapshot, 0, sizeof(key_snapshot));
     memcpy(cap->signature, mac, sizeof(mac));
 
     LOG_INFO("Issued cap %s for %s: %s %s", cap->cap_id, subject, action,
