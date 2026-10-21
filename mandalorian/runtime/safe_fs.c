@@ -10,14 +10,8 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-#ifndef O_CLOEXEC
-#define O_CLOEXEC 0
-#endif
-#ifndef O_NOFOLLOW
-#define O_NOFOLLOW 0
-#endif
-#ifndef O_DIRECTORY
-#define O_DIRECTORY 0
+#if !defined(O_CLOEXEC) || !defined(O_NOFOLLOW) || !defined(O_DIRECTORY)
+#error "safe_fs requires O_CLOEXEC, O_NOFOLLOW, and O_DIRECTORY support"
 #endif
 
 static bool path_is_safe_relative(const char *path)
