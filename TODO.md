@@ -20,7 +20,8 @@ These checkboxes describe host-prototype code and regression tests only. They do
 
 - [ ] Implement a real executor behind a separate least-privilege process or OS-enforced compartment.
 - [ ] Prove complete mediation: no direct executor access or ambient filesystem/process/network authority for the untrusted agent.
-- [ ] Use pre-opened handles/capabilities and symlink-safe APIs; test symlink, TOCTOU, mount, namespace, and path-race attacks.
+- [ ] Integrate the new descriptor-relative safe-open helper into a separately isolated executor; keep the helper's limits explicit (trusted root descriptor, hard links, mount semantics, and no OS sandbox).
+- [ ] Test symlink, TOCTOU, mount, namespace, and path-race attacks against the complete executor, not just the helper.
 - [ ] Define cancellation, timeout, partial side-effect, and uncertain-outcome semantics.
 - [ ] Keep GATE_SIMULATED distinct from real execution in all APIs, adapters, receipts, and demos.
 
