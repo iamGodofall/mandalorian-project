@@ -33,7 +33,8 @@ int main(void)
     char file_path[512];
     char link_path[512];
     char external_template[] = "/tmp/mandalorian-safe-fs-outside-XXXXXX";
-    char *external_path;
+    const char *external_path = external_template;
+    int external_created_fd = -1;
     int root_fd = -1;
     int file_fd = -1;
     int outside_fd = -1;
@@ -57,14 +58,12 @@ int main(void)
         file_fd = -1;
     }
 
-    external_path = mkstemp(external_template);
-    check("create outside file", external_path != NULL);
-    if (external_path != NULL) {
-        outside_fd = open(external_path, O_WRONLY);
-        if (outside_fd >= 0) {
-            (void)write(outside_fd, "outside", 7);
-            close(outside_fd);
-        }
+    external_created_fd = mkstemp(external_template);
+    check("create outside file", external_created_fd >= 0);
+    if (external_created_fd >= 0) {
+        outside_fd = external_created_fd;
+        (void)write(outside_fd, "outside", 7);
+        close(outside_fd);
         check("create symlink pointing outside root",
               symlink(external_path, link_path) == 0);
     }
@@ -138,7 +137,7 @@ int main(void)
         root_fd = -1;
     }
 
-    if (external_path != NULL) {
+    if (external_created_fd >= 0) {
         unlink(link_path);
         unlink(external_path);
     }
