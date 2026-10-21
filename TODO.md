@@ -31,7 +31,8 @@ These checkboxes describe host-prototype code and regression tests only. They do
 - [ ] Make replay behavior durable across restarts if the deployment threat model requires it; test clock rollback and process crashes.
 - [ ] Add durable, crash-consistent audit intent/outcome records and external checkpoint anchoring.
 - [ ] Define receipt canonicalization and verify evidence independently of the process that generated it.
-- [ ] Add ThreadSanitizer, broader concurrency stress tests, and longer fuzz campaigns; investigate every sanitizer/static-analysis finding.
+- [x] Add a dedicated ThreadSanitizer CMake mode and CI workflow; the full current host test suite passed under TSan on 2026-10-21. This is coverage of the current tests, not proof that all concurrent paths are race-free.
+- [ ] Expand concurrency stress/property tests and longer fuzz campaigns; investigate every future sanitizer/static-analysis finding.
 
 ## P2 — Deliver target-platform evidence
 
