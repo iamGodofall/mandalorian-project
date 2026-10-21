@@ -19,6 +19,7 @@ set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 option(ENABLE_SANITIZERS "Build with AddressSanitizer and UBSan" OFF)
+option(ENABLE_THREAD_SANITIZER "Build with ThreadSanitizer (mutually exclusive with ASan/UBSan)" OFF)
 option(ENABLE_COVERAGE "Build with coverage instrumentation" OFF)
 option(BUILD_DEMOS "Build the demo executables" ON)
 
@@ -26,9 +27,19 @@ if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
     add_compile_options(-Wall -Wextra)
 endif()
 
+if(ENABLE_SANITIZERS AND ENABLE_THREAD_SANITIZER)
+    message(FATAL_ERROR "ENABLE_SANITIZERS and ENABLE_THREAD_SANITIZER cannot be enabled together")
+endif()
+
 if(ENABLE_SANITIZERS)
     add_compile_options(-fsanitize=address,undefined -fno-omit-frame-pointer)
     add_link_options(-fsanitize=address,undefined)
+elseif(ENABLE_THREAD_SANITIZER)
+    if(NOT CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
+        message(FATAL_ERROR "ThreadSanitizer requires GCC or Clang")
+    endif()
+    add_compile_options(-fsanitize=thread -fno-omit-frame-pointer -g)
+    add_link_options(-fsanitize=thread)
 endif()
 
 if(ENABLE_COVERAGE)
