@@ -8,7 +8,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-#include "safe_fs.h"
+#include "runtime/safe_fs.h"
 
 static int failures;
 static int checks;
