@@ -92,6 +92,58 @@ int main(void)
         rc = mandalorian_confined_write_existing(root_fd, "data", NULL, 1);
         check("write rejects null input buffer", rc == -1 && errno == EINVAL);
 
+        /* Symlink targets must never be followed, even when the target is
+         * a regular file inside the temporary test tree. */
+        {
+            char link_path[512];
+            (void)snprintf(link_path, sizeof(link_path), "%s/alias", root);
+            check("create symlink fixture", symlink("data", link_path) == 0);
+            errno = 0;
+            rc = mandalorian_confined_read(root_fd, "alias", buf,
+                                           sizeof(buf), &got);
+            check("read rejects final-component symlink",
+                  rc == -1 && (errno == ELOOP || errno == EACCES));
+            errno = 0;
+            rc = mandalorian_confined_write_existing(root_fd, "alias", "bad", 3);
+            check("write rejects final-component symlink",
+                  rc == -1 && (errno == ELOOP || errno == EACCES));
+            unlink(link_path);
+        }
+
+        /* A hard link creates an alias outside the trusted directory. */
+        {
+            char outside_path[] = "/tmp/mandalorian-hardlink-XXXXXX";
+            int outside_fd = mkstemp(outside_path);
+            if (outside_fd >= 0) {
+                close(outside_fd);
+                unlink(outside_path);
+                check("create hard-link fixture",
+                      link(path, outside_path) == 0);
+                errno = 0;
+                rc = mandalorian_confined_write_existing(root_fd, "data", "bad", 3);
+                check("write rejects multiply-linked inode",
+                      rc == -1 && errno == EMLINK);
+                unlink(outside_path);
+            } else {
+                check("create hard-link fixture", 0);
+            }
+        }
+
+        /* Invalid roots fail closed instead of being treated as directories. */
+        {
+            int file_fd = open(path, O_RDONLY | O_CLOEXEC);
+            if (file_fd >= 0) {
+                errno = 0;
+                rc = mandalorian_confined_read(file_fd, "data", buf,
+                                               sizeof(buf), &got);
+                check("reject non-directory root descriptor",
+                      rc == -1 && errno == ENOTDIR);
+                close(file_fd);
+            } else {
+                check("open root-validation fixture", 0);
+            }
+        }
+
         close(root_fd);
     }
 
