@@ -36,4 +36,11 @@ void policy_reset_all(void);
  */
 void policy_set_quiet_hours(int start_hour, int end_hour);
 
+/**
+ * @brief Test whether a local hour falls inside a quiet-hours window.
+ * Equal start/end disables the rule; windows may cross midnight.
+ * Valid hour is 0..23, start is 0..23, end is 0..24.
+ */
+bool policy_quiet_hours_contains(int hour, int start_hour, int end_hour);
+
 #endif /* MANDALORIAN_POLICY_H */

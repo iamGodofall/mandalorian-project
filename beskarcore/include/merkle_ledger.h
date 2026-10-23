@@ -3,8 +3,9 @@
  * @brief Shield Ledger — append-only hash chain over security events.
  *
  * Each entry commits to the previous root, so altering or deleting any past
- * entry changes every root after it. The chain is only as strong as the hash
- * behind it: see sha3.h for why that implementation has known-answer tests.
+ * entry changes every root after it. Appends and shared-state reads are mutex-
+ * protected; the ledger remains bounded in-memory state, not durable storage.
+ * The chain is only as strong as the hash behind it: see sha3.h for vectors.
  */
 
 #ifndef BESKARCORE_MERKLE_LEDGER_H
@@ -17,13 +18,30 @@
 #define LEDGER_HASH_SIZE 32
 #define LEDGER_EVENT_TYPE_SIZE 32
 
+/* A caller-owned token reserves one future append slot across concurrent writers. */
+typedef struct {
+    int active;
+} ledger_reservation_t;
+#define LEDGER_RESERVATION_INIT {0}
+
 /**
  * @brief Append an event to the ledger and advance the root hash.
  * @param event_type NUL-terminated label; truncated to LEDGER_EVENT_TYPE_SIZE-1.
  * @param data_hash  LEDGER_HASH_SIZE bytes committing to the event payload.
- * @return 0 on success, -1 if the ledger is full or an argument is NULL.
+ * @return 0 on success, -1 if the ledger is full, locking fails, or an argument is NULL.
  */
 int add_ledger_entry(const char *event_type, const uint8_t *data_hash);
+
+/** Reserve capacity for a future append, preventing other writers consuming it. */
+int reserve_ledger_entry(ledger_reservation_t *reservation);
+
+/** Release an unused append reservation. */
+int release_ledger_reservation(ledger_reservation_t *reservation);
+
+/** Append using and consume a previously acquired reservation. */
+int add_reserved_ledger_entry(ledger_reservation_t *reservation,
+                              const char *event_type,
+                              const uint8_t *data_hash);
 
 /**
  * @brief Append a Mandalorian gate receipt.

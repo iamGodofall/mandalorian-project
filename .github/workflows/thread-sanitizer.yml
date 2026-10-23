@@ -1,0 +1,45 @@
+name: ThreadSanitizer
+
+on:
+  pull_request:
+    branches: [master, main]
+  push:
+    branches: [master, main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mandalorian-tsan-${{ github.workflow }}-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  thread-sanitizer:
+    name: Concurrency and data-race checks
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install build tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc cmake ninja-build
+
+      - name: Configure ThreadSanitizer build
+        run: |
+          cmake -B build-tsan -G Ninja \
+            -DCMAKE_C_COMPILER=gcc \
+            -DCMAKE_BUILD_TYPE=Debug \
+            -DENABLE_THREAD_SANITIZER=ON \
+            -DBUILD_DEMOS=OFF
+
+      - name: Build
+        run: cmake --build build-tsan --parallel
+
+      - name: Run tests under ThreadSanitizer
+        env:
+          TSAN_OPTIONS: halt_on_error=1:second_deadlock_stack=1
+        run: ctest --test-dir build-tsan --output-on-failure

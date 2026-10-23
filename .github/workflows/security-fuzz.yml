@@ -1,0 +1,45 @@
+name: Mandalorian Security Fuzzing
+
+on:
+  pull_request:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mandalorian-fuzz-${{ github.workflow }}-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  fuzz-gate:
+    name: libFuzzer — capability gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install build tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang cmake ninja-build
+
+      - name: Configure instrumented fuzz build
+        run: |
+          cmake -B build-fuzz -G Ninja \
+            -DCMAKE_C_COMPILER=clang \
+            -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+            -DENABLE_FUZZING=ON \
+            -DENABLE_SANITIZERS=ON \
+            -DBUILD_DEMOS=OFF
+
+      - name: Build gate fuzz target
+        run: cmake --build build-fuzz --parallel --target fuzz_gate
+
+      - name: Run bounded fuzz campaign
+        env:
+          ASAN_OPTIONS: detect_leaks=0:abort_on_error=1
+          UBSAN_OPTIONS: halt_on_error=1:print_stacktrace=1
+        run: ./build-fuzz/tests/fuzz_gate -max_total_time=30 -timeout=2 -print_final_stats=1

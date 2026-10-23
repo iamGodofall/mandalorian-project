@@ -12,11 +12,14 @@
 
 add_library(mandalorian_core STATIC
     core/gate.c
+    core/replay_guard.c
     core/verifier.c
     core/policy.c
     core/receipt.c
     capabilities/issuer.c
     runtime/executor.c
+    runtime/safe_fs.c
+    runtime/confined_fs.c
     agent/openclaw-adapter.c
     crypto/hmac_sha3.c
     stubs.c
@@ -29,7 +32,7 @@ target_include_directories(mandalorian_core PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/crypto
 )
 
-target_link_libraries(mandalorian_core PUBLIC beskarcore)
+target_link_libraries(mandalorian_core PUBLIC beskarcore Threads::Threads)
 
 if(BUILD_DEMOS)
     add_executable(constrained-agent-demo examples/constrained-agent-demo.c)

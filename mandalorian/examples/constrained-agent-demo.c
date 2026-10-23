@@ -25,6 +25,7 @@
 
 static int failures = 0;
 static int checks = 0;
+static uint64_t next_demo_nonce = 1;
 
 static void expect(const char *what, int condition)
 {
@@ -43,6 +44,7 @@ static void fill_request(mandalorian_request_t *req, uint32_t agent,
 {
     memset(req, 0, sizeof(*req));
     req->agent_id = agent;
+    req->request_nonce = next_demo_nonce++;
     strncpy(req->action, action, sizeof(req->action) - 1);
     strncpy(req->resource, resource, sizeof(req->resource) - 1);
     strncpy(req->payload, payload, sizeof(req->payload) - 1);
@@ -92,8 +94,8 @@ int main(void)
 
     /* Allowed: matches subject, action, resource pattern and size limit. */
     fill_request(&req, 1, "write", "/tmp/output.txt", "Hello Mandalorian!");
-    expect("write to /tmp/output.txt allowed",
-           mandalorian_execute(&req, &cap) == GATE_OK);
+    expect("write request authorized (host operation simulated)",
+           mandalorian_execute(&req, &cap) == GATE_SIMULATED);
 
     /* Denied: outside the granted resource pattern. */
     fill_request(&req, 1, "write", "/etc/passwd", "malicious");

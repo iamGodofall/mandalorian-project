@@ -1,96 +1,26 @@
-# BeskarVault — Hardware Security Module
+# BeskarVault — Software Key-Lifecycle Model
 
-> Your keys are only as safe as your HSM. Ours is designed to Destroy rather than Disclose.
+> **Status:** this repository does not demonstrate a physical HSM. BeskarVault source and demos model key-management concepts in software; keys may reside in ordinary process memory.
 
----
+## Intended role
 
-## Overview
+The target design aims to centralize sensitive key operations behind a narrow interface, support key identifiers and lifecycle policy, and eventually delegate operations to a hardware-backed secure element or HSM.
 
-BeskarVault is the Mandalorian's **hardware security module (HSM)** — a dedicated, isolated environment for cryptographic key operations. Keys stored in BeskarVault cannot be extracted, even under hardware tampering, firmware compromise, or coercion.
+## Current limitations
 
-Located at `beskarcore/include/beskar_vault.h`, implemented across `beskarcore/src/beskar_vault.c`, `src/beskar_vault_lowlevel.c`, `src/beskar_vault_derivation.c`, and `src/beskar_vault_crypto.c`.
+- No demonstrated tamper-resistant hardware boundary.
+- No proof that key material never leaves a protected device.
+- No verified secure-boot chain or physical tamper response.
+- Host mutexes and key-wiping helpers do not protect against a privileged process, debugger, memory disclosure, or malicious kernel.
+- A demo key slot is not a hardware key slot.
 
----
+## Requirements before production use
 
-## Security Levels
+- Select and validate target hardware and its threat model.
+- Keep key operations inside a reviewed hardware boundary where possible.
+- Define key provisioning, rotation, revocation, backup, and destruction semantics.
+- Validate boot measurements and firmware updates on actual hardware.
+- Test tamper and recovery behavior; document what is and is not detectable.
+- Obtain independent review of the software and hardware integration.
 
-| Level | Name | Key Types | Tamper Response |
-|-------|------|-----------|----------------|
-| 0 | **Volatile** | Session keys only | Immediate zeroization |
-| 1 | **Standard** | User keys, group keys | Zeroization + lockout |
-| 2 | **High** | Device identity, Attestation | Zeroization + brick |
-| 3 | **Sovereign** | Root-of-trust keys | Full hardware destroy |
-| 4 | **Airlock** | Emergency recovery | Wipe + new identity |
-
----
-
-## Key Slots
-
-32 slots total. Each slot holds:
-```c
-typedef struct {
-    uint8_t slot_id;
-    key_type_t type;           // AES-256, Ed25519, Dilithium, HMAC, RSA
-    key_level_t level;         // Volatile → Airlock
-    uint8_t public_key[64];    // For asymmetric keys
-    uint8_t slot_nonce[32];   // Anti-clone nonce
-    uint32_t flags;            // Usage constraints
-    uint64_t ops_count;        // Anti-replay counter
-} vault_slot_t;
-```
-
----
-
-## Anti-Cloning Protection
-
-Every slot has a **unique, hardware-bound nonce** burned in at provisioning:
-- Slot nonce is mixed into every key derivation
-- Cloned hardware = wrong nonce = rejected by gate
-- Prevents key extraction via chip removal + read
-
----
-
-## Tamper Response
-
-On physical intrusion detection:
-1. **Level 0–1**: Key zeroization, device locks
-2. **Level 2–3**: Full zeroization, device enters "bricked" state
-3. **Level 4**: Wipes + forces new identity provisioning
-
-Zeroization uses **multi-pass overwrite** — keys are overwritten with random data 7 times before physical destruction is triggered.
-
----
-
-## Key Derivation
-
-All keys derived via **HKDF-SHA3-256** with slot-specific salt:
-```
-master_key = hardware_root_key
-derived_key = HKDF-SHA3-256(master_key, slot_id || purpose || slot_nonce)
-```
-
-Compromise of one slot does not affect other slots.
-
----
-
-## Operations
-
-Vault operations never leave the HSM boundary:
-- `vault_sign(slot, digest)` → signature
-- `vault_decrypt(slot, ciphertext)` → plaintext
-- `vault_derive(slot, purpose)` → new derived key
-- `vault_import(key, level)` → wrapped key only (never raw)
-- `vault_rotate(slot)` → re-derives with new nonce
-
----
-
-## Mandalorian Gate Integration
-
-The Gate queries BeskarVault for every cryptographic operation:
-- Capability HMAC verification → Vault checks HMAC key
-- Receipt signing → Vault signs with slot 0 (device identity)
-- Attestation quotes → Vault produces Dilithium + Ed25519 compound sig
-
----
-
-*Vault keys do not leave the vault. Ever.*
+Until those gates are met, describe BeskarVault as a software key-lifecycle model, not an HSM.

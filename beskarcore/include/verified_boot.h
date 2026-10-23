@@ -58,6 +58,10 @@ int verify_kernel_image(const uint8_t *image, size_t image_len,
  */
 int verify_kernel_integrity(void);
 
+/** Verify an Ed25519 signature using the built-in implementation. */
+int ed25519_verify(const uint8_t *signature, const uint8_t *message,
+                   size_t message_len, const uint8_t *public_key);
+
 // Utility functions
 const char *boot_error_to_string(int error_code);
 

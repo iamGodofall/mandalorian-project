@@ -1,147 +1,269 @@
-// Policy Engine - Contextual rules beyond capabilities (BeskarEnterprise)
-
-// BeskarEnterprise-enhanced with trust levels, quotas, env checks
-
+/**
+ * @file policy.c
+ * @brief Thread-safe, bounded contextual policy for the host prototype.
+ *
+ * Agent state is keyed by the complete 32-bit identity, never by a lossy
+ * modulo. Rate windows and quota days roll over automatically. State capacity
+ * is deliberately bounded; unknown agents are denied when it is exhausted.
+ *
+ * This remains process-local policy state, not durable or OS-enforced policy.
+ */
 #include "policy.h"
 
+#include <pthread.h>
 #include <stdbool.h>
+#include <stddef.h>
 #include <string.h>
 #include <time.h>
+#ifdef _WIN32
+#include <windows.h>
+#endif
 
 #include "logging.h"
 
-static uint64_t agent_requests[256] = {0}; // Rate limit counter
-static uint64_t agent_quota_bytes[256] = {0}; // Daily byte quota
-/* `= {1}` initialises only element 0; every other agent defaulted to trust 0,
- * which makes the rate limit below `> 10 * 0` — i.e. denies their first
- * request. Default all agents to trust level 1 explicitly. */
+#define POLICY_AGENT_SLOTS 256U
 #define POLICY_DEFAULT_TRUST 1
-static int agent_trust_level[256];
-static bool policy_initialised = false;
+#define POLICY_LOW_TRUST_REQUESTS_PER_MINUTE 10U
+#define POLICY_BYTES_PER_TRUST_LEVEL (25ULL * 1024ULL * 1024ULL)
 
-/* Quiet hours, as [start, end) in local time. Was hardcoded to 2-6AM.
- *
- * Hardcoding it made every test that exercises an allowed write fail between
- * 02:00 and 06:00 and pass the rest of the day — which is exactly the kind of
- * test that looks green until it does not. It was merged that way because
- * every run happened to fall outside the window; a clean-clone build at 02:xx
- * caught it.
- *
- * Configurable now, so tests can pin it and deployments can choose. Set both
- * to the same value to disable. */
+typedef struct {
+    bool occupied;
+    uint32_t agent_id;
+    int trust_level;
+    uint64_t minute_epoch;
+    uint32_t requests_in_minute;
+    uint64_t day_epoch;
+    uint64_t quota_bytes;
+} policy_agent_state_t;
+
+static policy_agent_state_t agents[POLICY_AGENT_SLOTS];
+static pthread_mutex_t policy_mutex = PTHREAD_MUTEX_INITIALIZER;
 static int quiet_hours_start = 2;
 static int quiet_hours_end = 6;
 
-static void policy_init_once(void) {
-    if (policy_initialised) {
-        return;
+static bool get_monotonic_seconds(uint64_t *seconds)
+{
+    if (seconds == NULL) {
+        return false;
     }
-    for (int i = 0; i < 256; i++) {
-        agent_trust_level[i] = POLICY_DEFAULT_TRUST;
+#ifdef _WIN32
+    *seconds = (uint64_t)(GetTickCount64() / 1000ULL);
+    return true;
+#else
+    {
+        struct timespec now;
+        if (clock_gettime(CLOCK_MONOTONIC, &now) != 0 || now.tv_sec < 0) {
+            return false;
+        }
+        *seconds = (uint64_t)now.tv_sec;
+        return true;
     }
-    policy_initialised = true;
+#endif
 }
 
-bool policy_evaluate(const mandalorian_request_t *req, const mandalorian_cap_t *cap) {
-    time_t now;
-    struct tm tm_buf;
-    uint32_t agent_idx;
+static bool get_local_time(time_t wall_now, struct tm *local_tm)
+{
+#ifdef _WIN32
+    return localtime_s(local_tm, &wall_now) == 0;
+#else
+    return localtime_r(&wall_now, local_tm) != NULL;
+#endif
+}
+
+static bool request_fields_terminated(const mandalorian_request_t *req)
+{
+    return memchr(req->action, '\0', sizeof(req->action)) != NULL &&
+           memchr(req->resource, '\0', sizeof(req->resource)) != NULL &&
+           memchr(req->payload, '\0', sizeof(req->payload)) != NULL;
+}
+
+bool policy_quiet_hours_contains(int hour, int start_hour, int end_hour)
+{
+    if (hour < 0 || hour > 23 ||
+        start_hour < 0 || start_hour > 23 ||
+        end_hour < 0 || end_hour > 24 ||
+        start_hour == end_hour) {
+        return false;
+    }
+    if (end_hour == 24) {
+        return hour >= start_hour;
+    }
+    if (start_hour < end_hour) {
+        return hour >= start_hour && hour < end_hour;
+    }
+    /* Overnight window, for example [22:00, 06:00). */
+    return hour >= start_hour || hour < end_hour;
+}
+
+static bool is_system_config_path(const char *resource)
+{
+    return resource != NULL &&
+           (strcmp(resource, "/etc") == 0 ||
+            strncmp(resource, "/etc/", sizeof("/etc/") - 1U) == 0);
+}
+
+static policy_agent_state_t *find_or_allocate_agent(uint32_t agent_id)
+{
+    size_t i;
+    policy_agent_state_t *free_slot = NULL;
+
+    for (i = 0; i < POLICY_AGENT_SLOTS; ++i) {
+        if (agents[i].occupied && agents[i].agent_id == agent_id) {
+            return &agents[i];
+        }
+        if (!agents[i].occupied && free_slot == NULL) {
+            free_slot = &agents[i];
+        }
+    }
+
+    if (free_slot == NULL) {
+        return NULL;
+    }
+
+    memset(free_slot, 0, sizeof(*free_slot));
+    free_slot->occupied = true;
+    free_slot->agent_id = agent_id;
+    free_slot->trust_level = POLICY_DEFAULT_TRUST;
+    return free_slot;
+}
+
+bool policy_evaluate(const mandalorian_request_t *req,
+                     const mandalorian_cap_t *cap)
+{
+    time_t wall_now;
+    struct tm local_tm;
+    uint64_t monotonic_seconds_now;
+    uint64_t minute_epoch, day_epoch, payload_size, daily_quota;
+    policy_agent_state_t *state;
+    bool allowed = false;
 
     (void)cap;
-
-    if (req == NULL) {
+    if (req == NULL || !request_fields_terminated(req)) {
+        return false;
+    }
+    wall_now = time(NULL);
+    if (wall_now < 0 || !get_local_time(wall_now, &local_tm) ||
+        !get_monotonic_seconds(&monotonic_seconds_now)) {
         return false;
     }
 
-    policy_init_once();
-    now = time(NULL);
-    agent_idx = req->agent_id % 256;
-    
-    // 1. Rate limiting (trust-scaled: low-trust 10/min, high 30/min)
-    if (agent_requests[agent_idx] > (10 * agent_trust_level[agent_idx])) {
-        LOG_WARN("Policy: Rate limit exceeded agent=%u trust=%d", req->agent_id, agent_trust_level[agent_idx]);
+    /* Rate and quota windows use monotonic time, so wall-clock changes cannot
+     * reset counters. These buckets are process-local and restart-local. */
+    minute_epoch = monotonic_seconds_now / 60U;
+    day_epoch = monotonic_seconds_now / 86400U;
+    payload_size = (uint64_t)strnlen(req->payload, sizeof(req->payload));
+
+    if (pthread_mutex_lock(&policy_mutex) != 0) {
         return false;
     }
-    agent_requests[agent_idx]++;
-    
-    // 2. Quiet hours (no writes 2-6AM)
-    /* Was: localtime((time_t*)&now) on a uint64_t — a pointer cast between
-     * types of possibly different width, and localtime() shares a static
-     * buffer across threads. */
-    if (localtime_r(&now, &tm_buf) == NULL) {
-        LOG_WARN("Policy: could not resolve local time; denying");
-        return false;
+
+    state = find_or_allocate_agent(req->agent_id);
+    if (state == NULL) {
+        LOG_WARN("Policy: agent-state capacity exhausted; deny agent=%u",
+                 req->agent_id);
+        goto done;
     }
-    if (quiet_hours_start != quiet_hours_end &&
-        strcmp(req->action, "write") == 0 &&
-        tm_buf.tm_hour >= quiet_hours_start && tm_buf.tm_hour < quiet_hours_end) {
-        LOG_WARN("Policy: quiet hours (%02d:00-%02d:00) block write",
-                 quiet_hours_start, quiet_hours_end);
-        return false;
+
+    if (state->minute_epoch != minute_epoch) {
+        state->minute_epoch = minute_epoch;
+        state->requests_in_minute = 0;
     }
-    
-    // 3. Byte quotas (1MB low-trust to 100MB high-trust daily)
-    size_t payload_size = strnlen(req->payload, sizeof(req->payload));
-    uint64_t daily_quota = 1048576ULL * (agent_trust_level[agent_idx] * 25ULL); // Scale
-    if (agent_quota_bytes[agent_idx] + payload_size > daily_quota) {
-        LOG_WARN("Policy: Quota exceed agent=%u used=%llu/%llu", req->agent_id,
-                 (unsigned long long)agent_quota_bytes[agent_idx],
-                 (unsigned long long)daily_quota);
-        return false;
+    if (state->day_epoch != day_epoch) {
+        state->day_epoch = day_epoch;
+        state->quota_bytes = 0;
     }
-    agent_quota_bytes[agent_idx] += payload_size;
-    
-    // 4. Secure environment required for medium+ trust
-    int env_secure = 1; // Stub: from Aegis monitor (production integration)
-    if (agent_trust_level[agent_idx] > 1 && !env_secure) {
-        LOG_WARN("Policy: Secure env required for trust>1");
-        return false;
+
+    /* Count each evaluated request, including requests denied below. */
+    if (state->requests_in_minute >=
+        POLICY_LOW_TRUST_REQUESTS_PER_MINUTE * (uint32_t)state->trust_level) {
+        LOG_WARN("Policy: rate limit exceeded agent=%u", req->agent_id);
+        goto done;
     }
-    
-    // 5. High-risk resources (e.g. /etc/ requires max trust)
-    if (strstr(req->resource, "/etc/") && agent_trust_level[agent_idx] < 3) {
-        LOG_WARN("Policy: High-risk resource /etc/ denied");
-        return false;
+    state->requests_in_minute++;
+
+    if ((strcmp(req->action, "write") == 0 ||
+         strcmp(req->action, "file_write") == 0) &&
+        policy_quiet_hours_contains(local_tm.tm_hour,
+                                    quiet_hours_start, quiet_hours_end)) {
+        LOG_WARN("Policy: quiet hours block write agent=%u", req->agent_id);
+        goto done;
     }
-    
-    LOG_INFO("Policy: APPROVED agent=%u trust=%d bytes=%zu", req->agent_id, agent_trust_level[agent_idx], payload_size);
-    return true;
+
+    daily_quota = POLICY_BYTES_PER_TRUST_LEVEL *
+                  (uint64_t)(state->trust_level == 0 ? 1 : state->trust_level);
+    if (payload_size > daily_quota ||
+        state->quota_bytes > daily_quota - payload_size) {
+        LOG_WARN("Policy: daily byte quota exceeded agent=%u", req->agent_id);
+        goto done;
+    }
+
+    if (is_system_config_path(req->resource) && state->trust_level < 3) {
+        LOG_WARN("Policy: high-risk resource denied agent=%u", req->agent_id);
+        goto done;
+    }
+
+    state->quota_bytes += payload_size;
+    allowed = true;
+
+done:
+    (void)pthread_mutex_unlock(&policy_mutex);
+    return allowed;
 }
 
-// BeskarEnterprise admin: update agent trust level (called by signed policy cap)
-void policy_set_trust(uint32_t agent_id, int level) {
-    uint32_t idx = agent_id % 256;
-    if (level >= 0 && level <= 3) {
-        agent_trust_level[idx] = level;
-        LOG_INFO("Policy: Trust level %d set for agent %u", level, agent_id);
+void policy_set_trust(uint32_t agent_id, int level)
+{
+    policy_agent_state_t *state;
+    if (level < 0 || level > 3 || pthread_mutex_lock(&policy_mutex) != 0) {
+        return;
     }
+    state = find_or_allocate_agent(agent_id);
+    if (state != NULL) {
+        state->trust_level = level;
+    }
+    (void)pthread_mutex_unlock(&policy_mutex);
 }
 
-// Reset daily quotas (cron-like)
-void policy_reset_daily_quota(uint32_t agent_id) {
-    uint32_t idx = agent_id % 256;
-    agent_quota_bytes[idx] = 0;
-    LOG_INFO("Policy: Daily quota reset agent %u", agent_id);
+void policy_reset_daily_quota(uint32_t agent_id)
+{
+    size_t i;
+    uint64_t monotonic_seconds_now;
+    uint64_t quota_epoch = UINT64_MAX;
+
+    if (get_monotonic_seconds(&monotonic_seconds_now)) {
+        quota_epoch = monotonic_seconds_now / 86400U;
+    }
+    if (pthread_mutex_lock(&policy_mutex) != 0) {
+        return;
+    }
+    for (i = 0; i < POLICY_AGENT_SLOTS; ++i) {
+        if (agents[i].occupied && agents[i].agent_id == agent_id) {
+            agents[i].quota_bytes = 0;
+            agents[i].day_epoch = quota_epoch;
+            break;
+        }
+    }
+    (void)pthread_mutex_unlock(&policy_mutex);
 }
 
-/* Reset every counter. Tests need a clean slate; without this the rate limit
- * carries across cases and later tests fail for reasons unrelated to what
- * they are checking. */
-void policy_reset_all(void) {
-    memset(agent_requests, 0, sizeof(agent_requests));
-    memset(agent_quota_bytes, 0, sizeof(agent_quota_bytes));
-    policy_initialised = false;
-    policy_init_once();
+void policy_reset_all(void)
+{
+    if (pthread_mutex_lock(&policy_mutex) != 0) {
+        return;
+    }
+    memset(agents, 0, sizeof(agents));
+    quiet_hours_start = 2;
+    quiet_hours_end = 6;
+    (void)pthread_mutex_unlock(&policy_mutex);
 }
 
-/* Set the quiet-hours window in local time, [start, end). Equal values
- * disable the rule. Out-of-range values are ignored. */
-void policy_set_quiet_hours(int start_hour, int end_hour) {
-    if (start_hour < 0 || start_hour > 23 || end_hour < 0 || end_hour > 24) {
-        LOG_WARN("Policy: ignoring invalid quiet hours %d-%d", start_hour,
-                 end_hour);
+void policy_set_quiet_hours(int start_hour, int end_hour)
+{
+    if (start_hour < 0 || start_hour > 23 ||
+        end_hour < 0 || end_hour > 24 ||
+        pthread_mutex_lock(&policy_mutex) != 0) {
         return;
     }
     quiet_hours_start = start_hour;
     quiet_hours_end = end_hour;
+    (void)pthread_mutex_unlock(&policy_mutex);
 }

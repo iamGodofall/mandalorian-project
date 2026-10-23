@@ -1,6 +1,7 @@
 #include "../include/helm.h"
 #include "../../beskarcore/include/logging.h"
 #include "../../beskarcore/include/monitoring.h"
+#include "../../beskarcore/include/secure_random.h"
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
@@ -178,6 +179,11 @@ gate_result_t helm_mandalorian_gate(uint32_t app_id, const char *action, const c
 
     memset(&req, 0, sizeof(req));
     req.agent_id = app_id;
+    if (secure_random_bytes((uint8_t *)&req.request_nonce,
+                            sizeof(req.request_nonce)) != 0 ||
+        req.request_nonce == 0) {
+        return GATE_REPLAY_NONCE_INVALID;
+    }
     strncpy(req.action, action, sizeof(req.action) - 1);
     strncpy(req.resource, resource, sizeof(req.resource) - 1);
     if (payload != NULL) {

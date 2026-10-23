@@ -3,11 +3,14 @@
  * 
  * Translates OpenClaw agent tool invocations (exec, read, write, process, etc.)
  * into mandalorian_request_t structs and routes them through the Mandalorian Gate.
- * Every tool call is capability-checked, logged, and receipted.
+ * Every accepted request is capability-checked by the gate. The gate owns the
+ * authoritative receipt path; this adapter returns a compact receipt to callers
+ * but does not append a second, unauthenticated ledger record.
  *
- * This is the sovereign security integration point: AI agent → gate → OS.
+ * The executor remains simulated; this is not yet an AI-agent-to-OS isolation boundary.
  */
 
+#include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -19,6 +22,7 @@
 #include "../core/verifier.h"
 #include "../runtime/executor.h"
 #include "logging.h"
+#include "secure_random.h"
 
 // ─── OpenClaw Tool IDs ────────────────────────────────────────────────────────
 typedef enum {
@@ -55,19 +59,52 @@ static const char* tool_to_action(openclaw_tool_id_t id) {
     }
 }
 
-// ─── Build a mandalorian_request_t from OpenClaw tool call ───────────────────
+// ─── Parse the untrusted decimal agent ID without atoi() ambiguity/overflow ──
+static int parse_agent_id(const char *text, uint32_t *out)
+{
+    const char *p;
+    char *end = NULL;
+    unsigned long value;
+
+    if (text == NULL || out == NULL || text[0] == '\\0' ||
+        strnlen(text, 11) >= 11) {
+        return -1;
+    }
+    for (p = text; *p != '\\0'; ++p) {
+        if (*p < '0' || *p > '9') return -1;
+    }
+
+    errno = 0;
+    value = strtoul(text, &end, 10);
+    if (errno != 0 || end == text || *end != '\\0' || value > UINT32_MAX) {
+        return -1;
+    }
+    *out = (uint32_t)value;
+    return 0;
+}
+
+// ─── Build a validated request without silently truncating caller input ──────
 static mandalorian_request_t* build_request(
     openclaw_tool_id_t  tool_id,
-    const char*         agent_id_str,
+    uint32_t            agent_id,
     const char*         resource,
     const char*         payload,
     mandalorian_request_t* req  // OUT
 ) {
+    const char *action = tool_to_action(tool_id);
     memset(req, 0, sizeof(*req));
-    req->agent_id = atoi(agent_id_str);
-    strncpy(req->action,  tool_to_action(tool_id), sizeof(req->action) - 1);
-    strncpy(req->resource, resource,                sizeof(req->resource) - 1);
-    strncpy(req->payload,  payload  ? payload  : "", sizeof(req->payload)  - 1);
+    req->agent_id = agent_id;
+    if (secure_random_bytes((uint8_t *)&req->request_nonce,
+                            sizeof(req->request_nonce)) != 0 ||
+        req->request_nonce == 0) {
+        LOG_ERROR("[OpenClaw→Gate] secure request nonce generation failed");
+        return NULL;
+    }
+    memcpy(req->action, action, strlen(action) + 1);
+    memcpy(req->resource, resource, strlen(resource) + 1);
+    if (payload != NULL) {
+        memcpy(req->payload, payload, strlen(payload) + 1);
+    }
     return req;
 }
 
@@ -93,13 +130,19 @@ int openclaw_forward(
     const char*          resource,
     const char*          payload,      // optional
     mandalorian_cap_t*   cap,         // pre-verified by gate before this call
-    mandalorian_receipt_t* receipt_out // OUT — NULL to skip logging
+    mandalorian_receipt_t* receipt_out // OUT — optional compact decision receipt
 ) {
-    /* TOOL_NAMES has 10 entries; indexing it with an unchecked caller-supplied
-     * tool_id was an out-of-bounds read. */
+    /* Validate the tool index before indexing TOOL_NAMES. Never use atoi(),
+     * and never silently truncate a caller's resource or payload into a
+     * different authorization target. */
+    uint32_t parsed_agent_id;
     if (tool_id < TOOL_EXEC || tool_id > TOOL_MEMORY ||
-        agent_id_str == NULL || resource == NULL || cap == NULL) {
-        LOG_ERROR("[OpenClaw→Gate] invalid arguments");
+        agent_id_str == NULL || resource == NULL || cap == NULL ||
+        parse_agent_id(agent_id_str, &parsed_agent_id) != 0 ||
+        strnlen(resource, MANDALORIAN_RESOURCE_SIZE) >= MANDALORIAN_RESOURCE_SIZE ||
+        (payload != NULL &&
+         strnlen(payload, MANDALORIAN_MAX_PAYLOAD) >= MANDALORIAN_MAX_PAYLOAD)) {
+        LOG_ERROR("[OpenClaw→Gate] invalid or oversized arguments");
         return -99;
     }
 
@@ -108,25 +151,26 @@ int openclaw_forward(
 
     // ── Step 1: Build mandalorian request ───────────────────────────────────
     mandalorian_request_t req_body;
-    mandalorian_request_t* req = build_request(tool_id, agent_id_str,
+    mandalorian_request_t* req = build_request(tool_id, parsed_agent_id,
                                                resource, payload, &req_body);
+    if (req == NULL) {
+        return -99;
+    }
 
     // ── Step 2: Gate enforces capability + policy + constraints ─────────────
     gate_result_t gr = mandalorian_execute(req, cap);
 
-    // ── Step 3: Log receipt always ──────────────────────────────────────────
+    // ── Step 3: Return a compact caller receipt ─────────────────────────────
+    // The gate owns authoritative audit recording. Do not append a second,
+    // unauthenticated compact receipt here or ignore a ledger append failure.
     if (receipt_out != NULL) {
         build_receipt(req, gr, receipt_out);
-        log_receipt_full(receipt_out);
-    } else {
-        mandalorian_receipt_t tmp;
-        build_receipt(req, gr, &tmp);
-        log_receipt_full(&tmp);
     }
 
     // ── Step 4: Translate gate_result → OpenClaw errno ───────────────────────
     switch (gr) {
-        case GATE_OK:               return 0;   // success
+        case GATE_OK:               return 0;   // real execution completed and receipted
+        case GATE_SIMULATED:        return -14;  // authorized, but host operation was not performed
         case GATE_SIG_FAIL:         return -1;  // capability invalid
         case GATE_EXPIRED:          return -2;  // capability expired
         case GATE_SUBJECT_MISMATCH: return -3;  // wrong agent
@@ -135,6 +179,12 @@ int openclaw_forward(
         case GATE_CONSTRAINT_FAIL:  return -6;  // constraint violated
         case GATE_POLICY_DENY:       return -7;  // policy blocked
         case GATE_EXEC_FAIL:        return -8;   // executor error
+        case GATE_AUDIT_FAIL:       return -9;   // no execution; audit unavailable
+        case GATE_AUDIT_FAIL_AFTER_EXECUTION:
+                                    return -10;  // may have executed; do not blindly retry
+        case GATE_REPLAY_NONCE_INVALID: return -11;
+        case GATE_REPLAY_DETECTED:   return -12;  // duplicate request; do not retry same nonce
+        case GATE_REPLAY_CACHE_FULL: return -13;  // fail closed; retry with backoff/new nonce
         default:                    return -99;
     }
 }

@@ -1,82 +1,54 @@
-# Mandalorian Project — Roadmap
+# Mandalorian Project — Evidence-Led Roadmap
 
-> **Reality check**: This project is building the world's first *mathematically betrayal-resistant* mobile phone. That's genuinely hard. Hardware takes years. Respect that.
+> **Current status (2026-10-20):** research and development prototype. This is not a production-secure phone. Check [the assurance ledger](docs/security/ASSURANCE_CASES.md) before treating any feature as implemented or verified.
 
----
+## Implemented in the host prototype
 
-## ✅ Done (Production Ready)
+- [x] CMake host build and automated CI for the buildable components.
+- [x] Capability authentication using HMAC-SHA3-256 and bounded field validation.
+- [x] Action, lexical resource, and payload-constraint checks.
+- [x] Synchronized, bounded policy state keyed by complete agent ID, with monotonic per-minute rate limits and rolling 24-hour quota buckets.
+- [x] Bounded, process-local replay guard with duplicate detection and fail-closed exhaustion behavior.
+- [x] HMAC-authenticated receipts and a mutex-protected, in-memory hash-chained ledger with reserved receipt capacity.
+- [x] Explicit simulation result: GATE_SIMULATED means authorization passed but no file operation occurred.
+- [x] Unit tests for gate denials, policy identity isolation/concurrency, replay races, ledger concurrency, and cryptographic known-answer vectors.
+- [x] Security-contract CI checks and claim-to-evidence documentation.
 
-- [x] **seL4 Microkernel Integration** — capability-based security foundation
-- [x] **Mandalorian Gate (9-step enforcement)** — no bypass paths; all tests passing
-- [x] **Continuous Guardian** — 50ms SHA3-256 integrity checks (ROM-resident)
-- [x] **Helm — Post-Quantum Attestation** — CRYSTALS-Dilithium signatures + Ed25519
-- [x] **BeskarVault HSM** — 32 key slots, 5 security levels, tamper response
-- [x] **BeskarLink** — Signal Protocol + post-quantum augmentation
-- [x] **BeskarAppGuard** — 64 granular permissions, 16 categories
-- [x] **BeskarEnterprise** — decentralized policy, zero cloud dependency
-- [x] **Merkle Shield Ledger** — immutable audit trail with receipts
-- [x] **Windows Development Support** — WSL2 build guide + VS Code integration
-- [x] **CI/CD Pipeline** — GitHub Actions (7 jobs: tests, build, security, cross-platform, pages)
-- [x] **OpenClaw Adapter** — agent-to-gate bridge (exec/read/write/process/web/memory/cron)
-- [x] **seL4 dirty + 21 commits behind** — sync in progress
-- [x] **README badges** — CI status, test pass rate, license badges
+These checkboxes describe host-prototype code and regression tests only. They do not imply production readiness, OS confinement, formal verification, or independent security review.
 
----
+## P0 — Establish a real enforcement boundary
 
-## 🔴 Priority: Investor-Ready (Do First)
+- [ ] Implement a real executor behind a separate least-privilege process or OS-enforced compartment.
+- [ ] Prove complete mediation: no direct executor access or ambient filesystem/process/network authority for the untrusted agent.
+- [ ] Integrate the new descriptor-relative safe-open helper into a separately isolated executor; keep the helper's limits explicit (trusted root descriptor, hard links, mount semantics, and no OS sandbox).
+- [ ] Test symlink, TOCTOU, mount, namespace, and path-race attacks against the complete executor, not just the helper.
+- [ ] Define cancellation, timeout, partial side-effect, and uncertain-outcome semantics.
+- [ ] Keep GATE_SIMULATED distinct from real execution in all APIs, adapters, receipts, and demos.
 
-- [ ] **OpenClaw adapter needs build integration** — `#include` into mandalorian core Makefile
-- [ ] **seL4 sync** — push local changes, pull upstream, resolve conflicts
-- [ ] **Demo video** — 90-second architecture walkthrough + live gate demo (Keybase? Loom?)
-- [ ] **README deployment section** — fix broken GitHub Pages links (`/docs/` → `docs/`)
+## P1 — Close authorization and audit gaps
 
----
+- [ ] Introduce a versioned, length-delimited authenticated request envelope binding subject, audience, action, resource, payload digest, policy version, expiry, and nonce.
+- [ ] Separate capability issuer, verifier, and audit keys; document rotation, revocation, custody, and compromise recovery.
+- [ ] Make replay behavior durable across restarts if the deployment threat model requires it; test clock rollback and process crashes.
+- [ ] Add durable, crash-consistent audit intent/outcome records and external checkpoint anchoring.
+- [ ] Define receipt canonicalization and verify evidence independently of the process that generated it.
+- [x] Add a dedicated ThreadSanitizer CMake mode and CI workflow; the full current host test suite passed under TSan on 2026-10-21. This is coverage of the current tests, not proof that all concurrent paths are race-free.
+- [ ] Expand concurrency stress/property tests and longer fuzz campaigns; investigate every future sanitizer/static-analysis finding.
 
-## 🟡 Phase 1: Production-Ready Core (Q2 2026)
+## P2 — Deliver target-platform evidence
 
-- [ ] **Reproducible builds** — every commit bit-for-bit reproducible via Docker
-- [ ] **Formal verification** — seL4 proofs extend to Mandalorian gate (Frama-C + Coq)
-- [ ] **Keybase demo** — live attestation + gate enforcement (Keybase has Linux support + TOTP)
-- [ ] **WSL2 quickstart script** — one-command setup: `curl https://…/setup.sh | bash`
+- [ ] Build and boot the intended seL4/CAmkES target image.
+- [ ] Wire actual OS capabilities and prove bypass resistance with adversarial tests.
+- [ ] Validate secure boot, hardware key protection, device identity, and tamper response on real target hardware.
+- [ ] Replace incomplete BeskarLink cryptography with a vetted protocol implementation and conformance tests.
+- [ ] Establish reproducible builds, dependency provenance, signed release artifacts, and independent security review.
 
----
+## Release gates
 
-## 🟡 Phase 2: Full System (Q3–Q4 2026)
+Do not label a release production-ready until the relevant threat model, implementation, tests, target integration, crash behavior, key custody, and independent review evidence are available. A green host CI run is necessary regression evidence, not proof that the full platform is secure.
 
-- [ ] **VisionFive 2 integration** — real RISC-V hardware for dev/test
-- [ ] **Discrete HSM** — Raspberry Pi Compute Module as attestation co-processor
-- [ ] **Tamper mesh prototype** — conductive trace PCB for physical intrusion detection
-- [ ] **BeskarLink production** — federated key directory, not dependent on Keybase
-- [ ] **WASM runtime** — Phase 2 cross-platform app compatibility
+## Current references
 
----
-
-## 🔴 Phase 3: Custom Silicon (2027+)
-
-- [ ] **Custom RISC-V SoC tape-out** — integrated BeskarVault + tamper mesh + memory encryption
-- [ ] **OTP key fusing** — one-time programmable root-of-trust keys
-- [ ] **Cellular baseband isolation** — separate trust domain for modem
-- [ ] **Physical device** — production Mandalorian Phone hardware
-
----
-
-## 💡 Nice to Have
-
-- [ ] **Threat model document** — formal STRIDE/PASTA threat model
-- [ ] **Pentest report** — third-party security audit
-- [ ] **Academic paper** — publish architecture in IACR/ACM
-- [ ] **Investor one-pager** — 1-page executive summary for VC/funding
-- [ ] **Governments briefing doc** — sovereign deployment pitch for nation-states
-- [ ] **Bug bounty program** — set up via GitHub Security Advisories
-
----
-
-## ⚠️ Honest Assessment
-
-**What we have**: Production-ready software foundation. The *software* architecture is solid and testable.
-
-**What we don't have yet**: Production hardware. Real RISC-V phones don't exist. seL4 on a $75 SBC ≠ seL4 on a phone.
-
-**Timeline**: 12–18 months to VisionFive 2 + discrete HSM prototype. 3–5 years to custom silicon.
-
-**Investors should know**: This is a hard tech company with real cryptography, real seL4, and a real roadmap — not a mobile app that rebrands Firebase.
+- [Security assurance cases](docs/security/ASSURANCE_CASES.md)
+- [Security posture and threat model](docs/security/SECURITY_POSTURE_2026-10.md)
+- [Project report](PROJECT_REPORT.md)

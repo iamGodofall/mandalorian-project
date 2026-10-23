@@ -12,6 +12,7 @@
  * with Python's hmac module.
  */
 
+#include <stddef.h>
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
@@ -26,6 +27,7 @@
 
 static int failures = 0;
 static int checks = 0;
+static uint64_t next_test_nonce = 1;
 
 static void expect(const char *what, int condition)
 {
@@ -56,6 +58,7 @@ static void fill_request(mandalorian_request_t *req, uint32_t agent,
 {
     memset(req, 0, sizeof(*req));
     req->agent_id = agent;
+    req->request_nonce = next_test_nonce++;
     strncpy(req->action, action, sizeof(req->action) - 1);
     strncpy(req->resource, resource, sizeof(req->resource) - 1);
     strncpy(req->payload, payload, sizeof(req->payload) - 1);
@@ -139,7 +142,9 @@ static void test_gate_denials(void)
 
     fill_request(&req, 1, "write", "/tmp/output.txt", "hello");
     expect("granted request allowed",
-           mandalorian_execute(&req, &cap) == GATE_OK);
+           mandalorian_execute(&req, &cap) == GATE_SIMULATED);
+    expect("replaying the same request nonce is denied",
+           mandalorian_execute(&req, &cap) == GATE_REPLAY_DETECTED);
 
     fill_request(&req, 1, "write", "/etc/passwd", "x");
     expect("resource outside grant denied",
@@ -152,6 +157,18 @@ static void test_gate_denials(void)
 
     fill_request(&req, 1, "write", "/tmp/../etc/shadow", "x");
     expect("path traversal denied",
+           mandalorian_execute(&req, &cap) == GATE_RESOURCE_VIOLATION);
+
+    fill_request(&req, 1, "write", "/tmpEvil/secret", "x");
+    expect("sibling path sharing a textual prefix denied",
+           mandalorian_execute(&req, &cap) == GATE_RESOURCE_VIOLATION);
+
+    fill_request(&req, 1, "write", "/tmp//secret", "x");
+    expect("repeated path separator denied",
+           mandalorian_execute(&req, &cap) == GATE_RESOURCE_VIOLATION);
+
+    fill_request(&req, 1, "write", "/tmp\\\\secret", "x");
+    expect("backslash path separator denied",
            mandalorian_execute(&req, &cap) == GATE_RESOURCE_VIOLATION);
 
     fill_request(&req, 1, "read", "/tmp/output.txt", "x");
@@ -176,6 +193,12 @@ static void test_gate_denials(void)
         t = cap;
         strncpy(t.resource, "/etc/*", sizeof(t.resource) - 1);
         expect("tampered resource rejected",
+               mandalorian_execute(&req, &t) == GATE_SIG_FAIL);
+
+        t = cap;
+        t.signature[0] ^= 0x01U;
+        fill_request(&req, 1, "write", "/tmp/x", "x");
+        expect("tampered capability MAC rejected",
                mandalorian_execute(&req, &t) == GATE_SIG_FAIL);
 
         t = cap;
@@ -227,9 +250,92 @@ static void test_gate_denials(void)
 
         policy_set_quiet_hours(0, 0);
         fill_request(&req, 1, "write", "/tmp/output.txt", "hi");
-        expect("writes allowed again outside quiet hours",
-               mandalorian_execute(&req, &cap) == GATE_OK);
+        expect("write authorized after quiet hours (host execution simulated)",
+               mandalorian_execute(&req, &cap) == GATE_SIMULATED);
     }
+
+    /* Read and write are both simulations until a real executor exists. */
+    {
+        mandalorian_cap_t read_cap;
+        fill_request(&req, 1, "file_read", "/tmp/output.txt", "");
+        expect("read capability can be issued",
+               issue_capability(&read_cap, "agent_1", "file_read", "/tmp/*",
+                                "maxSize=512", 300) == 0);
+        expect("simulated read is not reported as a real execution",
+               mandalorian_execute(&req, &read_cap) == GATE_SIMULATED);
+    }
+
+    /* Expiry is exclusive: a capability with expiry == now is already invalid.
+     * TTL zero is deterministic with the corrected >= comparison. */
+    {
+        mandalorian_cap_t zero_ttl_cap;
+        fill_request(&req, 1, "write", "/tmp/output.txt", "hi");
+        expect("zero-TTL capability can be issued for boundary testing",
+               issue_capability(&zero_ttl_cap, "agent_1", "write", "/tmp/*",
+                                "maxSize=512", 0) == 0);
+        expect("capability expiring at the current second is rejected",
+               mandalorian_execute(&req, &zero_ttl_cap) == GATE_EXPIRED);
+    }
+}
+
+static void test_malformed_inputs(void)
+{
+    mandalorian_cap_t cap;
+    mandalorian_request_t req;
+    char encoded[1024];
+    char too_long_subject[MANDALORIAN_SUBJECT_SIZE + 8];
+
+    memset(&cap, 0, sizeof(cap));
+    strncpy(cap.subject, "agent_1", sizeof(cap.subject) - 1);
+    strncpy(cap.action, "write", sizeof(cap.action) - 1);
+    strncpy(cap.resource, "/tmp/*", sizeof(cap.resource) - 1);
+    strncpy(cap.constraints, "maxSize=10", sizeof(cap.constraints) - 1);
+    strncpy(cap.cap_id, "test", sizeof(cap.cap_id) - 1);
+    expect("canonical capability serializes",
+           verifier_serialise_cap(&cap, encoded, sizeof(encoded)) > 0);
+
+    memset(&req, 0, sizeof(req));
+    strncpy(req.action, "write", sizeof(req.action) - 1);
+    strncpy(req.resource, "/tmp/x", sizeof(req.resource) - 1);
+    expect("zero request nonce is rejected",
+           mandalorian_execute(&req, &cap) == GATE_REPLAY_NONCE_INVALID);
+
+    memset(cap.subject, 'A', sizeof(cap.subject));
+    expect("unterminated signed field rejected",
+           verifier_serialise_cap(&cap, encoded, sizeof(encoded)) < 0);
+    memset(&req, 0, sizeof(req));
+    req.request_nonce = next_test_nonce++;
+    strncpy(req.action, "write", sizeof(req.action) - 1);
+    strncpy(req.resource, "/tmp/x", sizeof(req.resource) - 1);
+    expect("gate rejects malformed capability before receipt formatting",
+           mandalorian_execute(&req, &cap) == GATE_SIG_FAIL);
+
+    memset(&cap, 0, sizeof(cap));
+    strncpy(cap.subject, "agent_1", sizeof(cap.subject) - 1);
+    strncpy(cap.action, "write", sizeof(cap.action) - 1);
+    strncpy(cap.resource, "/tmp/*", sizeof(cap.resource) - 1);
+    strncpy(cap.cap_id, "test", sizeof(cap.cap_id) - 1);
+    strncpy(cap.constraints, "maxSize=10KBjunk", sizeof(cap.constraints) - 1);
+    expect("constraint trailing garbage rejected",
+           verifier_check_constraints(&cap, "123") == false);
+
+    strncpy(cap.constraints, "maxSize=999999999999999999999999999999999999999",
+            sizeof(cap.constraints) - 1);
+    expect("constraint integer overflow rejected",
+           verifier_check_constraints(&cap, "123") == false);
+
+    memset(too_long_subject, 'S', sizeof(too_long_subject));
+    too_long_subject[sizeof(too_long_subject) - 1] = '\0';
+    issuer_set_key(test_key, sizeof(test_key));
+    expect("issuer rejects oversized subject instead of truncating",
+           issue_capability(&cap, too_long_subject, "write", "/tmp/*",
+                            "maxSize=10", 60) != 0);
+
+    memset(&req, 0, sizeof(req));
+    memset(req.action, 'A', sizeof(req.action));
+    memset(&cap, 0, sizeof(cap));
+    expect("unterminated request action denied safely",
+           mandalorian_execute(&req, &cap) == GATE_ACTION_INVALID);
 }
 
 static void test_receipt_authentication(void)
@@ -245,11 +351,56 @@ static void test_receipt_authentication(void)
     issue_capability(&cap, "agent_1", "write", "/tmp/*", "maxSize=512", 300);
     fill_request(&req, 1, "write", "/tmp/x", "payload");
 
-    r = generate_receipt(&req, &cap, GATE_OK, NULL);
+    r = generate_receipt(&req, &cap, GATE_SIMULATED, NULL);
     expect("receipt verifies", verify_receipt(&r) == 0);
 
     r.status = GATE_SIG_FAIL;
     expect("tampered receipt rejected", verify_receipt(&r) != 0);
+
+    r = generate_receipt(&req, &cap, GATE_SIMULATED, "canonical");
+    if (offsetof(mandalorian_request_t, request_nonce) > sizeof(uint32_t)) {
+        receipt_t padding_tampered = r;
+        size_t padding_offset = offsetof(receipt_t, req) +
+            offsetof(mandalorian_request_t, request_nonce) - 1U;
+        ((uint8_t *)&padding_tampered)[padding_offset] ^= 0x5aU;
+        expect("receipt MAC ignores ABI padding bytes",
+               verify_receipt(&padding_tampered) == 0);
+    }
+    r.signature[0] ^= 0x01U;
+    expect("receipt MAC tag tampering rejected", verify_receipt(&r) != 0);
+}
+
+static void test_audit_failure_semantics(void)
+{
+    mandalorian_request_t req;
+    mandalorian_cap_t cap;
+    uint8_t digest[LEDGER_HASH_SIZE] = {0};
+
+    issuer_set_key(test_key, sizeof(test_key));
+    verifier_set_key(test_key, sizeof(test_key));
+    receipt_set_key(test_key, sizeof(test_key));
+    policy_set_quiet_hours(0, 0);
+    expect("audit-failure test capability issued",
+           issue_capability(&cap, "agent_1", "write", "/tmp/*",
+                            "maxSize=512", 300) == 0);
+
+    /* Exhaust the bounded in-memory ledger to force receipt append failure. */
+    expect("ledger can be reset for audit-failure test", init_shield_ledger() == 0);
+    while (get_ledger_entry_count() < LEDGER_MAX_ENTRIES) {
+        if (add_ledger_entry("TEST_FILL", digest) != 0) {
+            expect("fill ledger to capacity", 0);
+            return;
+        }
+    }
+    expect("ledger reached capacity", get_ledger_entry_count() == LEDGER_MAX_ENTRIES);
+
+    fill_request(&req, 1, "write", "/etc/passwd", "x");
+    expect("denial whose receipt cannot be recorded exposes audit failure",
+           mandalorian_execute(&req, &cap) == GATE_AUDIT_FAIL);
+
+    fill_request(&req, 1, "write", "/tmp/audit-failure.txt", "x");
+    expect("full ledger blocks execution before an outcome receipt is needed",
+           mandalorian_execute(&req, &cap) == GATE_AUDIT_FAIL);
 }
 
 int main(void)
@@ -258,7 +409,9 @@ int main(void)
 
     test_hmac_vectors();
     test_gate_denials();
+    test_malformed_inputs();
     test_receipt_authentication();
+    test_audit_failure_semantics();
 
     printf("\n%d checks, %d failures\n", checks, failures);
     return failures == 0 ? 0 : 1;

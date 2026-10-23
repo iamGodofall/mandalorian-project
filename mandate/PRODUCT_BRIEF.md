@@ -1,129 +1,60 @@
-# Mandalorian: The Unbribable Phone  
-*A Sovereign Mobile Platform Built on Betrayal-Resistant Architecture*
+# Mandalorian — Sovereignty-Focused Device Concept
 
-## 🌍 Vision
-Build the first phone that **cannot betray its user**—not by policy, but by architecture.  
-Inspired by Bitcoin’s trust-minimization: **if betrayal is possible, the system has failed.**  
-This is not a phone for consumers. It’s a **vow for the digitally dispossessed**.
+> **Document type:** product vision and target requirements. This is not a shipping product specification. No secure phone, custom SoC, HSM-backed key store, verified boot chain, or complete seL4-based mobile OS is currently demonstrated by this repository.
 
-> “This is the way.”
+## Vision
 
----
+Explore a mobile computing platform that reduces unnecessary trust in vendors and remote services by making sensitive operations explicit, minimizing ambient authority, and producing evidence that can be independently checked.
 
-## 🎯 Core Principles (The Mandate of the Sovereign)
-1. **Armor First** — Data protected by math, not promises.
-2. **No Empire** — Apple, Google, and states hold no authority.
-3. **Foundlings Protected** — Journalists, healers, dissidents come first.
-4. **Forge Your Own Beskar** — Hardware is open, repairable, auditable.
-5. **No Backdoors. Not Ever. Not for anyone—not even us.**
+The goal is not to promise that a device can never betray its owner. The engineering task is to define a threat model, build enforceable boundaries, test them adversarially, and state precisely which guarantees the evidence supports.
 
-> Violation voids the name. The mission continues without us.
+## Design principles
 
----
+1. **Least privilege:** agents and applications receive only the capabilities required for a bounded task.
+2. **Complete mediation:** privileged operations must be enforced by an OS boundary, not merely by a library convention.
+3. **Local control:** minimize mandatory cloud dependencies while documenting the security and maintenance costs of local-first operation.
+4. **Auditable outcomes:** distinguish authorization, execution, and evidence of execution; define behavior when the process or device crashes.
+5. **Repairability and transparency:** publish reproducible build instructions, hardware schematics, component provenance, and limitations when these artifacts exist.
+6. **Honest claims:** mark every component as implemented, simulated, partial, planned, or independently verified.
 
-## 📱 Product Definition
+## Current repository state
 
-### Device Name: **Mandalorian**
-- A physical phone that runs mainstream apps **without surveillance**.
-- Tagline: *“The phone that keeps its vow.”*
+The current repository is a host-buildable C prototype and target architecture scaffold. It includes capability authentication, contextual policy, a process-local replay guard, HMAC receipts, an in-memory hash-chain ledger, tests, and CI. The executor is simulated; `GATE_SIMULATED` means no file operation occurred.
 
-### System Stack
-| Layer | Name | Role |
-|------|------|------|
-| **Hardware** | Mandalorian DevKit | RISC-V-based, modular, no hidden modems |
-| **OS (User)** | VeridianOS | App runtime, UI, Android/iOS compatibility |
-| **OS (Core)** | BeskarCore | Betrayal-resistant foundation (kernel + security) |
-| **Privacy Engine** | Aegis | IMC-accelerated real-time tracker blocker |
-| **Update System** | The Watch | Multi-sig consensus for OS updates |
+The repository does not currently demonstrate:
 
-### Key User Promises
-- ✅ Runs WhatsApp, Signal, Instagram — **but blocks hidden trackers**
-- ✅ Zero cloud dependency — all AI/data processing on-device
-- ✅ You own the keys — no recovery, no backdoor, no compromise
-- ✅ Repairable — swap battery, screen, modem yourself
-- ✅ Verifiable — check your device hash against public ledger
+- A production mobile operating system or bootable Mandalorian phone.
+- OS-enforced complete mediation or seL4 confinement of hostile agents.
+- A RISC-V phone board, secure enclave, HSM, OTP-fused keys, or hardware tamper response.
+- A verified boot chain integrated with target hardware.
+- Production Signal-compatible or post-quantum messaging.
+- Durable, externally anchored audit evidence.
+- Independent security certification.
 
----
+## Target product direction
 
-## ⚙️ Technical Architecture
+| Area | Target requirement | Evidence required before claiming delivery |
+|---|---|---|
+| Hardware | Repairable, documented platform with a defined hardware threat model | Schematics, BOM, board bring-up, reproducible manufacturing and hardware review |
+| OS isolation | Least-privilege components and complete mediation | Bootable seL4/CAmkES target, capability wiring, bypass tests, deployment evidence |
+| Keys | Hardware-backed generation and protected operations | Real target secure element/HSM, provisioning and recovery tests |
+| Updates | Authenticated, rollback-resistant updates | Verified boot/update implementation and adversarial downgrade tests |
+| Messaging | Reviewed E2EE protocol with forward secrecy and recovery | Vetted implementation, official conformance vectors, independent cryptographic review |
+| Audit | Crash-consistent evidence with external checkpoints | Durable storage design, failure-injection tests, independent verification tooling |
+| Local-first operation | Core functions usable without mandatory remote services | Network-disconnection tests and documented update/support tradeoffs |
 
-### Hardware (DevKit — Wi-Fi Only)
-- **SoC**: StarFive JH7110 (Quad-core RISC-V @ 1.5 GHz)
-- **Secure Enclave**: OpenTitan (RISC-V-based TEE)
-- **RAM**: 8 GB LPDDR4
-- **Storage**: 128 GB eMMC (user-replaceable)
-- **Display**: 6" 1080p
-- **Connectivity**: Wi-Fi 6, BT 5.2
-- **Modem**: **None** (cellular deferred to v2; avoids baseband risks)
-- **Security**: JTAG disabled post-test, OTP fuses for user key
+## Intended audience
 
-### BeskarCore (v1.0)
-- **Microkernel**: seL4 (formally verified)
-- **Boot Chain**: Verified boot (SHA3-256 + ed25519)
-- **Shield Ledger**: On-device Merkle log of all critical events
-- **Update Consensus**: Requires ≥3 signatures from trusted auditors (EFF, Purism, etc.)
-- **App Isolation**: Capability-based (no global permissions)
+The concept is intended for people and organizations that need strong local control, transparent security engineering, and carefully documented trust boundaries. Sensitive users must not rely on the current prototype for operational security.
 
-### VeridianOS
-- **Android Support**: Hardened Waydroid container + microG + tracker-blocking proxy
-- **iOS Support**: Open-source apps recompiled against OpenSwiftUI (e.g., Signal, Proton)
-- **UI**: Minimal, privacy-first (no notifications unless user-defined)
+## Next engineering milestones
 
-### Aegis (Privacy Agent)
-- **Function**: Real-time app behavior analysis, network payload inspection, permission explainer
-- **Hardware**: Simulated on Coral TPU (v1), IMC co-processor (v2)
-- **Model**: Distilled 50M-parameter LLM (runs offline)
+1. Demonstrate an OS-enforced executor boundary.
+2. Replace path-string authorization with confined handles and symlink-safe operations.
+3. Define canonical authenticated request envelopes and separate cryptographic key domains.
+4. Make replay and audit semantics durable where required by the threat model.
+5. Integrate and test the target OS and hardware.
+6. Complete or replace incomplete messaging cryptography.
+7. Obtain independent security review before production claims.
 
----
-
-## 🔒 Anti-Backdoor Guarantees (Non-Negotiable)
-- **User key generated on first boot** → fused into OTP → **never leaves TEE**
-- **You (creator) never hold keys, logs, or override capability**
-- **No recovery mode** — wipe-only on passphrase loss
-- **Updates require multi-sig** — your signature alone does nothing
-- **All code/hardware open** — reproducible builds, public verification ledger
-
----
-
-## 📦 Open Standards & Licensing
-- **Software**: GPLv3 + **Sovereign Commons License v1.0** (anti-backdoor clause)
-- **Hardware**: CERN Open Hardware License v2
-- **Docs**: CC-BY-SA 4.0
-- **Repo Structure**:
-  ```
-  github.com/mandalorian-project/
-  ├── /beskarcore      # Kernel, Shield, boot
-  ├── /veridianos      # User OS, app runtime
-  ├── /aegis           # Privacy agent
-  ├── /hardware        # DevKit schematics
-  └── /mandate         # Charter, license, ethics
-  ```
-
----
-
-## 🚀 Roadmap (v1: DevKit)
-| Milestone | Deliverable |
-|----------|-------------|
-| M0 (Now) | GitHub repos, Mandate, architecture spec |
-| M3 | BeskarCore v1.0 (boot + Shield ledger) |
-| M6 | VeridianOS alpha (Android sandbox + Aegis POC) |
-| M9 | Hardware verification toolkit (X-ray/hash guide) |
-| M12 | Public DevKit launch (Crowd Supply) |
-
----
-
-## 💡 Why This Wins
-- **Solves the app/privacy trade-off**: Users keep utility without surrender.
-- **Funding-aligned**: Fits NLnet NGI Mobifree (“mobile freedom”).
-- **Legally safe**: No Star Wars IP — “Mandalorian” as ethical ethos.
-- **Scalable mission**: Even if you vanish, the architecture lives.
-
----
-
-## 🧭 Final Directive
-> “Do not build a phone.  
-> Build a standard for digital sovereignty.  
-> Let the hardware be temporary.  
-> Let the vow be eternal.”
-
-— The Mandate of the Sovereign
+See [the security assurance ledger](../docs/security/ASSURANCE_CASES.md) and [the project report](../PROJECT_REPORT.md) for current evidence and release gates.

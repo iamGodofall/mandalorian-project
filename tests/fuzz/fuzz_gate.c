@@ -9,7 +9,7 @@
  * Two properties are asserted on every input, and they are the properties that
  * matter more than "does not crash":
  *
- *   1. The gate never returns GATE_OK for a capability it did not issue.
+ *   1. The gate never accepts a capability it did not issue (real or simulated result).
  *      Random bytes must not authenticate.
  *   2. A granted capability is never satisfied by a request outside its
  *      resource pattern, whatever the request contains.
@@ -27,12 +27,15 @@
 #include <string.h>
 
 #include "gate.h"
+#include "logging.h"
 #include "issuer.h"
 #include "policy.h"
 #include "receipt.h"
 #include "verifier.h"
+#include "merkle_ledger.h"
 
 static int initialised = 0;
+static uint64_t next_fuzz_nonce = 1;
 static mandalorian_cap_t granted;      /* wildcard grant: "/workspace/*"  */
 static mandalorian_cap_t granted_exact; /* bare prefix grant: "/workspace" */
 
@@ -48,6 +51,8 @@ static void fuzz_init(void)
     if (initialised) {
         return;
     }
+    /* Keep high-volume expected denials from drowning out libFuzzer output. */
+    logger_set_level(LOG_LEVEL_FATAL);
     /* Otherwise the "allowed" arm of every property is vacuous between 02:00
      * and 06:00 local, and the fuzzer proves nothing during those hours. */
     policy_set_quiet_hours(0, 0);
@@ -89,6 +94,14 @@ int gate_fuzz_one(const uint8_t *data, size_t size)
 
     fuzz_init();
 
+    /* Keep the bounded ledger from filling across fuzz iterations. Once full,
+     * the gate correctly refuses to claim an audited result, but that would
+     * stop later inputs from exercising the authorization properties. Each
+     * input therefore starts with a fresh test ledger. */
+    if (init_shield_ledger() != 0) {
+        return 1;
+    }
+
     if (size < 8) {
         return 0;
     }
@@ -99,12 +112,13 @@ int gate_fuzz_one(const uint8_t *data, size_t size)
     memcpy(&forged, data, size < sizeof(forged) ? size : sizeof(forged));
     memset(&req, 0, sizeof(req));
     req.agent_id = 1;
+    req.request_nonce = next_fuzz_nonce++;
     copy_field(req.action, sizeof(req.action), data, third);
     copy_field(req.resource, sizeof(req.resource), data + third, third);
     copy_field(req.payload, sizeof(req.payload), data + 2 * third, size - 2 * third);
 
     r = mandalorian_execute(&req, &forged);
-    if (r == GATE_OK) {
+    if (r == GATE_OK || r == GATE_SIMULATED) {
         fprintf(stderr, "FUZZ FAIL: forged capability authenticated\n");
         return 1;
     }
@@ -113,6 +127,7 @@ int gate_fuzz_one(const uint8_t *data, size_t size)
      * "/workspace/" may be accepted. */
     memset(&req, 0, sizeof(req));
     req.agent_id = 1;
+    req.request_nonce = next_fuzz_nonce++;
     strncpy(req.action, "write", sizeof(req.action) - 1);
     copy_field(req.resource, sizeof(req.resource), data, third);
     copy_field(req.payload, sizeof(req.payload), data + third, size - third);
@@ -139,6 +154,7 @@ int gate_fuzz_one(const uint8_t *data, size_t size)
      * resource string and no other. */
     memset(&req, 0, sizeof(req));
     req.agent_id = 1;
+    req.request_nonce = next_fuzz_nonce++;
     strncpy(req.action, "write", sizeof(req.action) - 1);
     copy_field(req.resource, sizeof(req.resource), data, third);
     copy_field(req.payload, sizeof(req.payload), data + third, size - third);

@@ -1,4 +1,6 @@
-# BlackBerry-Inspired Security Enhancements
+# BlackBerry-Inspired Security Concepts (Proposal Only)
+
+> **Status:** this is a conceptual proposal and feature comparison, not a description of verified current behavior. Hardware security, post-quantum protection, anti-coercion, and mathematical impossibility claims are not established by this repository.
 
 ## "Learning from the Masters, Improving for the Future"
 
@@ -647,7 +649,7 @@ int enterprise_export_audit_log(uint8_t *log_data, size_t *len,
 | **Network Security** | ⚠️ Centralized BES | ✅ No cloud dependency | ✅✅ P2P enterprise |
 | **Key Management** | ✅ HSM | ✅ Hardware fusing | ✅✅ HSM + hierarchy |
 | **Tamper Resistance** | ✅ Physical | ✅ Hardware-based | ✅✅ Multi-sensor |
-| **Government Backdoors** | ⚠️ Yes (alleged) | ✅ Impossible | ✅✅ Mathematically impossible |
+| **Resistance to coercion/backdoors** | Threat-model dependent | Not demonstrated | Design goal only; no mathematical guarantee established |
 | **Open Standards** | ❌ Proprietary | ✅ Open source | ✅✅ Open + audited |
 
 ---

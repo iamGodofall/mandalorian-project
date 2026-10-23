@@ -1,9 +1,11 @@
-# Mandalorian Project — Full Project Status Report
+# Mandalorian Project — Historical Project Inventory
+
+> **Status caveat (2026-10-20):** This file was generated on 2026-03-24 and contains historical inventories and aspirational descriptions. Its checkboxes and “implemented/functional” labels are not authoritative security evidence and must not be read as production claims. For current implementation status, see [PROJECT_REPORT.md](PROJECT_REPORT.md), [Security assurance cases](docs/security/ASSURANCE_CASES.md), and [Security posture](docs/security/SECURITY_POSTURE_2026-10.md).
 
 **Generated:** 2026-03-24
 **Repository:** `iamGodofall/mandalorian-project`
 **Branch:** `master`
-**Status:** Active Development
+**Status:** Historical inventory; see the current evidence-led report
 
 ---
 
@@ -49,7 +51,7 @@
 | **mandalorian-claw** | Sovereign local AI assistant | C + llama.cpp | ⚙️ Active |
 | **mandate** | Product brief & marketing positioning | Markdown | ✅ Complete |
 
-**Key security properties:** ChaCha20-Poly1305 / AES-256-GCM encryption, SHA3-256 hashing, Argon2id KDF, continuous integrity monitoring with CRC32 + SHA3-256, verified boot chain, and capability-based sandbox isolation.
+**Historical scope note:** Earlier status labels and planned security properties in this report may describe scaffolds, placeholders, or target architecture rather than complete implementations. Verify each claim against current source and the assurance ledger before relying on it.
 
 **seL4 reference:** The `seL4/` kernel header subtree (9,500+ files) is included as a formal verification reference for the security architecture. seL4 is not built or integrated — it serves as authoritative documentation for seL4-style capability modeling in the app sandbox.
 

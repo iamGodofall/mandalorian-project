@@ -18,6 +18,10 @@
 
 #include "../capabilities/schema.h"
 #include "gate.h"
+#include "../../beskarcore/include/merkle_ledger.h"
+#include "../crypto/hmac_sha3.h"
+
+#define MANDALORIAN_RECEIPT_REASON_SIZE 256
 
 /** Full receipt: the complete record appended to the Shield Ledger. */
 typedef struct {
@@ -25,8 +29,8 @@ typedef struct {
     char cap_id[MANDALORIAN_CAP_ID_SIZE];
     uint64_t timestamp;
     gate_result_t status;
-    char reason[256];
-    uint8_t signature[MANDALORIAN_SIGNATURE_SIZE];
+    char reason[MANDALORIAN_RECEIPT_REASON_SIZE];
+    uint8_t signature[HMAC_SHA3_256_SIZE];
 } receipt_t;
 
 /** Compact receipt handed back to callers such as the OpenClaw adapter. */
@@ -51,6 +55,8 @@ receipt_t generate_receipt(const mandalorian_request_t *req,
  * @return 0 on success, -1 on failure.
  */
 int log_receipt(const receipt_t *r);
+/** Append a receipt using and consume a pre-reserved ledger slot. */
+int log_receipt_reserved(const receipt_t *r, ledger_reservation_t *reservation);
 
 /**
  * @brief Append a compact receipt to the Shield Ledger.
@@ -70,6 +76,8 @@ int verify_receipt(const receipt_t *r);
  * @return 0 on success, -1 on invalid arguments.
  */
 int receipt_set_key(const uint8_t *key, size_t key_len);
+/** Return whether an authentication key is installed for gate receipts. */
+bool receipt_key_is_set(void);
 
 /** @brief Allocate the next receipt id. */
 uint64_t receipt_next_id(void);
