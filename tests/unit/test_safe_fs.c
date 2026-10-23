@@ -156,8 +156,12 @@ int main(void)
                                           MANDALORIAN_FS_WRITE_EXISTING);
         check("open existing regular file for write", file_fd >= 0);
         if (file_fd >= 0) {
-            check("write-existing mode does not truncate on open",
-                  fstat(file_fd, &(struct stat){0}) == 0);
+            {
+                struct stat opened_stat;
+                check("write-existing mode does not truncate on open",
+                      fstat(file_fd, &opened_stat) == 0 &&
+                      opened_stat.st_size == 6);
+            }
             check("write existing file content",
                   write(file_fd, "changed", 7) == 7);
             close(file_fd);
