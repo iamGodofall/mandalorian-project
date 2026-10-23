@@ -48,7 +48,9 @@ int main(void)
     snprintf(nested, sizeof(nested), "%s/nested", root_path);
     snprintf(file_path, sizeof(file_path), "%s/nested/data.txt", root_path);
     snprintf(link_path, sizeof(link_path), "%s/escape", root_path);
+    snprintf(fifo_path, sizeof(fifo_path), "%s/nested/pipe", root_path);
 
+    char fifo_path[512];
     check("create nested directory", mkdir(nested, 0700) == 0);
     file_fd = open(file_path, O_WRONLY | O_CREAT | O_EXCL, 0600);
     check("create regular test file", file_fd >= 0);
@@ -67,6 +69,8 @@ int main(void)
         check("create symlink pointing outside root",
               symlink(external_path, link_path) == 0);
     }
+
+    check("create FIFO test entry", mkfifo(fifo_path, 0600) == 0);
 
     root_fd = open(root_path, O_RDONLY | O_DIRECTORY | O_CLOEXEC);
     check("open trusted root directory", root_fd >= 0);
@@ -130,6 +134,12 @@ int main(void)
         if (file_fd >= 0) close(file_fd);
 
         errno = 0;
+        file_fd = mandalorian_safe_openat(root_fd, "nested/pipe",
+                                          MANDALORIAN_FS_READ);
+        check("reject FIFO without blocking", file_fd < 0 && errno == EACCES);
+        if (file_fd >= 0) close(file_fd);
+
+        errno = 0;
         file_fd = mandalorian_safe_openat(root_fd, "",
                                           MANDALORIAN_FS_READ);
         check("reject empty path", file_fd < 0 && errno == EINVAL);
@@ -142,7 +152,7 @@ int main(void)
         if (file_fd >= 0) close(file_fd);
 
         errno = 0;
-        file_fd = mandalorian_safe_openat(root_fd, "nested\\\\data.txt",
+        file_fd = mandalorian_safe_openat(root_fd, "nested\\data.txt",
                                           MANDALORIAN_FS_READ);
         check("reject backslash path separator", file_fd < 0 && errno == EINVAL);
         if (file_fd >= 0) close(file_fd);
@@ -190,6 +200,7 @@ int main(void)
         unlink(link_path);
         unlink(external_path);
     }
+    unlink(fifo_path);
     unlink(file_path);
     rmdir(nested);
     rmdir(root_path);
