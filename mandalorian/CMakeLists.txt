@@ -19,6 +19,7 @@ add_library(mandalorian_core STATIC
     capabilities/issuer.c
     runtime/executor.c
     runtime/safe_fs.c
+    runtime/confined_fs.c
     agent/openclaw-adapter.c
     crypto/hmac_sha3.c
     stubs.c
