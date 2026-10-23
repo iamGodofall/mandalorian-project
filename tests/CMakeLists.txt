@@ -1,7 +1,7 @@
 # Test suite.
 #
 # The previous version of this file had three add_executable/target_link/add_test
-# groups written on one line with literal "\n" characters between them, which is
+# groups written on one line with literal "\\n" characters between them, which is
 # a CMake parse error — so `cmake -B build` failed at the root for everyone.
 #
 # The cmocka-based tests under unit/ need a vendored cmocka at external/cmocka
@@ -28,7 +28,6 @@ add_executable(test_replay_guard unit/test_replay_guard.c)
 target_link_libraries(test_replay_guard PRIVATE mandalorian_core)
 add_test(NAME ReplayGuard COMMAND test_replay_guard)
 
-
 add_executable(test_policy unit/test_policy.c)
 target_link_libraries(test_policy PRIVATE mandalorian_core)
 add_test(NAME Policy COMMAND test_policy)
@@ -40,6 +39,10 @@ add_test(NAME GateEnforcement COMMAND test_gate_enforcement)
 add_executable(test_safe_fs unit/test_safe_fs.c)
 target_link_libraries(test_safe_fs PRIVATE mandalorian_core)
 add_test(NAME SafeFilesystem COMMAND test_safe_fs)
+
+add_executable(test_confined_fs unit/test_confined_fs.c)
+target_link_libraries(test_confined_fs PRIVATE mandalorian_core)
+add_test(NAME ConfinedFilesystem COMMAND test_confined_fs)
 
 # Gate fuzzing, running as a fixed-corpus test so the properties are checked
 # everywhere. The libFuzzer build is opt-in below.
