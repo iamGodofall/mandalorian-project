@@ -76,6 +76,8 @@ int main(void)
                                           MANDALORIAN_FS_READ);
         check("open regular file beneath root", file_fd >= 0);
         if (file_fd >= 0) {
+            check("returned descriptor is close-on-exec",
+                  (fcntl(file_fd, F_GETFD) & FD_CLOEXEC) != 0);
             n = read(file_fd, buf, sizeof(buf));
             check("read expected content through returned descriptor",
                   n == 6 && memcmp(buf, "inside", 6) == 0);
