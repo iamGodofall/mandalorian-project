@@ -121,6 +121,12 @@ int mandalorian_safe_openat(int root_fd, const char *relative_path,
         errno = EACCES;
         goto fail;
     }
+    /* A write through a hard link can modify an inode also named outside the
+     * trusted tree. Fail closed for write access when the inode has aliases. */
+    if (access == MANDALORIAN_FS_WRITE_EXISTING && st.st_nlink != 1) {
+        errno = EMLINK;
+        goto fail;
+    }
 
     close(current_fd);
     return final_fd;
