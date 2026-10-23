@@ -128,6 +128,49 @@ int main(void)
         if (file_fd >= 0) close(file_fd);
 
         errno = 0;
+        file_fd = mandalorian_safe_openat(root_fd, "",
+                                          MANDALORIAN_FS_READ);
+        check("reject empty path", file_fd < 0 && errno == EINVAL);
+        if (file_fd >= 0) close(file_fd);
+
+        errno = 0;
+        file_fd = mandalorian_safe_openat(root_fd, "nested/",
+                                          MANDALORIAN_FS_READ);
+        check("reject trailing separator", file_fd < 0 && errno == EINVAL);
+        if (file_fd >= 0) close(file_fd);
+
+        errno = 0;
+        file_fd = mandalorian_safe_openat(root_fd, "nested\\\\data.txt",
+                                          MANDALORIAN_FS_READ);
+        check("reject backslash path separator", file_fd < 0 && errno == EINVAL);
+        if (file_fd >= 0) close(file_fd);
+
+        errno = 0;
+        file_fd = mandalorian_safe_openat(root_fd, "nested/new-file.txt",
+                                          MANDALORIAN_FS_WRITE_EXISTING);
+        check("write-existing mode never creates missing files",
+              file_fd < 0 && errno == ENOENT);
+        if (file_fd >= 0) close(file_fd);
+
+        file_fd = mandalorian_safe_openat(root_fd, "nested/data.txt",
+                                          MANDALORIAN_FS_WRITE_EXISTING);
+        check("open existing regular file for write", file_fd >= 0);
+        if (file_fd >= 0) {
+            check("write-existing mode does not truncate on open",
+                  fstat(file_fd, &(struct stat){0}) == 0);
+            check("write existing file content",
+                  write(file_fd, "changed", 7) == 7);
+            close(file_fd);
+            file_fd = mandalorian_safe_openat(root_fd, "nested/data.txt",
+                                              MANDALORIAN_FS_READ);
+            memset(buf, 0, sizeof(buf));
+            n = file_fd >= 0 ? read(file_fd, buf, sizeof(buf)) : -1;
+            check("write-existing changes only the opened regular file",
+                  n == 7 && memcmp(buf, "changed", 7) == 0);
+            if (file_fd >= 0) close(file_fd);
+        }
+
+        errno = 0;
         file_fd = mandalorian_safe_openat(root_fd, "nested/data.txt",
                                           (mandalorian_fs_access_t)99);
         check("reject unknown access mode", file_fd < 0 && errno == EINVAL);
