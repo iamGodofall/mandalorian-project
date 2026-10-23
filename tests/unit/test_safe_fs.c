@@ -49,8 +49,12 @@ int main(void)
     snprintf(file_path, sizeof(file_path), "%s/nested/data.txt", root_path);
     snprintf(link_path, sizeof(link_path), "%s/escape", root_path);
     snprintf(fifo_path, sizeof(fifo_path), "%s/nested/pipe", root_path);
+    snprintf(hardlink_path, sizeof(hardlink_path),
+             "/tmp/mandalorian-safe-fs-hardlink-%ld", (long)getpid());
+    (void)unlink(hardlink_path);
 
     char fifo_path[512];
+    char hardlink_path[512];
     check("create nested directory", mkdir(nested, 0700) == 0);
     file_fd = open(file_path, O_WRONLY | O_CREAT | O_EXCL, 0600);
     check("create regular test file", file_fd >= 0);
@@ -186,6 +190,15 @@ int main(void)
             if (file_fd >= 0) close(file_fd);
         }
 
+        check("create hard link outside trusted root",
+              link(file_path, hardlink_path) == 0);
+        errno = 0;
+        file_fd = mandalorian_safe_openat(root_fd, "nested/data.txt",
+                                          MANDALORIAN_FS_WRITE_EXISTING);
+        check("reject write through multiply-linked inode",
+              file_fd < 0 && errno == EMLINK);
+        if (file_fd >= 0) close(file_fd);
+
         errno = 0;
         file_fd = mandalorian_safe_openat(root_fd, "nested/data.txt",
                                           (mandalorian_fs_access_t)99);
@@ -200,6 +213,7 @@ int main(void)
         unlink(link_path);
         unlink(external_path);
     }
+    unlink(hardlink_path);
     unlink(fifo_path);
     unlink(file_path);
     rmdir(nested);
