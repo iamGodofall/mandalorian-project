@@ -25,9 +25,10 @@ typedef enum {
  * time relative to already-open directory descriptors, so renames of ancestor
  * pathnames cannot redirect subsequent traversal. The final file must already
  * exist and be a regular file. No create/truncate operation is performed.
- * Write access rejects files whose inode has multiple hard links, because an
- * alias may exist outside the trusted tree. This is conservative and does not
- * constrain mount points or replace OS-enforced process isolation.
+ * Write access rejects files whose inode has multiple hard links at the
+ * time of the check, because an alias may exist outside the trusted tree.
+ * This check is not race-proof against concurrent link-count changes and does
+ * not constrain mount points or replace OS-enforced process isolation.
  *
  * Returns a close-on-exec file descriptor on success, or -1 with errno set.
  */
