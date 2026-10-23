@@ -32,6 +32,8 @@ int main(void)
     char nested[512];
     char file_path[512];
     char link_path[512];
+    char fifo_path[512];
+    char hardlink_path[512];
     char external_template[] = "/tmp/mandalorian-safe-fs-outside-XXXXXX";
     const char *external_path = external_template;
     int external_created_fd = -1;
@@ -53,8 +55,6 @@ int main(void)
              "/tmp/mandalorian-safe-fs-hardlink-%ld", (long)getpid());
     (void)unlink(hardlink_path);
 
-    char fifo_path[512];
-    char hardlink_path[512];
     check("create nested directory", mkdir(nested, 0700) == 0);
     file_fd = open(file_path, O_WRONLY | O_CREAT | O_EXCL, 0600);
     check("create regular test file", file_fd >= 0);
