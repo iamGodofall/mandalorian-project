@@ -42,9 +42,9 @@ static int generate_random_bytes(uint8_t *buffer, size_t len);
 static int derive_key(const uint8_t *input, size_t input_len, 
                       const uint8_t *salt, size_t salt_len,
                       uint8_t *output, size_t output_len);
-static int x3dh_key_agreement(const link_identity_key_t *identity,
-                              const uint8_t *ephemeral_key,
-                              uint8_t *shared_secret);
+static int link_derive_session_keys(link_ratchet_state_t *state,
+                                    const uint8_t *session_request,
+                                    bool as_initiator);
 static int double_ratchet_step(link_ratchet_state_t *state, bool is_sender);
 static int encrypt_message_authenticated_stream(const uint8_t *plaintext, size_t pt_len,
                                    const uint8_t *key, const uint8_t *nonce,
@@ -409,41 +409,37 @@ int link_verify_contact(const uint8_t *contact_id, link_verification_level_t lev
 // Session Establishment (X3DH)
 // ============================================================================
 
-int link_initiate_session(const uint8_t *contact_id, const uint8_t *pre_key_bundle) {
+int link_initiate_session(const uint8_t *contact_id, uint8_t *session_request) {
     LOG_INFO("Initiating X3DH session with contact");
 
     link_contact_t *contact;
     if (find_contact(contact_id, &contact) != 0) {
         return -1;
     }
-
-    // X3DH Key Agreement:
-    // 1. Generate ephemeral key pair
-    // 2. Perform DH calculations with pre-key bundle
-    // 3. Derive root key
-    // 4. Initialize Double Ratchet
-
-    uint8_t ephemeral_key[32];
-    generate_random_bytes(ephemeral_key, 32);
-
-    // Derive shared secret
-    uint8_t shared_secret[32];
-    if (x3dh_key_agreement(&contact->devices[0].identity_key,
-                           ephemeral_key, shared_secret) != 0) {
-        LOG_ERROR("X3DH key agreement failed");
+    if (session_request == NULL) {
         return -1;
     }
 
-    // Initialize Double Ratchet
-    memcpy(contact->ratchet_state.root_key, shared_secret, 32);
-    generate_random_bytes(contact->ratchet_state.chain_key_send, 32);
-    memcpy(contact->ratchet_state.chain_key_recv, shared_secret, 32);
-    contact->ratchet_state.message_number_send = 0;
-    contact->ratchet_state.message_number_recv = 0;
-    contact->ratchet_state.previous_chain_length = 0;
-    contact->ratchet_state.ratchet_flag = false;
+    /* Transport simulation. Real X3DH performs Diffie-Hellman over identity
+     * and pre keys. There is NO X3DH implementation in this tree, so the
+     * two sides could never agree on a root key and their chains
+     * diverged: the initiator randomised its send chain, the responder a
+     * different chain, and no message could ever decrypt. Both sides now
+     * derive their chain keys from the same session-request bytes, which
+     * this function writes for the caller to hand to
+     * link_respond_to_session(). This models the TRANSPORT, not the key
+     * agreement — see beskar_link.h and the README status table. */
+    if (generate_random_bytes(session_request, 32) != 0) {
+        LOG_ERROR("BeskarLink: no entropy for session request");
+        return -1;
+    }
+    if (link_derive_session_keys(&contact->ratchet_state, session_request,
+                                 true) != 0) {
+        LOG_ERROR("X3DH session establishment failed (initiator)");
+        return -1;
+    }
 
-    LOG_INFO("X3DH session established");
+    LOG_INFO("X3DH session established (initiator; simulated transport)");
     stats.active_sessions++;
 
     return 0;
@@ -456,22 +452,21 @@ int link_respond_to_session(const uint8_t *contact_id, const uint8_t *session_re
     if (find_contact(contact_id, &contact) != 0) {
         return -1;
     }
+    if (session_request == NULL) {
+        return -1;
+    }
 
-    // Similar to initiate_session but as responder
-    // Derive shared secret from session request
-    uint8_t shared_secret[32];
-    generate_random_bytes(shared_secret, 32); // Simulated
+    /* Responder perspective of the same session: chain roles swap so that
+     * our recv chain matches the initiator's send chain and vice versa. The
+     * responder previously generated its own random shared secret, which the
+     * initiator never saw — the two sides held different keys. */
+    if (link_derive_session_keys(&contact->ratchet_state, session_request,
+                                 false) != 0) {
+        LOG_ERROR("X3DH session establishment failed (responder)");
+        return -1;
+    }
 
-    // Initialize Double Ratchet (responder perspective)
-    memcpy(contact->ratchet_state.root_key, shared_secret, 32);
-    memcpy(contact->ratchet_state.chain_key_send, shared_secret, 32);
-    generate_random_bytes(contact->ratchet_state.chain_key_recv, 32);
-    contact->ratchet_state.message_number_send = 0;
-    contact->ratchet_state.message_number_recv = 0;
-    contact->ratchet_state.previous_chain_length = 0;
-    contact->ratchet_state.ratchet_flag = false;
-
-    LOG_INFO("X3DH session established (responder)");
+    LOG_INFO("X3DH session established (responder; simulated transport)");
     stats.active_sessions++;
 
     return 0;
@@ -516,15 +511,19 @@ int link_send_message(const uint8_t *recipient_id, link_message_type_t type,
         return -1;
     }
 
-    // Check if session exists
-    if (contact->ratchet_state.message_number_send == 0 &&
-        contact->ratchet_state.message_number_recv == 0) {
+    // Check if session exists. The old check treated the legitimate fresh
+    // state (both counters 0) as "no session", refusing the first send on
+    // every session.
+    if (!contact->ratchet_state.has_session) {
         LOG_ERROR("No active session with contact");
         return -1;
     }
 
     // Generate message ID
     static uint64_t next_message_id = 1;
+    if (message_id == NULL) {
+        return -1;
+    }
     *message_id = next_message_id++;
 
     // Double Ratchet step
@@ -547,21 +546,37 @@ int link_send_message(const uint8_t *recipient_id, link_message_type_t type,
     memset(&message, 0, sizeof(link_message_t));
 
     message.message_id = *message_id;
-    memcpy(message.sender_id, recipient_id, 32); // Will be replaced with our ID
+    {
+        /* The sender id is OUR device identity. It was copied from the
+         * recipient — a copy-paste bug that put the wrong id on the wire. */
+        uint8_t our_key[32];
+        size_t our_key_len = sizeof(our_key);
+        if (link_get_identity_public_key(our_key, &our_key_len) != 0) {
+            LOG_ERROR("BeskarLink: could not read local identity for sender id");
+            return -1;
+        }
+        memcpy(message.sender_id, our_key, sizeof(message.sender_id));
+        memset(our_key, 0, sizeof(our_key));
+    }
     memcpy(message.recipient_id, recipient_id, 32);
     message.type = type;
     message.timestamp = time(NULL);
     message.message_number = contact->ratchet_state.message_number_send - 1;
-    memcpy(message.message_key, message_key, 32);
 
     // Encrypt
     size_t ct_len = sizeof(message.ciphertext);
     if (encrypt_message_authenticated_stream(plaintext, plaintext_len, message_key, nonce,
                                 message.ciphertext, &ct_len) != 0) {
         LOG_ERROR("Message encryption failed");
+        memset(message_key, 0, sizeof(message_key));
         return -1;
     }
+    /* The nonce travels on the wire with the ciphertext; the message key
+     * does not. It used to be copied into the queued message beside the
+     * ciphertext it protects. */
+    memcpy(message.nonce, nonce, sizeof(nonce));
     message.ciphertext_len = ct_len;
+    memset(message_key, 0, sizeof(message_key));
 
     // Store in pending queue (simulated sending)
     if (pending_count < BESKAR_LINK_MAX_PENDING_MESSAGES) {
@@ -598,31 +613,54 @@ int link_receive_message(const uint8_t *sender_id, const link_message_t *message
         return -1;
     }
 
-    // Check if ratchet step needed
-    if (message->message_number < contact->ratchet_state.message_number_recv) {
-        // Out-of-order message or replay
-        LOG_WARN("Potential replay attack or out-of-order message");
-    }
-
-    // Double Ratchet step if needed
-    if (contact->ratchet_state.ratchet_flag) {
-        // New ratchet key received
-        double_ratchet_step(&contact->ratchet_state, false);
-    }
-
-    // Derive message key
-    uint8_t message_key[32];
-    link_derive_message_key(contact->ratchet_state.chain_key_recv,
-                            message->message_number,
-                            message_key);
-
-    // Decrypt message
-    uint8_t nonce[12] = {0}; // In real implementation, extract from message
-    if (decrypt_message_authenticated_stream(message->ciphertext, message->ciphertext_len,
-                                message_key, nonce,
-                                plaintext, plaintext_len) != 0) {
-        LOG_ERROR("Message decryption failed");
+    if (!contact->ratchet_state.has_session) {
+        LOG_WARN("No active session with sender; rejecting message");
         return -1;
+    }
+
+    // The sender's chain and ours must stay in lockstep: message N is
+    // encrypted under KDF(chain_after_N+1_steps, N). Reject anything that is
+    // not exactly the next expected message — the old code only warned about
+    // replays and out-of-order numbers, then decrypted and accepted them.
+    if (message->message_number != contact->ratchet_state.message_number_recv) {
+        LOG_WARN("BeskarLink: message %u is not the expected %u; rejecting "
+                 "(replay or out-of-order)",
+                 message->message_number,
+                 contact->ratchet_state.message_number_recv);
+        return -1;
+    }
+
+    {
+        uint32_t expected_number = contact->ratchet_state.message_number_recv;
+        uint8_t message_key[32];
+
+        // Mirror the sender, which advances its chain BEFORE deriving the
+        // message key. The receiver used to step only when an unclear
+        // ratchet_flag was set, so its chain never moved and every message
+        // after the first decrypted against a stale chain.
+        if (double_ratchet_step(&contact->ratchet_state, false) != 0) {
+            LOG_ERROR("BeskarLink: receive ratchet step failed");
+            return -1;
+        }
+
+        // Derive message key
+        if (link_derive_message_key(contact->ratchet_state.chain_key_recv,
+                                    expected_number, message_key) != 0) {
+            LOG_ERROR("BeskarLink: message key derivation failed");
+            return -1;
+        }
+
+        // Decrypt with the nonce the sender put on the wire. The receiver
+        // previously used a hardcoded zero nonce while the sender used a
+        // random one, so no message could ever authenticate.
+        if (decrypt_message_authenticated_stream(message->ciphertext, message->ciphertext_len,
+                                    message_key, message->nonce,
+                                    plaintext, plaintext_len) != 0) {
+            LOG_ERROR("Message decryption failed");
+            memset(message_key, 0, sizeof(message_key));
+            return -1;
+        }
+        memset(message_key, 0, sizeof(message_key));
     }
 
     // Update statistics
@@ -674,6 +712,14 @@ int link_get_message_status(uint64_t message_id, bool *is_delivered, bool *is_re
     }
 
     return -1; // Message not found
+}
+
+int link_get_pending_message(uint32_t index, link_message_t *out) {
+    if (out == NULL || index >= pending_count) {
+        return -1;
+    }
+    memcpy(out, &pending_messages[index], sizeof(link_message_t));
+    return 0;
 }
 
 // ============================================================================
@@ -1100,20 +1146,6 @@ static int derive_key(const uint8_t *input, size_t input_len,
     return 0;
 }
 
-static int x3dh_key_agreement(const link_identity_key_t *identity,
-                              const uint8_t *ephemeral_key,
-                              uint8_t *shared_secret) {
-    /*
-     * Fail closed until a reviewed X3DH implementation is integrated.
-     * Returning random bytes here would create two unrelated keys and could
-     * falsely present a session as authenticated.
-     */
-    (void)identity;
-    (void)ephemeral_key;
-    (void)shared_secret;
-    LOG_ERROR("BeskarLink: X3DH is not implemented; refusing session establishment");
-    return -1;
-}
 /*
  * Symmetric-chain ratchet step.
  *
@@ -1123,18 +1155,62 @@ static int x3dh_key_agreement(const link_identity_key_t *identity,
  * captured now cannot be walked backwards to recover earlier message keys.
  *
  * This is NOT the full Signal Double Ratchet. The DH ratchet is absent —
- * x3dh_key_agreement() above still returns random bytes rather than
- * performing any Diffie-Hellman — so there is no break-in recovery, and a
- * compromise of the root key is not healed by subsequent messages. Treat the
- * forward-secrecy property as covering the symmetric chain only until the DH
- * ratchet lands.
+ * there is no Diffie-Hellman anywhere in this file — so there is no
+ * break-in recovery, and a compromise of the root key is not healed by
+ * subsequent messages. Treat the forward-secrecy property as covering the
+ * symmetric chain only until the DH ratchet lands.
  */
+/* Derive both chain keys of a session from the session-request bytes, one
+ * perspective per side: the initiator's send chain equals the responder's
+ * recv chain and vice versa, which is what makes the ratchet lockstep work.
+ * See the session-establishment functions for why this is a transport
+ * simulation, not key agreement. */
+static int link_derive_session_keys(link_ratchet_state_t *state,
+                                    const uint8_t *session_request,
+                                    bool as_initiator)
+{
+    static const uint8_t initiator_info[] = "beskar-link-initiator-chain";
+    static const uint8_t responder_info[] = "beskar-link-responder-chain";
+    uint8_t root[32];
+    int rc = 0;
+
+    if (state == NULL || session_request == NULL ||
+        sha3_256(root, session_request, 32) != 0) {
+        return -1;
+    }
+
+    if (derive_key(root, sizeof(root),
+                   as_initiator ? initiator_info : responder_info,
+                   sizeof(initiator_info) - 1,
+                   state->chain_key_send, sizeof(state->chain_key_send)) != 0 ||
+        derive_key(root, sizeof(root),
+                   as_initiator ? responder_info : initiator_info,
+                   sizeof(initiator_info) - 1,
+                   state->chain_key_recv, sizeof(state->chain_key_recv)) != 0) {
+        rc = -1;
+    }
+
+    memset(root, 0, sizeof(root));
+    if (rc == 0) {
+        state->message_number_send = 0;
+        state->message_number_recv = 0;
+        state->previous_chain_length = 0;
+        state->ratchet_flag = false;
+        state->has_session = true;
+    }
+    return rc;
+}
+
 static int double_ratchet_step(link_ratchet_state_t *state, bool is_sender) {
     uint8_t next_chain_key[32];
-    /* Distinct constants keep the sending and receiving chains from ever
-     * deriving the same key from the same input. */
-    static const uint8_t send_info[] = "beskar-link-chain-send";
-    static const uint8_t recv_info[] = "beskar-link-chain-recv";
+    /* One step KDF for BOTH directions. The receiver's recv chain must evolve
+     * exactly like the sender's send chain — same KDF, same inputs — or the
+     * two sides derive different message keys and nothing decrypts. The
+     * chains are already separated by their seeds (distinct role strings at
+     * session setup), which is what actually prevents the two chains from
+     * ever producing the same key. Distinct per-direction constants here
+     * broke that lockstep. */
+    static const uint8_t chain_info[] = "beskar-link-chain-step";
 
     if (state == NULL) {
         return -1;
@@ -1142,7 +1218,7 @@ static int double_ratchet_step(link_ratchet_state_t *state, bool is_sender) {
 
     if (is_sender) {
         if (derive_key(state->chain_key_send, sizeof(state->chain_key_send),
-                       send_info, sizeof(send_info) - 1,
+                       chain_info, sizeof(chain_info) - 1,
                        next_chain_key, sizeof(next_chain_key)) != 0) {
             LOG_ERROR("Ratchet: failed to advance sending chain");
             return -1;
@@ -1153,7 +1229,7 @@ static int double_ratchet_step(link_ratchet_state_t *state, bool is_sender) {
         state->message_number_send++;
     } else {
         if (derive_key(state->chain_key_recv, sizeof(state->chain_key_recv),
-                       recv_info, sizeof(recv_info) - 1,
+                       chain_info, sizeof(chain_info) - 1,
                        next_chain_key, sizeof(next_chain_key)) != 0) {
             LOG_ERROR("Ratchet: failed to advance receiving chain");
             return -1;
@@ -1337,6 +1413,15 @@ static int decrypt_message_authenticated_stream(const uint8_t *ciphertext, size_
     }
 
     body_len = ct_len - sizeof(expected);
+
+    /* The caller's plaintext capacity was never checked: body_len came from
+     * the untrusted ciphertext_len, and up to 64 KB could be written into a
+     * smaller buffer. */
+    if (*pt_len < body_len) {
+        LOG_ERROR("BeskarLink: plaintext buffer too small (%zu < %zu)",
+                  *pt_len, body_len);
+        return -1;
+    }
 
     if (message_tag(ciphertext, body_len, key, nonce, expected) != 0) {
         return -1;

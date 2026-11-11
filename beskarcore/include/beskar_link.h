@@ -81,6 +81,11 @@ typedef struct {
     uint32_t message_number_recv;
     uint32_t previous_chain_length;
     bool ratchet_flag;  // True if we need to ratchet
+    bool has_session;   // Set by session establishment. The old "is there a
+                        // session" test checked message_number_send == 0 &&
+                        // message_number_recv == 0, which is the legitimate
+                        // state of a fresh session — so the first send was
+                        // always refused.
 } link_ratchet_state_t;
 
 // Identity key (X25519)
@@ -123,7 +128,10 @@ typedef struct {
     link_message_type_t type;
     uint8_t ciphertext[BESKAR_LINK_MAX_MESSAGE_SIZE];
     size_t ciphertext_len;
-    uint8_t message_key[32];  // Ephemeral key for this message
+    uint8_t nonce[12];  // Per-message nonce, travels ON the wire. The message
+                        // key never does: a message_key[32] field used to sit
+                        // here, storing the key beside the ciphertext it
+                        // protects.
     uint32_t message_number;
     time_t timestamp;
     uint64_t reply_to_id;  // For threaded replies
@@ -213,7 +221,13 @@ int link_unblock_contact(const uint8_t *contact_id);
 int link_verify_contact(const uint8_t *contact_id, link_verification_level_t level);
 
 // Session establishment (X3DH)
-int link_initiate_session(const uint8_t *contact_id, const uint8_t *pre_key_bundle);
+/* The session request is the transport: initiate() WRITES 32 random bytes
+ * for the caller to deliver to the peer, respond() READS them. Both sides
+ * derive their chain keys from the same request bytes. That models the
+ * transport, not the key agreement — real X3DH (Diffie-Hellman over
+ * identity + pre keys) is NOT implemented, and anyone who reads the session
+ * request can derive the secret. See the README status table. */
+int link_initiate_session(const uint8_t *contact_id, uint8_t *session_request);
 int link_respond_to_session(const uint8_t *contact_id, const uint8_t *session_request);
 int link_close_session(const uint8_t *contact_id);
 
@@ -227,6 +241,11 @@ int link_send_group_message(const uint8_t *group_id, link_message_type_t type,
                             const uint8_t *plaintext, size_t plaintext_len);
 int link_delete_message(uint64_t message_id);
 int link_get_message_status(uint64_t message_id, bool *is_delivered, bool *is_read);
+/* Fetch a queued (pending) message by index. The pending queue is the
+ * simulated transport — a real device would deliver over the network; the
+ * demo and tests use this to feed link_receive_message() with what was
+ * actually sent. */
+int link_get_pending_message(uint32_t index, link_message_t *out);
 
 // Group management
 int link_create_group(const char *group_name, const uint8_t *initial_members[],

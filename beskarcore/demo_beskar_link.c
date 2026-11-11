@@ -120,14 +120,32 @@ void demo_secure_messaging(void) {
     link_contact_t *alice = &contacts[0];
     printf("Initiating secure session with %s...\n", alice->display_name);
     
-    // Initiate X3DH session
-    uint8_t pre_key_bundle[128];
-    memset(pre_key_bundle, 0xAB, sizeof(pre_key_bundle)); // Simulated
+    // A second record holds the PEER'S view of the same session (single
+    // process: both nodes live here). Its recv chain must match the
+    // initiator's send chain for the round trip below to decrypt.
+    link_contact_t alice_peer;
+    if (link_add_contact("+1-555-0100-peer", "Alice (peer view)", &alice_peer) != 0) {
+        printf("❌ Failed to add peer-view contact\n");
+        return;
+    }
     
-    if (link_initiate_session(alice->contact_id, pre_key_bundle) == 0) {
-        printf("✅ X3DH session established\n");
+    // Initiate X3DH session. The session request is the transport: on real
+    // devices the initiator sends it to the peer. NOTE: deriving session keys
+    // from the request bytes is a transport simulation — real X3DH
+    // (Diffie-Hellman) is NOT implemented; see the README status table.
+    uint8_t session_request[32];
+    
+    if (link_initiate_session(alice->contact_id, session_request) == 0) {
+        printf("✅ X3DH session established (initiator)\n");
     } else {
         printf("❌ Failed to establish session\n");
+        return;
+    }
+    
+    if (link_respond_to_session(alice_peer.contact_id, session_request) == 0) {
+        printf("✅ Peer session established (responder view, same request bytes)\n");
+    } else {
+        printf("❌ Failed to establish peer session\n");
         return;
     }
     
@@ -146,7 +164,7 @@ void demo_secure_messaging(void) {
     }
     
     // Send another message
-    const char *message2 = "The Double Ratchet protocol ensures perfect forward secrecy!";
+    const char *message2 = "The ratchet advances per message; replay is rejected.";
     uint64_t msg_id2;
     
     printf("\nSending second message...\n");
@@ -159,31 +177,39 @@ void demo_secure_messaging(void) {
         printf("❌ Failed to send message\n");
     }
     
-    // Simulate receiving a message
-    printf("\nSimulating received message...\n");
-    link_message_t received_msg;
-    memset(&received_msg, 0, sizeof(received_msg));
-    received_msg.message_id = 999;
-    memcpy(received_msg.sender_id, alice->contact_id, 32);
-    received_msg.type = LINK_MESSAGE_TEXT;
-    received_msg.timestamp = time(NULL);
-    received_msg.message_number = 0;
-    
-    // Create encrypted content
-    const char *reply = "Hi! Received your secure message.";
-    memcpy(received_msg.ciphertext, reply, strlen(reply));
-    received_msg.ciphertext_len = strlen(reply);
-    
-    uint8_t decrypted[256];
-    size_t decrypted_len = sizeof(decrypted);
-    
-    if (link_receive_message(alice->contact_id, &received_msg,
-                             decrypted, &decrypted_len) == 0) {
-        decrypted[decrypted_len] = '\0';
-        printf("✅ Message received and decrypted\n");
-        printf("   Decrypted: \"%s\"\n", decrypted);
-    } else {
-        printf("❌ Failed to receive message\n");
+    // REAL round trip: fetch queued message 0 from the simulated transport,
+    // stamp the wire sender id, and feed it through link_receive_message.
+    // The demo previously hand-crafted a fake "ciphertext" that was plain
+    // text with no nonce — it never exercised the real decrypt path.
+    printf("\nRound trip through the simulated transport...\n");
+    {
+        static link_message_t queued;   /* ~64 KB; keep it off the stack */
+        static uint8_t decrypted[BESKAR_LINK_MAX_MESSAGE_SIZE];
+        size_t decrypted_len = sizeof(decrypted);
+        
+        if (link_get_pending_message(0, &queued) != 0) {
+            printf("❌ No queued message to deliver\n");
+            return;
+        }
+        memcpy(queued.sender_id, alice_peer.contact_id, 32);
+        
+        if (link_receive_message(alice_peer.contact_id, &queued,
+                                 decrypted, &decrypted_len) == 0) {
+            printf("✅ Message received and decrypted (%zu bytes)\n", decrypted_len);
+            printf("   Decrypted: \"%.*s\"\n", (int)decrypted_len, decrypted);
+        } else {
+            printf("❌ Failed to receive message\n");
+        }
+        
+        // Replay the same wire message: it must be rejected, not decrypted.
+        decrypted_len = sizeof(decrypted);
+        if (link_receive_message(alice_peer.contact_id, &queued,
+                                 decrypted, &decrypted_len) != 0) {
+            printf("✅ Replay of the same message REJECTED\n");
+        } else {
+            printf("❌ REPLAY ACCEPTED (security failure)\n");
+        }
+        memset(decrypted, 0, sizeof(decrypted));
     }
     
     // Check message status
