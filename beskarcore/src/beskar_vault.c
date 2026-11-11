@@ -338,6 +338,28 @@ int vault_get_key_metadata(vault_key_type_t type, vault_key_metadata_t *metadata
 
 
 
+/* Simulated signature = SHA3-256(data || private_key), streamed through the
+ * incremental SHA3 API. Both call sites used to materialise a
+ * `uint8_t hash_input[data_len + 64]` VLA sized by unbounded caller input —
+ * a large data_len exhausted the stack with no recoverable error, and a
+ * NULL data with data_len > 0 was an unchecked NULL memcpy. */
+static int vault_signature_hash(uint8_t hash[32], const uint8_t *data,
+                                size_t data_len, const uint8_t *private_key)
+{
+    sha3_ctx_t ctx;
+
+    if (data_len > 0 && data == NULL) {
+        return -1;
+    }
+    if (sha3_256_init(&ctx) != 0 ||
+        sha3_update(&ctx, data, data_len) != 0 ||
+        sha3_update(&ctx, private_key, 64) != 0 ||
+        sha3_final(&ctx, hash) != 0) {
+        return -1;
+    }
+    return 0;
+}
+
 int vault_sign(vault_key_type_t key, const uint8_t *data, size_t data_len,
                uint8_t *signature, size_t *sig_len) {
 
@@ -363,12 +385,11 @@ int vault_sign(vault_key_type_t key, const uint8_t *data, size_t data_len,
     }
 
     // Simple simulation: hash(data || private_key)
-    uint8_t hash_input[data_len + 64];
-    memcpy(hash_input, data, data_len);
-    memcpy(hash_input + data_len, key_slots[key].private_key, 64);
-
     uint8_t hash[32];
-    sha3_256(hash, hash_input, data_len + 64);
+    if (vault_signature_hash(hash, data, data_len, key_slots[key].private_key) != 0) {
+        LOG_ERROR("Vault: signature hash failed for key slot %d", key);
+        return -1;
+    }
 
     // Create 64-byte signature (simplified)
     memcpy(signature, hash, 32);
@@ -405,12 +426,11 @@ int vault_verify(vault_key_type_t key, const uint8_t *data, size_t data_len,
     size_t expected_len = 64;
     
     // Re-create signature to verify
-    uint8_t hash_input[data_len + 64];
-    memcpy(hash_input, data, data_len);
-    memcpy(hash_input + data_len, key_slots[key].private_key, 64);
-
     uint8_t hash[32];
-    sha3_256(hash, hash_input, data_len + 64);
+    if (vault_signature_hash(hash, data, data_len, key_slots[key].private_key) != 0) {
+        LOG_WARN("Signature verification failed for key slot %d", key);
+        return -1;
+    }
 
     memcpy(expected_sig, hash, 32);
     memcpy(expected_sig + 32, key_slots[key].public_key, 32);

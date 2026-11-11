@@ -43,6 +43,19 @@ exec_result_t executor_perform(const mandalorian_request_t *req)
         return EXEC_OK;
     }
 
+    if (strncmp(req->action, "access_", 7) == 0) {
+        /* Simulated hardware access (access_camera, access_mic, ...), the
+         * shape Helm capability grants arrive in. On the host build there is
+         * no camera or microphone to open — the grant and its receipt are
+         * real, the actuation is what does not exist. This branch exists
+         * because Helm used to hand the gate actions it had no handler for,
+         * so every granted capability died at step 8 with EXECUTION_FAILED
+         * even after attestation and issuance succeeded. */
+        LOG_INFO("Executor: simulated hardware access '%s' granted (host build)",
+                 req->action);
+        return EXEC_OK;
+    }
+
     /* Previously this returned EXEC_OK for everything, so an unimplemented
      * action reported success and produced a receipt saying so. */
     LOG_WARN("Executor: no handler for action '%s'; denying", req->action);
