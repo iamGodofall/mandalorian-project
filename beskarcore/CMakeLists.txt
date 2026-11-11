@@ -16,6 +16,9 @@ add_library(beskarcore STATIC
     src/beskar_enterprise.c
     src/boot_rom.c
     src/dummy_app.c
+    src/chacha20poly1305.c
+    src/tweetnacl/tweetnacl.c
+    src/tweetnacl/tweetnacl_random.c
 )
 
 target_include_directories(beskarcore PUBLIC
