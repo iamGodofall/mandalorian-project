@@ -1,12 +1,14 @@
 # BeskarLink — Secure Messaging Protocol
 
-> **Status (2026-11):** The message path is a **SHA3-based keystream with a
-> SHA3 MAC** and a symmetric-chain ratchet. The demo performs a real encrypt →
-> deliver → decrypt round trip and rejects replays. There is **no X3DH, no DH
-> ratchet, no Kyber, no AES-256-GCM** in this tree, and it is not compatible
-> with Signal clients. Everything below that mentions those is the TARGET
-> design, not what ships. Do not protect real messages with this code. See
-> the README status table.
+> **Status (2026-11):** The message path uses **AEAD_CHACHA20_POLY1305 per
+> RFC 8439** — implemented in-tree (src/chacha20poly1305.c) and pinned to the
+> RFC's published test vectors in CI — over a symmetric-chain ratchet, with
+> the message number and recipient bound as associated data. The demo
+> performs a real encrypt → deliver → decrypt round trip and rejects
+> replays. There is **no X3DH, no DH ratchet, no Kyber** in this tree, and it
+> is not compatible with Signal clients; the AEAD has not been third-party
+> reviewed. Everything below that mentions those is the TARGET design, not
+> what ships. See the README status table.
 
 > Signal Protocol + Post-Quantum Augmentation (target design). No metadata. No cloud dependency.
 

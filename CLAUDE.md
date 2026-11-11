@@ -136,15 +136,22 @@ project spent a long time violating its own licence. Hold to it:
 
 Keep this list honest and current. As of the last update:
 
-- **X3DH / DH ratchet.** `x3dh_key_agreement()` returns random bytes. The
-  symmetric chain ratchet works; there is no break-in recovery. This is not the
-  Signal Double Ratchet.
-- **Message AEAD.** BeskarLink uses a SHA3-based keystream and a SHA3 MAC. Not
-  a reviewed construction. Do not protect real messages with it.
+- **X3DH / DH ratchet.** There is no Diffie-Hellman anywhere in the tree; session
+  chain keys derive from the session-request bytes, which simulates the transport,
+  not key agreement. The symmetric chain ratchet works; there is no break-in
+  recovery. This is not the Signal Double Ratchet.
+- **Message AEAD review.** BeskarLink now encrypts with AEAD_CHACHA20_POLY1305
+  (RFC 8439), implemented in-tree and pinned to the RFC's published test vectors
+  in CI. The construction is standard; the implementation has not been reviewed
+  by a third party. Do not call it audited.
+- **Ed25519 third-party review.** Verified boot verifies signatures through the
+  vendored TweetNaCl (public-domain reference implementation), pinned to RFC 8032
+  vectors in CI. The code is real; the review is not.
 - **Post-quantum anything.** No Dilithium, no Kyber, nowhere in the tree.
 - **Hardware root of trust.** `boot_init()` refuses `enable_secure_boot`
-  because there is nothing to anchor it to. Measured boot works; secure boot
-  does not exist.
+  because there is nothing to anchor it to. Measured boot works; signature
+  verification of a boot image works; anchoring the verification key to
+  hardware does not exist.
 - **Keys out of application RAM.** The vault holds private keys in ordinary
   memory. A real HSM never exposes them.
 - **Third-party audit.** None. No formal verification beyond seL4's own.

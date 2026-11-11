@@ -19,6 +19,59 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Security
+- **Verified boot verifies signatures.** Ed25519 verification is real: the
+  public-domain TweetNaCl (version 20140427) is vendored at
+  `beskarcore/src/tweetnacl/`, wired into `ed25519_verify()`, and pinned to
+  the RFC 8032 §7.1 test vectors plus tamper negatives in CI
+  (`test_ed25519`). A hardware root of trust for the verification key is
+  still Phase 2/3 — `boot_init()` continues to refuse `enable_secure_boot`.
+- **BeskarLink encrypts with a real AEAD.** AEAD_CHACHA20_POLY1305
+  (RFC 8439) is implemented in `src/chacha20poly1305.c` and pinned to the
+  RFC's block-function, Poly1305 and full-AEAD test vectors in CI
+  (`test_chacha20poly1305`), replacing the homemade SHA3 keystream + MAC.
+  The tag binds the message number and recipient as associated data, so a
+  recorded ciphertext cannot be spliced into another ratchet position or
+  conversation.
+- **Vault PIN is real.** `vault_set_pin()` enrolls a salted SHA3-256
+  verifier; `vault_authenticate_pin()` verifies against it in constant time
+  and FAILS CLOSED when no PIN is enrolled — the old code accepted any
+  non-empty PIN. The verifier lives outside `vault_status_t` so
+  `vault_get_status()` cannot leak it.
+- **`vault_secure_free()` wipes whole allocations.** It used to wipe only
+  the first 64-byte block of a multi-block allocation, leaking the rest of
+  freed key material; allocation run lengths are now tracked.
+- **DENY-mode permission grants actually deny.** A DENY grant set the
+  permission mask bit (the opposite of its meaning) and `check_permission()`
+  never read `grant_mode`.
+- **Enterprise audit verification checks something.** The "verify audit log
+  integrity" loop was empty and always returned success; it now recomputes
+  every entry's stored hash and fails on the first mismatch.
+- **Device ids are CSPRNG.** Enrollment used SHA3(name || email || time) —
+  guessable to anyone who knew the device name and enrollment time.
+- **Helm rejects replayed nonces** within the freshness window (64-entry
+  digest ring under the session mutex) and now updates the attestation
+  counters it previously left at zero. Dead duplicate lifecycle statics
+  removed from attestation.c.
+
+### Added
+- STRIDE threat model at `docs/security/THREAT_MODEL.md` (also on the docs
+  site): assets, four trust boundaries, current vs roadmap mitigations,
+  explicit non-goals, and the CI gates that keep it honest.
+
+### Changed
+- CI: crypto-vectors job now runs the Ed25519 (RFC 8032) and
+  ChaCha20-Poly1305 (RFC 8439) vector suites alongside FIPS 202; new
+  coverage job (reported, not gated); new non-blocking Windows/MSVC job.
+- Docs aligned with the new reality: README status table, CLAUDE.md's
+  "genuinely not implemented" list, BeskarLink's docs banner, LICENSE
+  component attributions (TweetNaCl, public domain).
+
+### Fixed
+- BeskarLink demo and vault demo updated for the fail-closed PIN flow.
+
+## [Unreleased]
+
+### Security
 - **Verified boot fails closed**: `ed25519_verify()` used to end with `return 0; // Assume verification passes for demo` — verified boot accepted any (image, signature) pair. The dead, broken Ed25519 body (~680 lines) is removed; the function now refuses every image until a real, vector-tested implementation lands. New negative test `test_verified_boot` proves it.
 - **Helm attestation verifies signatures**: the check was `bool signature_valid = true; // Placeholder` and the only caller self-attested with a zeroed signature. Attestation is now real HMAC-SHA3-256 over (nonce ‖ app id) with a registered per-app key, constant-time compared; `helm_register_app_key()` takes an explicit key length.
 - **Aegis → Helm → gate path works end to end**: helm_init() installs a device gate key (CSPRNG on host), grants issue real signed capabilities instead of a zeroed struct, and the executor handles the access_* actions Helm grants. Previously the grant died at the gate's step-1 signature check.

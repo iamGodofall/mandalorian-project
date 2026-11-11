@@ -110,6 +110,8 @@ This project incorporates:
 
 - seL4 Microkernel: GPL-2.0 (see beskarcore/seL4/LICENSE.md)
 - HACL* Cryptography: MIT (see beskarcore/seL4/libsel4/LICENSES/)
+- TweetNaCl (Ed25519, vendored at beskarcore/src/tweetnacl/): PUBLIC DOMAIN
+  (version 20140427, https://tweetnacl.cr.yp.to/)
 - CAmkES: BSD-2-Clause (see beskarcore/CAmkES/LICENSE)
 
 The Mandalorian Project's original work is licensed as described above.

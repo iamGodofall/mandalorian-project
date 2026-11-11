@@ -64,13 +64,19 @@ jobs:
       - name: Configure and build
         run: |
           cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
-          cmake --build build --parallel --target test_sha3_vectors test_gate_enforcement
+          cmake --build build --parallel --target test_sha3_vectors test_gate_enforcement test_ed25519 test_chacha20poly1305
 
       - name: SHA3 against FIPS 202 vectors
         run: ./build/tests/test_sha3_vectors
 
       - name: Gate enforcement and HMAC vectors
         run: ./build/tests/test_gate_enforcement
+
+      - name: Ed25519 against RFC 8032 vectors
+        run: ./build/tests/test_ed25519
+
+      - name: ChaCha20-Poly1305 against RFC 8439 vectors
+        run: ./build/tests/test_chacha20poly1305
 
       - name: Cross-check the pinned vectors against hashlib
         run: |
@@ -130,6 +136,65 @@ jobs:
           ASAN_OPTIONS: detect_leaks=0
           UBSAN_OPTIONS: halt_on_error=1:print_stacktrace=1
         run: ctest --test-dir build-asan --output-on-failure
+
+
+  # ---------------------------------------------------------------------------
+  # Coverage. Reported, not gated: a threshold that always fails teaches
+  # people to ignore it.
+  # ---------------------------------------------------------------------------
+  coverage:
+    name: Coverage report
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install build tools
+        run: sudo apt-get update && sudo apt-get install -y gcc cmake ninja-build lcov
+
+      - name: Configure with coverage
+        run: cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug -DENABLE_COVERAGE=ON
+
+      - name: Build and test
+        run: |
+          cmake --build build --parallel
+          ctest --test-dir build --output-on-failure
+
+      - name: Generate coverage report
+        run: |
+          lcov --capture --directory build --output-file coverage.info --no-external
+          lcov --remove coverage.info '/usr/*' '*/src/tweetnacl/*' '*/tests/*' --output-file coverage.info
+          lcov --list coverage.info
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: coverage.info
+          retention-days: 30
+
+  # ---------------------------------------------------------------------------
+  # Windows (MSVC). Non-blocking for now: the shims (localtime_s, Sleep,
+  # bcrypt) landed for newer toolchains, but the runner's MSVC has not been
+  # tried; surface the failures instead of pretending they do not exist.
+  # ---------------------------------------------------------------------------
+  windows-build:
+    name: Windows (MSVC) build
+    runs-on: windows-latest
+    continue-on-error: true
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: cmake --build build --config Release --parallel
+
+      - name: Test
+        run: ctest --test-dir build -C Release --output-on-failure
 
   # ---------------------------------------------------------------------------
   # Duplicate-symbol guard.

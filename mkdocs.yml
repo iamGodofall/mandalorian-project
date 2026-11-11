@@ -57,6 +57,7 @@ nav:
     - BeskarLink: architecture/link.md
     - Shield Ledger: architecture/ledger.md
   - Security:
+    - Threat Model: security/THREAT_MODEL.md
     - Security Audit: security/SECURITY_AUDIT_CRITICAL_FINDINGS.md
     - Critical Fixes: security/CRITICAL_SECURITY_FIXES.md
     - BlackBerry Enhancements: security/BLACKBERRY_ENHANCEMENTS.md
