@@ -94,6 +94,12 @@ int gate_fuzz_one(const uint8_t *data, size_t size)
     }
     third = size / 3;
 
+    /* Reset policy state every input: without this the rate limiter denied
+     * everything after ~11 requests, and the "allowed" arm of every property
+     * below was vacuous for the rest of the run — the fuzzer proved nothing
+     * while looking busy. */
+    policy_reset_all();
+
     /* Case 1: a capability made of fuzz bytes must never authenticate. */
     memset(&forged, 0, sizeof(forged));
     memcpy(&forged, data, size < sizeof(forged) ? size : sizeof(forged));

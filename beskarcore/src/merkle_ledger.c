@@ -12,6 +12,7 @@
 
 #include "merkle_ledger.h"
 
+#include <pthread.h>
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
@@ -38,6 +39,13 @@ static ledger_entry_t ledger[LEDGER_MAX_ENTRIES];
 static int entry_count = 0;
 static uint8_t root_hash[LEDGER_HASH_SIZE] = {0};
 
+/* The vault, the guardian and BeskarLink all append to this ledger, and
+ * helm/ and beskarcore/ each run a monitoring pthread. The append path is a
+ * read-modify-write over shared slots (entry_count, prev chain, root) and
+ * was previously unlocked: concurrent appends collided on the same slot and
+ * forked the chain. One mutex guards every entry into the table. */
+static pthread_mutex_t ledger_mutex = PTHREAD_MUTEX_INITIALIZER;
+
 /* Serialise an entry into a canonical, endian-independent byte layout. */
 static void serialise_entry(const ledger_entry_t *entry,
                             uint8_t out[LEDGER_ENTRY_WIRE_SIZE])
@@ -55,7 +63,8 @@ static void serialise_entry(const ledger_entry_t *entry,
     memcpy(out + offset, entry->prev_hash, LEDGER_HASH_SIZE);
 }
 
-int add_ledger_entry(const char *event_type, const uint8_t *data_hash)
+/* Append one entry. Callers must hold ledger_mutex. */
+static int append_entry_locked(const char *event_type, const uint8_t *data_hash)
 {
     uint8_t wire[LEDGER_ENTRY_WIRE_SIZE];
     ledger_entry_t *entry;
@@ -92,6 +101,16 @@ int add_ledger_entry(const char *event_type, const uint8_t *data_hash)
     return 0;
 }
 
+int add_ledger_entry(const char *event_type, const uint8_t *data_hash)
+{
+    int rc;
+
+    pthread_mutex_lock(&ledger_mutex);
+    rc = append_entry_locked(event_type, data_hash);
+    pthread_mutex_unlock(&ledger_mutex);
+    return rc;
+}
+
 int append_receipt(const uint8_t *receipt_hash)
 {
     return add_ledger_entry("MANDALORIAN_RECEIPT", receipt_hash);
@@ -102,24 +121,33 @@ int get_root_hash(uint8_t *hash)
     if (hash == NULL) {
         return -1;
     }
+    pthread_mutex_lock(&ledger_mutex);
     memcpy(hash, root_hash, LEDGER_HASH_SIZE);
+    pthread_mutex_unlock(&ledger_mutex);
     return 0;
 }
 
 int init_shield_ledger(void)
 {
     uint8_t genesis[LEDGER_HASH_SIZE] = {0};
+    int rc;
 
+    pthread_mutex_lock(&ledger_mutex);
     entry_count = 0;
     memset(root_hash, 0, sizeof(root_hash));
     memset(ledger, 0, sizeof(ledger));
-
-    return add_ledger_entry("INIT", genesis);
+    rc = append_entry_locked("INIT", genesis);
+    pthread_mutex_unlock(&ledger_mutex);
+    return rc;
 }
 
 int get_ledger_entry_count(void)
 {
-    return entry_count;
+    int count;
+    pthread_mutex_lock(&ledger_mutex);
+    count = entry_count;
+    pthread_mutex_unlock(&ledger_mutex);
+    return count;
 }
 
 /**
