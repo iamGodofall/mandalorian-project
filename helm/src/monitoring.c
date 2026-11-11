@@ -5,6 +5,15 @@
 #include <string.h>
 #include <time.h>
 #include <pthread.h>
+
+/* usleep is POSIX-only; Sleep() is the Windows equivalent. */
+#ifdef _WIN32
+#include <windows.h>
+static void monitoring_sleep_ms(unsigned long ms) { Sleep(ms); }
+#else
+#include <unistd.h>
+static void monitoring_sleep_ms(unsigned long ms) { usleep(ms * 1000); }
+#endif
 #include "helm_internal.h"
 
 // Global monitoring state
@@ -71,7 +80,7 @@ static void *continuous_monitoring_thread(void *arg) {
         perform_continuous_attestation();
 
         // Sleep for monitoring interval (50ms like Continuous Guardian)
-        usleep(50000);
+        monitoring_sleep_ms(50);
     }
 
     LOG_INFO("Continuous monitoring thread stopped");
@@ -95,8 +104,12 @@ static void perform_continuous_attestation(void) {
     if (current_time - last_check >= 5) {  // Every 5 seconds
         LOG_DEBUG("Performing continuous attestation cycle");
 
-        // Check for expired capability sessions
+        // Check for expired capability sessions. Shared state with callers
+        // of create/revoke, so the scan-and-expire runs under the same mutex
+        // they hold — previously this pthread raced them for a lost grant or
+        // a torn read.
         int expired_sessions = 0;
+        pthread_mutex_lock(&helm_state_mutex);
         for (int i = 0; i < MAX_ACTIVE_SESSIONS; i++) {
             if (capability_sessions[i].active &&
                 current_time > capability_sessions[i].expires_time) {
@@ -105,6 +118,7 @@ static void perform_continuous_attestation(void) {
                 monitoring_stats.active_sessions--;
             }
         }
+        pthread_mutex_unlock(&helm_state_mutex);
 
         if (expired_sessions > 0) {
             LOG_INFO("Expired %d capability sessions", expired_sessions);

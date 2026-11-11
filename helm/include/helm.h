@@ -53,7 +53,12 @@ typedef struct {
 } helm_nonce_t;
 
 typedef struct {
-    uint8_t data[3293];  // CRYSTALS-Dilithium signature size
+    /* HMAC-SHA3-256 attestation tag. Was uint8_t[3293] "CRYSTALS-Dilithium
+     * signature size" — a size copied from a standard this tree has never
+     * implemented. Attestation today is HMAC-SHA3-256 over the nonce bytes
+     * plus the app id; see the README status table for what is not
+     * implemented yet. */
+    uint8_t data[32];
 } helm_signature_t;
 
 typedef struct {
@@ -125,7 +130,8 @@ helm_attest_result_t helm_request_capability(
 );
 
 // App Registration and Key Management
-int helm_register_app_key(uint32_t app_id, const uint8_t *public_key);
+int helm_register_app_key(uint32_t app_id, const uint8_t *attestation_key,
+                          size_t key_len);
 int helm_revoke_app_key(uint32_t app_id);
 
 // Hardware Security
@@ -169,8 +175,11 @@ const char* helm_result_to_string(helm_attest_result_t result);
 // Internal Constants (for reference)
 // ============================================================================
 
-#define CRYSTALS_DILITHIUM_PUBLIC_KEY_SIZE 1952
-#define CRYSTALS_DILITHIUM_SIGNATURE_SIZE 3293
+#define HELM_ATTESTATION_KEY_SIZE 32
+#define HELM_ATTESTATION_TAG_SIZE 32
+/* Wire size of the attestation message: 32 nonce bytes + 4-byte big-endian
+ * app id. */
+#define HELM_ATTESTATION_MSG_SIZE 36
 #define HELM_MAX_NONCE_SIZE 32
 #define HELM_MAX_APP_REGISTRY_SIZE 256
 #define HELM_MAX_ACTIVE_SESSIONS 1024

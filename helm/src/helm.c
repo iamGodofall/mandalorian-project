@@ -1,6 +1,10 @@
 #include "../include/helm.h"
 #include "../../beskarcore/include/logging.h"
 #include "../../beskarcore/include/monitoring.h"
+#include "../../beskarcore/include/secure_random.h"
+#include "issuer.h"
+#include "receipt.h"
+#include "verifier.h"
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
@@ -38,6 +42,25 @@ int helm_init(void) {
 
     // Initialize app registry
     memset(app_registry, 0, sizeof(app_registry));
+
+    // Install the device capability-signing key and give it to the issuer,
+    // the verifier and the receipt signer. On real hardware this key is
+    // fused or held in the HSM; the host build derives an ephemeral one from
+    // the OS CSPRNG. Without it, every capability Helm issues carries a
+    // zeroed signature and the gate's step-1 HMAC check denies it — which is
+    // exactly what the Aegis -> Helm -> gate path did (it never worked; the
+    // zeroed-capability call failed before this existed).
+    {
+        uint8_t gate_key[32];
+        if (secure_random_bytes(gate_key, sizeof(gate_key)) != 0 ||
+            issuer_set_key(gate_key, sizeof(gate_key)) != 0 ||
+            verifier_set_key(gate_key, sizeof(gate_key)) != 0 ||
+            receipt_set_key(gate_key, sizeof(gate_key)) != 0) {
+            LOG_ERROR("Helm: could not establish device gate key (fail closed)");
+            return -1;
+        }
+        memset(gate_key, 0, sizeof(gate_key));
+    }
 
     // Initialize monitoring stats
     memset(&monitoring_stats, 0, sizeof(monitoring_stats));
@@ -100,10 +123,16 @@ helm_security_status_t helm_get_security_status(void) {
 }
 
 helm_version_info_t helm_get_version(void) {
+    /* __DATE__/__TIME__ would stamp the build wall-clock into the binary, which
+     * breaks reproducible builds (and the licence's own condition 3). A
+     * deployment that wants a real stamp passes -DHELM_BUILD_DATE=... itself. */
+#ifndef HELM_BUILD_DATE
+#define HELM_BUILD_DATE "unknown"
+#endif
     helm_version_info_t info = {
         .version = HELM_VERSION,
         .protocol_version = HELM_PROTOCOL_VERSION,
-        .build_date = __DATE__ " " __TIME__,
+        .build_date = HELM_BUILD_DATE,
         .hardware_model = "RISC-V Security Enclave"
     };
     return info;

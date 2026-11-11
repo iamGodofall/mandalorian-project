@@ -18,16 +18,33 @@
 // - 20+ years of perfect security
 //
 // The Helm Modern Implementation:
-// - Post-quantum cryptographic attestation
+// - HMAC-SHA3-256 attestation over a per-app registered key
 // - Continuous runtime verification
 // - Capability-based access control
 // - Sovereign user-controlled security
 // ============================================================================
 
-// Simulated app identities (in real system, these would be registered during install)
-static uint8_t signal_public_key[1952] = {0};     // CRYSTALS-Dilithium public key
-static uint8_t whatsapp_public_key[1952] = {0};   // Would be different in reality
-static uint8_t instagram_public_key[1952] = {0};  // Would be different in reality
+// Simulated app identities (in real system, these would be registered during install).
+// Attestation is HMAC-SHA3-256 keyed with these app-specific 32-byte keys —
+// no post-quantum primitive exists in this tree yet (README status table).
+static const uint8_t signal_key[32] = {
+    0x8f, 0x21, 0x64, 0xc9, 0x11, 0xa3, 0x77, 0xbe,
+    0x5c, 0x90, 0xe2, 0x46, 0xd8, 0x13, 0x6a, 0xfb,
+    0x27, 0x71, 0xb9, 0x04, 0xcc, 0x58, 0xad, 0x30,
+    0x92, 0x6d, 0x15, 0xf7, 0x3e, 0x84, 0x40, 0xca
+};
+static const uint8_t whatsapp_key[32] = {
+    0x3d, 0xa7, 0x19, 0x52, 0xe6, 0x0b, 0x88, 0x41,
+    0xfd, 0x76, 0x2c, 0x90, 0x55, 0xc4, 0x18, 0xbb,
+    0x69, 0x07, 0xd1, 0x3a, 0x8e, 0x4f, 0x92, 0x26,
+    0xb5, 0x60, 0xed, 0x74, 0x0f, 0x83, 0x37, 0xaa
+};
+static const uint8_t instagram_key[32] = {
+    0x54, 0xc8, 0x30, 0x9b, 0x7f, 0x16, 0xad, 0x62,
+    0x08, 0xe5, 0x49, 0xd0, 0x93, 0x2b, 0x7c, 0x10,
+    0xf6, 0x45, 0x88, 0x1d, 0xc0, 0x73, 0x29, 0x9e,
+    0x64, 0x0a, 0xb3, 0x57, 0xce, 0x81, 0x1f, 0x46
+};
 
 void demonstrate_10nes_security(void) {
     printf("🎮 THE HELM - Nintendo 10NES Security Demonstration\n");
@@ -61,21 +78,21 @@ void demonstrate_10nes_security(void) {
     printf("📦 PHASE 2: Registering apps with The Helm...\n");
 
     // Register Signal (privacy-focused app)
-    if (helm_register_app_key(1, signal_public_key) != 0) {
+    if (helm_register_app_key(1, signal_key, sizeof(signal_key)) != 0) {
         printf("❌ Failed to register Signal\n");
         return;
     }
     printf("✅ Signal registered (app ID: 1)\n");
 
     // Register WhatsApp (less trustworthy)
-    if (helm_register_app_key(2, whatsapp_public_key) != 0) {
+    if (helm_register_app_key(2, whatsapp_key, sizeof(whatsapp_key)) != 0) {
         printf("❌ Failed to register WhatsApp\n");
         return;
     }
     printf("✅ WhatsApp registered (app ID: 2)\n");
 
     // Register Instagram (social media)
-    if (helm_register_app_key(3, instagram_public_key) != 0) {
+    if (helm_register_app_key(3, instagram_key, sizeof(instagram_key)) != 0) {
         printf("❌ Failed to register Instagram\n");
         return;
     }
@@ -112,6 +129,17 @@ void demonstrate_10nes_security(void) {
     // ============================================================================
 
     printf("🚨 PHASE 4: Demonstrating attack prevention...\n");
+
+    printf("🔐 Forged signature (all zeros) presented for Signal...\n");
+    {
+        helm_nonce_t probe_nonce = helm_generate_nonce();
+        helm_signature_t forged = {0};
+        if (helm_verify_attestation(1, &probe_nonce, &forged) == HELM_ATTEST_OK) {
+            printf("❌ FORGED SIGNATURE ACCEPTED (SECURITY FAILURE!)\n");
+        } else {
+            printf("✅ Forged signature REJECTED (real verification, not a placeholder)\n");
+        }
+    }
 
     printf("🔐 Unknown app (ID: 999) requesting camera access...\n");
     helm_attest_result_t result3 = helm_request_capability(999, HELM_CAP_CAMERA, 300);

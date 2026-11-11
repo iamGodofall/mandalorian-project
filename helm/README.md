@@ -36,6 +36,9 @@ if (app_requests("camera")) {
 }
 ```
 
+Attestation is HMAC-SHA3-256 over the nonce bytes plus the app id, keyed with
+the app's registered 32-byte attestation key and compared in constant time.
+
 ### Hardware Security Foundation
 
 - **RISC-V Security Enclave**: Dedicated co-processor isolated from main CPU
@@ -108,8 +111,8 @@ if (helm_init() != 0) {
 
 ```c
 // During app installation
-uint8_t app_public_key[1952];  // CRYSTALS-Dilithium public key
-helm_register_app_key(app_id, app_public_key);
+uint8_t app_attestation_key[32];
+helm_register_app_key(app_id, app_attestation_key, sizeof(app_attestation_key));
 ```
 
 ### 3. Request Capabilities

@@ -26,6 +26,9 @@ static helm_monitoring_stats_t monitoring_stats = {0};
 static bool continuous_monitoring_active = false;
 static bool emergency_state = false;
 
+/* Guards the shared tables below. See helm_internal.h. */
+pthread_mutex_t helm_state_mutex = PTHREAD_MUTEX_INITIALIZER;
+
 // App registry (stores registered app keys). Declared in helm_internal.h and
 // defined here; capability.c and monitoring.c read it too.
 helm_app_record_t app_registry[MAX_REGISTERED_APPS];
@@ -62,35 +65,11 @@ int find_session_slot(uint32_t session_id) {
     return -1;
 }
 
-static int create_capability_session(uint32_t app_id, helm_capability_t capability, uint32_t timeout_seconds) {
-    int slot = -1;
-    for (int i = 0; i < MAX_ACTIVE_SESSIONS; i++) {
-        if (!capability_sessions[i].active) {
-            slot = i;
-            break;
-        }
-    }
-
-    if (slot == -1) {
-        LOG_ERROR("No free capability session slots");
-        return -1;
-    }
-
-    capability_sessions[slot].session_id = next_session_id++;
-    capability_sessions[slot].app_id = app_id;
-    capability_sessions[slot].capability = capability;
-    capability_sessions[slot].granted_time = time(NULL);
-    capability_sessions[slot].expires_time = time(NULL) + timeout_seconds;
-    capability_sessions[slot].active = true;
-
-    monitoring_stats.capabilities_granted++;
-    monitoring_stats.active_sessions++;
-
-    LOG_INFO("Granted capability %d to app %u (session %u, expires in %us)",
-             capability, app_id, capability_sessions[slot].session_id, timeout_seconds);
-
-    return capability_sessions[slot].session_id;
-}
+/* create_capability_session() lives in capability.c, next to the attestation
+ * and revoke paths it serves. A static copy used to sit here as well — two
+ * definitions, one of them dead, with drifted behaviour (this one updated
+ * capability_granted stats, the live one did not). The duplicate-symbol CI
+ * job exists because this exact pattern has shipped here three times. */
 
 
 /*
