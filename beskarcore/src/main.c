@@ -3,6 +3,15 @@
 #include "../include/continuous_guardian.h"
 #include "../include/monitoring.h"
 #include "../include/performance.h"
+#include "../include/error_recovery.h"
+
+/* usleep is POSIX-only; Sleep() is the Windows equivalent. */
+#ifdef _WIN32
+#include <windows.h>
+static void beskarcore_sleep_ms(unsigned long ms) { Sleep(ms); }
+#else
+static void beskarcore_sleep_ms(unsigned long ms) { usleep(ms * 1000); }
+#endif
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -82,7 +91,7 @@ int system_init(void) {
     printf("✅ Kernel integrity verified\n");
 
     // Initialize error recovery
-    if (error_recovery_init() != 0) {
+    if (error_recovery_init(NULL) != 0) {
         LOG_ERROR("Failed to initialize error recovery");
         return -1;
     }
@@ -127,7 +136,7 @@ void system_main_loop(void) {
         }
 
         // Small delay to prevent busy waiting
-        usleep(50000);  // 50ms - same as guardian check interval
+        beskarcore_sleep_ms(50);  // 50ms - same as guardian check interval
     }
 }
 

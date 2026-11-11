@@ -24,6 +24,11 @@ target_include_directories(beskarcore PUBLIC
 
 target_link_libraries(beskarcore PUBLIC Threads::Threads)
 
+if(WIN32)
+    # secure_random.c uses BCryptGenRandom on Windows.
+    target_link_libraries(beskarcore PUBLIC bcrypt)
+endif()
+
 if(BUILD_DEMOS)
     foreach(d demo demo_beskar_vault demo_beskar_link demo_beskar_enterprise demo_continuous_guardian)
         add_executable(${d} ${d}.c)

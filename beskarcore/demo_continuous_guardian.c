@@ -6,6 +6,14 @@
 #include <string.h>
 #include <unistd.h>
 
+/* usleep is POSIX-only; Sleep() is the Windows equivalent. */
+#ifdef _WIN32
+#include <windows.h>
+static void guardian_demo_sleep_ms(unsigned long ms) { Sleep(ms); }
+#else
+static void guardian_demo_sleep_ms(unsigned long ms) { usleep(ms * 1000); }
+#endif
+
 // Demo program showing Continuous Guardian in action
 // Inspired by Nintendo 10NES chip security
 
@@ -80,7 +88,7 @@ void demonstrate_10nes_security(void) {
             break;
         }
 
-        usleep(60000); // 60ms delay (slightly longer than check interval)
+        guardian_demo_sleep_ms(60); // 60ms delay (slightly longer than check interval)
     }
 
     // Show statistics
