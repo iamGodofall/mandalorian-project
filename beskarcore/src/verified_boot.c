@@ -9,6 +9,7 @@
 #include "../include/monitoring.h"
 #include "../include/merkle_ledger.h"
 #include "../include/sha3.h"
+#include "tweetnacl/tweetnacl.h"
 
 // Security hardening: Secure defaults and constants
 #define MAX_SIGNATURE_SIZE 1024
@@ -22,30 +23,50 @@ static unsigned int verification_attempts = 0;
 static time_t last_verification_time = 0;
 static int security_lockout_active = 0;
 
-/* Ed25519 signature verification.
- *
- * NOT IMPLEMENTED. What used to live here was ~680 lines of field
- * arithmetic ending in `return 0; // Assume verification passes for demo`
- * - no curve math ever executed, so verify_kernel_image() accepted any
+/* Ed25519 signature verification, backed by the vendored TweetNaCl
+ * (public-domain reference implementation, version 20140427, sources in
+ * src/tweetnacl/). The previous in-tree attempt was ~680 lines of field
+ * arithmetic ending in `return 0; // Assume verification passes for demo` -
+ * no curve math ever executed, so verify_kernel_image() accepted any
  * (image, signature) pair and verified boot was a rubber stamp. The math
- * itself was broken anyway: hram was built by hashing over its own bytes
- * in place, and it used SHA3-256 where Ed25519 requires SHA-512.
+ * was broken anyway: hram was built by hashing over its own bytes in place,
+ * and it used SHA3-256 where Ed25519 requires SHA-512.
  *
- * Fail closed instead, matching the README status table (secure boot: does
- * not exist). When a real implementation lands it must come with the RFC
- * 8032 test vectors as a CI gate, the way SHA3 did.
+ * This wrapper is pinned to the RFC 8032 test vectors in
+ * tests/unit/test_ed25519.c, run in CI - the same gate the SHA3
+ * implementation is held to. Signature verification is now real; a hardware
+ * root of trust for the verification key is still Phase 2/3 hardware, so
+ * boot_init() continues to refuse enable_secure_boot.
  */
+#define ED25519_MAX_MESSAGE 4096
+static uint8_t ed25519_sm[64 + ED25519_MAX_MESSAGE];
+static uint8_t ed25519_m[64 + ED25519_MAX_MESSAGE];
+
 int ed25519_verify(const uint8_t *signature, const uint8_t *message,
                    size_t message_len, const uint8_t *public_key) {
-    (void)signature;
-    (void)message;
-    (void)message_len;
-    (void)public_key;
-    LOG_ERROR("Ed25519 verification is not implemented; failing closed");
-    monitoring_raise_alert("ed25519_not_implemented",
-                           "Signature verification demanded but not implemented",
-                           ALERT_ERROR, "verified_boot", "component=boot");
-    return -1;
+    unsigned long long mlen = 0;
+
+    if (signature == NULL || public_key == NULL ||
+        (message == NULL && message_len > 0)) {
+        LOG_ERROR("Ed25519: invalid arguments");
+        return -1;
+    }
+    if (message_len > ED25519_MAX_MESSAGE) {
+        LOG_ERROR("Ed25519: message too large for verification buffer (%zu)",
+                  message_len);
+        return -1;
+    }
+
+    /* crypto_sign_open verifies sm = signature || message against pk and
+     * returns 0 when the signature is valid for that message and key. */
+    memcpy(ed25519_sm, signature, 64);
+    memcpy(ed25519_sm + 64, message, message_len);
+    if (crypto_sign_ed25519_tweet_open(ed25519_m, &mlen, ed25519_sm,
+                                       (unsigned long long)(64 + message_len),
+                                       public_key) != 0) {
+        return -1;
+    }
+    return 0;
 }
 
 // Hardcoded test public key (32 bytes for ed25519)
