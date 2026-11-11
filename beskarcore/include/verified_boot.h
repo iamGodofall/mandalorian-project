@@ -54,6 +54,13 @@ int verify_kernel_image(const uint8_t *image, size_t image_len,
                         const uint8_t *signature, const uint8_t *public_key);
 
 /**
+ * @brief Verify an Ed25519 signature over a message.
+ * @return 0 when the signature verifies, -1 otherwise.
+ */
+int ed25519_verify(const uint8_t *signature, const uint8_t *message,
+                   size_t message_len, const uint8_t *public_key);
+
+/**
  * @brief Verify the built-in kernel image. Fails until a signed kernel exists.
  */
 int verify_kernel_integrity(void);

@@ -24,6 +24,13 @@ add_executable(test_gate_enforcement unit/test_gate_enforcement.c)
 target_link_libraries(test_gate_enforcement PRIVATE mandalorian_core)
 add_test(NAME GateEnforcement COMMAND test_gate_enforcement)
 
+# Verified boot must fail closed: Ed25519 verification is not implemented,
+# so every image must be rejected. This is the test that would have caught
+# the "assume verification passes for demo" rubber stamp.
+add_executable(test_verified_boot unit/test_verified_boot.c)
+target_link_libraries(test_verified_boot PRIVATE beskarcore)
+add_test(NAME VerifiedBootFailClosed COMMAND test_verified_boot)
+
 # Gate fuzzing, running as a fixed-corpus test so the properties are checked
 # everywhere. The libFuzzer build is opt-in below.
 add_executable(fuzz_gate_corpus fuzz/fuzz_gate.c)
