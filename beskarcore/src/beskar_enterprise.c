@@ -320,15 +320,12 @@ int enterprise_enroll_device(const uint8_t *org_id, const char *device_name,
     enterprise_device_t *d = &devices[device_count];
     memset(d, 0, sizeof(enterprise_device_t));
 
-    // Generate device ID
-    uint8_t seed[256];
-    int seed_len = snprintf((char*)seed, sizeof(seed), "%s_%s_%lu", device_name, user_email, 
-             (unsigned long)time(NULL));
-    if (seed_len < 0 || (size_t)seed_len >= sizeof(seed)) {
-        LOG_ERROR("Device name or email too long - possible attack");
+    // Generate device ID from the CSPRNG. Was SHA3(name || email || time):
+    // guessable by anyone who knew the device name and enrollment time.
+    if (secure_random_bytes(d->device_id, sizeof(d->device_id)) != 0) {
+        LOG_ERROR("No entropy for device id; refusing enrollment");
         return -1;
     }
-    sha3_256(d->device_id, seed, seed_len);
 
 
     strncpy(d->device_name, device_name, sizeof(d->device_name) - 1);
@@ -1060,13 +1057,30 @@ int enterprise_export_audit_log(const char *filepath) {
 }
 
 int enterprise_verify_audit_integrity(void) {
-    LOG_INFO("Verifying audit log integrity");
-    
-    // Verify hash chain
-    for (uint32_t i = 1; i < audit_count; i++) {
-        // In real implementation, verify each entry's hash
+    LOG_INFO("Verifying audit log integrity (%u entries)", audit_count);
+
+    /* Each entry stores action_hash = SHA3-256 over the same fields
+     * enterprise_log_audit_event() hashed. The old "verification" loop was
+     * EMPTY, so this function logged success without checking anything.
+     * Recompute every hash; one mismatch fails the whole audit. */
+    for (uint32_t i = 0; i < audit_count; i++) {
+        const enterprise_audit_entry_t *entry = &audit_log[i];
+        char data[512];
+        uint8_t expected[32];
+        int data_len = snprintf(data, sizeof(data), "%s_%s_%lu",
+                                entry->event_type, entry->details,
+                                (unsigned long)entry->timestamp);
+        if (data_len < 0 || (size_t)data_len >= sizeof(data) ||
+            sha3_256(expected, (uint8_t *)data, strlen(data)) != 0) {
+            LOG_ERROR("Audit entry %u: hash recompute failed", i);
+            return -1;
+        }
+        if (memcmp(expected, entry->action_hash, sizeof(expected)) != 0) {
+            LOG_ERROR("Audit integrity FAILED at entry %u (event %s)", i,
+                      entry->event_type);
+            return -1;
+        }
     }
-    
     LOG_INFO("Audit log integrity verified");
     return 0;
 }

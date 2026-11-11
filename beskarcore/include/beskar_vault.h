@@ -104,6 +104,7 @@ int vault_encrypt(vault_key_type_t key, const uint8_t *plaintext, size_t pt_len,
 
 // Authentication (BlackBerry-style multi-factor)
 int vault_authenticate_pin(const uint8_t *pin, size_t pin_len);
+int vault_set_pin(const uint8_t *pin, size_t pin_len);
 int vault_authenticate_biometric(const uint8_t *biometric_data, size_t data_len);
 int vault_authenticate_hardware_token(const uint8_t *token_data, size_t data_len);
 int vault_change_authentication(vault_security_level_t level,

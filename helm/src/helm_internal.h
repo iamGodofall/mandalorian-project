@@ -64,4 +64,9 @@ int find_free_session_slot(void);
 
 const char *capability_to_action(helm_capability_t capability);
 
+/* Defined in monitoring.c; updates the attestation counters for each result
+ * so the statistics no longer under-report exactly the failures the gate
+ * exists to produce. */
+void helm_update_monitoring_stats(helm_attest_result_t result);
+
 #endif /* HELM_INTERNAL_H */

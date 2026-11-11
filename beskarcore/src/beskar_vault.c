@@ -39,6 +39,20 @@ static vault_key_slot_t key_slots[BESKAR_VAULT_KEY_SLOTS];
 static vault_status_t vault_state = {0};
 static bool vault_initialized = false;
 
+/* PIN verifier. The hash lives OUTSIDE vault_status_t: vault_get_status()
+ * returns that struct verbatim, and a PIN verifier inside it would be handed
+ * to every caller. A salted SHA3-256 verifier is stored instead of the PIN
+ * itself; without an enrolled PIN, authentication fails closed — the old
+ * code accepted any non-empty PIN at security level >= 1. */
+static uint8_t vault_pin_salt[16];
+static uint8_t vault_pin_hash[32];
+static bool vault_has_pin = false;
+
+/* Allocation run lengths for secure memory: free() used to wipe only the
+ * first 64-byte block of a multi-block allocation, leaking the rest
+ * unwiped. */
+static uint8_t secure_memory_alloc_len[BESKAR_VAULT_SECURE_MEMORY_SIZE / 64];
+
 // Tamper detection callbacks
 typedef struct {
     vault_tamper_type_t type;
@@ -522,9 +536,14 @@ int vault_authenticate_pin(const uint8_t *pin, size_t pin_len) {
         return 0; // Success - not required
     }
 
-    // Simulate PIN verification
-    // In real hardware, this would compare against secure enclave stored PIN
-    // For simulation, we accept any non-empty PIN
+    if (!vault_has_pin) {
+        /* Fail closed: with no enrolled PIN there is nothing to match, and
+         * the old behaviour accepted ANY non-empty PIN as success. Enroll
+         * with vault_set_pin() first. */
+        LOG_ERROR("PIN authentication refused: no PIN enrolled (fail closed)");
+        return -1;
+    }
+
     if (pin_len == 0 || pin == NULL) {
         vault_state.pin_attempts_remaining--;
         LOG_ERROR("PIN authentication failed, attempts remaining: %d", 
@@ -538,13 +557,75 @@ int vault_authenticate_pin(const uint8_t *pin, size_t pin_len) {
         return -1;
     }
 
-    // Simulate successful authentication
+    /* Verify against the enrolled verifier: SHA3-256(salt || pin), compared
+     * in constant time. In real hardware this comparison happens in the
+     * secure enclave. */
+    {
+        uint8_t expected[32];
+        uint8_t salted[16 + 64];
+        size_t copy_len = pin_len > 64 ? 64 : pin_len;
+
+        memcpy(salted, vault_pin_salt, sizeof(vault_pin_salt));
+        memcpy(salted + sizeof(vault_pin_salt), pin, copy_len);
+        if (sha3_256(expected, salted, sizeof(vault_pin_salt) + copy_len) != 0) {
+            LOG_ERROR("PIN hash computation failed");
+            return -1;
+        }
+        memset(salted, 0, sizeof(salted));
+
+        if (vault_secure_compare(expected, vault_pin_hash,
+                                 sizeof(vault_pin_hash)) != 0) {
+            vault_state.pin_attempts_remaining--;
+            LOG_ERROR("PIN authentication failed, attempts remaining: %d",
+                      vault_state.pin_attempts_remaining);
+            if (vault_state.pin_attempts_remaining == 0) {
+                LOG_ERROR("Max PIN attempts exceeded - vault locked");
+                vault_state.is_locked = true;
+            }
+            memset(expected, 0, sizeof(expected));
+            return -1;
+        }
+        memset(expected, 0, sizeof(expected));
+    }
+
     vault_state.pin_attempts_remaining = BESKAR_VAULT_MAX_PIN_ATTEMPTS;
     vault_state.is_locked = false;
 
     LOG_INFO("PIN authentication successful");
     log_vault_event("AUTH_PIN", "PIN authentication successful");
 
+    return 0;
+}
+
+int vault_set_pin(const uint8_t *pin, size_t pin_len) {
+    if (!vault_initialized) {
+        return -1;
+    }
+    if (pin == NULL || pin_len == 0 || pin_len > 64) {
+        LOG_ERROR("Invalid PIN for enrollment (len=%zu)", pin_len);
+        return -1;
+    }
+
+    if (secure_random_bytes(vault_pin_salt, sizeof(vault_pin_salt)) != 0) {
+        LOG_ERROR("No entropy for PIN salt; PIN not enrolled");
+        return -1;
+    }
+
+    {
+        uint8_t salted[16 + 64];
+        memcpy(salted, vault_pin_salt, sizeof(vault_pin_salt));
+        memcpy(salted + sizeof(vault_pin_salt), pin, pin_len);
+        if (sha3_256(vault_pin_hash, salted,
+                     sizeof(vault_pin_salt) + pin_len) != 0) {
+            memset(salted, 0, sizeof(salted));
+            return -1;
+        }
+        memset(salted, 0, sizeof(salted));
+    }
+
+    vault_has_pin = true;
+    LOG_INFO("PIN enrolled (salted SHA3-256 verifier stored)");
+    log_vault_event("PIN_ENROLLED", "PIN verifier stored");
     return 0;
 }
 
@@ -739,6 +820,7 @@ int vault_secure_malloc(void **ptr, size_t size) {
                 for (size_t j = start_block; j < start_block + blocks_needed; j++) {
                     secure_memory_used[j] = true;
                 }
+                secure_memory_alloc_len[start_block] = (uint8_t)blocks_needed;
                 *ptr = &secure_memory[start_block * 64];
                 return 0;
             }
@@ -762,10 +844,20 @@ int vault_secure_free(void *ptr) {
     }
 
     size_t block = ((uint8_t*)ptr - secure_memory) / 64;
-    secure_memory_used[block] = false;
+    size_t run_len = secure_memory_alloc_len[block];
 
-    // Clear the memory
-    memset(ptr, 0, 64);
+    /* Only the start of a live allocation may be freed; wiping one block of
+     * a multi-block run left the rest of the key material in freed memory. */
+    if (run_len == 0 || !secure_memory_used[block]) {
+        return -1;
+    }
+
+    // Wipe the WHOLE allocation, then release it
+    memset(ptr, 0, run_len * 64);
+    for (size_t j = block; j < block + run_len; j++) {
+        secure_memory_used[j] = false;
+    }
+    secure_memory_alloc_len[block] = 0;
 
     return 0;
 }

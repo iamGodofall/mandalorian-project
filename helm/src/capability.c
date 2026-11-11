@@ -7,7 +7,16 @@
 #include "hmac_sha3.h"
 #include "issuer.h"
 #include "stubs.h"
+#include "sha3.h"
 #include "helm_internal.h"
+
+/* Nonce replay cache: SHA3-256 digests of recently accepted nonces. The
+ * freshness window alone only rejects OLD nonces — a captured attestation
+ * replayed inside the 30-second window passed. Size 64 is a fixed ring;
+ * production replaces this with persistence-backed tracking. */
+#define HELM_NONCE_CACHE_SIZE 64
+static uint8_t nonce_cache[HELM_NONCE_CACHE_SIZE][32];
+static uint32_t nonce_cache_next = 0;
 
 /* Build the attestation message: the 32 nonce bytes followed by the app id
  * as a big-endian uint32. A defined wire format, not a struct — hashing a
@@ -109,6 +118,34 @@ helm_attest_result_t helm_verify_attestation(
         return HELM_ATTEST_FAIL_TIMEOUT;
     }
 
+    // Nonce replay check under the same mutex: a nonce seen before is a
+    // replayed attestation even if it is still inside the freshness window.
+    {
+        uint8_t nonce_digest[32];
+        bool seen = false;
+        if (sha3_256(nonce_digest, nonce->data, sizeof(nonce->data)) != 0) {
+            pthread_mutex_unlock(&helm_state_mutex);
+            LOG_ERROR("Attestation failed: nonce digest computation error");
+            return HELM_ATTEST_FAIL_HARDWARE;
+        }
+        for (int i = 0; i < HELM_NONCE_CACHE_SIZE; i++) {
+            if (memcmp(nonce_cache[i], nonce_digest, 32) == 0) {
+                seen = true;
+                break;
+            }
+        }
+        if (seen) {
+            pthread_mutex_unlock(&helm_state_mutex);
+            LOG_ERROR("Attestation failed: nonce replay detected for app %u", app_id);
+            helm_log_security_event("ATTESTATION_FAILED", "Nonce replay");
+            return HELM_ATTEST_FAIL_SIGNATURE;
+        }
+        memcpy(nonce_cache[nonce_cache_next % HELM_NONCE_CACHE_SIZE],
+               nonce_digest, 32);
+        nonce_cache_next++;
+        memset(nonce_digest, 0, sizeof(nonce_digest));
+    }
+
     // Verify the signature. Attestation is HMAC-SHA3-256 over
     // (nonce bytes || app id) keyed with the app's registered attestation
     // key, compared in constant time. The previous version was
@@ -135,6 +172,10 @@ helm_attest_result_t helm_verify_attestation(
 
     pthread_mutex_unlock(&helm_state_mutex);
 
+    /* Count every outcome; previously nothing updated these counters from
+     * the verification path, so attestations_performed stayed at zero. */
+    helm_update_monitoring_stats(signature_valid ? HELM_ATTEST_OK
+                                                 : HELM_ATTEST_FAIL_SIGNATURE);
     if (!signature_valid) {
         LOG_ERROR("Attestation failed: invalid signature for app %u", app_id);
         helm_log_security_event("ATTESTATION_FAILED", "Invalid signature");

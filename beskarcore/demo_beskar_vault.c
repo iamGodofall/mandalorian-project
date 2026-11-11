@@ -169,7 +169,22 @@ void demo_authentication(void) {
     printf("=== Multi-Factor Authentication Demo ===\n");
     
     // Test PIN authentication
+    /* Enroll the PIN first: authentication verifies against a salted
+     * SHA3-256 verifier now, and refuses to authenticate at all when no PIN
+     * has been enrolled (the old code accepted any non-empty PIN). */
     const char *pin = "123456";
+    if (vault_set_pin((const uint8_t *)pin, strlen(pin)) != 0) {
+        printf("Failed to enroll PIN\n");
+        return;
+    }
+    {
+        const char *wrong = "000000";
+        if (vault_authenticate_pin((const uint8_t *)wrong, strlen(wrong)) == 0) {
+            printf("SECURITY FAILURE: wrong PIN accepted\n");
+            return;
+        }
+        printf("   Wrong PIN correctly rejected\n");
+    }
     printf("Testing PIN authentication...\n");
     printf("   PIN: %s\n", pin);
     

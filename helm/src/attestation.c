@@ -19,12 +19,12 @@
 // - Capability-based security (fine-grained permissions)
 // ============================================================================
 
-// Global Helm state
-static bool helm_initialized = false;
-static helm_config_t helm_config = {0};
-static helm_monitoring_stats_t monitoring_stats = {0};
-static bool continuous_monitoring_active = false;
-static bool emergency_state = false;
+/* The lifecycle globals (helm_initialized, helm_config, monitoring_stats,
+ * continuous_monitoring_active, emergency_state) live in helm.c and
+ * monitoring.c, which own the lifecycle and monitoring paths. They used to
+ * be duplicated here as well — dead copies that drifted from the live ones,
+ * the same pattern as the duplicate create_capability_session that used to
+ * sit in this file. */
 
 /* Guards the shared tables below. See helm_internal.h. */
 pthread_mutex_t helm_state_mutex = PTHREAD_MUTEX_INITIALIZER;

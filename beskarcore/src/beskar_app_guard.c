@@ -591,8 +591,14 @@ int app_guard_request_permission(const uint8_t *app_id, uint32_t permission_id,
     grant->use_count = 0;
     grant->is_active = true;
 
-    // Set in permission mask
-    app_guard_set_permission(&app->permissions, permission_id);
+    /* DENY-mode grants used to SET the permission bit — the opposite of
+     * what they mean — and check_permission() never read grant_mode, so a
+     * DENY grant behaved exactly like an ALLOW. */
+    if (mode == PERM_GRANT_MODE_DENY) {
+        app_guard_clear_permission(&app->permissions, permission_id);
+    } else {
+        app_guard_set_permission(&app->permissions, permission_id);
+    }
 
     stats.permission_requests++;
 
@@ -640,6 +646,12 @@ int app_guard_check_permission(const uint8_t *app_id, uint32_t permission_id) {
             if (grant->expires_at > 0 && time(NULL) > grant->expires_at) {
                 grant->is_active = false;
                 app_guard_clear_permission(&app->permissions, permission_id);
+                stats.permission_denials++;
+                return APP_STATUS_PERMISSION_DENIED;
+            }
+
+            // A DENY grant denies, even if the mask bit somehow got set.
+            if (grant->grant_mode == PERM_GRANT_MODE_DENY) {
                 stats.permission_denials++;
                 return APP_STATUS_PERMISSION_DENIED;
             }

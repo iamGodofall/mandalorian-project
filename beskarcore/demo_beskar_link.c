@@ -454,6 +454,13 @@ int main(int argc, char *argv[]) {
     printf("🔓 Authenticating to BeskarVault...\n");
     {
         const char *pin = "123456";
+        /* Authentication verifies against an enrolled salted SHA3-256
+         * verifier now, so the demo enrolls the PIN it then presents. */
+        if (vault_set_pin((const uint8_t *)pin, strlen(pin)) != 0) {
+            fprintf(stderr, "❌ PIN enrollment failed\n");
+            vault_shutdown();
+            return 1;
+        }
         if (vault_authenticate_pin((const uint8_t *)pin, strlen(pin)) != 0) {
             fprintf(stderr, "❌ Vault authentication failed\n");
             vault_shutdown();
