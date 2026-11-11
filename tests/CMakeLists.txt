@@ -31,6 +31,18 @@ add_executable(test_verified_boot unit/test_verified_boot.c)
 target_link_libraries(test_verified_boot PRIVATE beskarcore)
 add_test(NAME VerifiedBootFailClosed COMMAND test_verified_boot)
 
+# Ed25519 verification pinned to RFC 8032 vectors. This is the gate that
+# would have caught the rubber-stamp ed25519_verify; it runs in CI.
+add_executable(test_ed25519 unit/test_ed25519.c)
+target_link_libraries(test_ed25519 PRIVATE beskarcore)
+add_test(NAME Ed25519Vectors COMMAND test_ed25519)
+
+# ChaCha20-Poly1305 pinned to RFC 8439 vectors: block function, Poly1305,
+# full AEAD, plus tamper negatives.
+add_executable(test_chacha20poly1305 unit/test_chacha20poly1305.c)
+target_link_libraries(test_chacha20poly1305 PRIVATE beskarcore)
+add_test(NAME ChaCha20Poly1305Vectors COMMAND test_chacha20poly1305)
+
 # Gate fuzzing, running as a fixed-corpus test so the properties are checked
 # everywhere. The libFuzzer build is opt-in below.
 add_executable(fuzz_gate_corpus fuzz/fuzz_gate.c)

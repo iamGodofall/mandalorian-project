@@ -7,6 +7,7 @@
 #include "merkle_ledger.h"
 #include "secure_random.h"
 #include "sha3.h"
+#include "chacha20poly1305.h"
 
 // ============================================================================
 // BESKAR LINK - Secure Messaging Prototype
@@ -46,11 +47,14 @@ static int link_derive_session_keys(link_ratchet_state_t *state,
                                     const uint8_t *session_request,
                                     bool as_initiator);
 static int double_ratchet_step(link_ratchet_state_t *state, bool is_sender);
+static int link_store32_le(uint8_t *p, uint32_t v);
 static int encrypt_message_authenticated_stream(const uint8_t *plaintext, size_t pt_len,
                                    const uint8_t *key, const uint8_t *nonce,
+                                   const uint8_t *aad, size_t aad_len,
                                    uint8_t *ciphertext, size_t *ct_len);
 static int decrypt_message_authenticated_stream(const uint8_t *ciphertext, size_t ct_len,
                                    const uint8_t *key, const uint8_t *nonce,
+                                   const uint8_t *aad, size_t aad_len,
                                    uint8_t *plaintext, size_t *pt_len);
 static int find_contact(const uint8_t *contact_id, link_contact_t **contact);
 static int find_group(const uint8_t *group_id, link_group_t **group);
@@ -563,19 +567,29 @@ int link_send_message(const uint8_t *recipient_id, link_message_type_t type,
     message.timestamp = time(NULL);
     message.message_number = contact->ratchet_state.message_number_send - 1;
 
-    // Encrypt
-    size_t ct_len = sizeof(message.ciphertext);
-    if (encrypt_message_authenticated_stream(plaintext, plaintext_len, message_key, nonce,
-                                message.ciphertext, &ct_len) != 0) {
-        LOG_ERROR("Message encryption failed");
-        memset(message_key, 0, sizeof(message_key));
-        return -1;
+    // Encrypt. The tag binds the ratchet position and the recipient as
+    // associated data: a ciphertext recorded from one message slot cannot be
+    // replayed into another position or conversation without failing
+    // authentication. (Sender identity is already bound by the session keys:
+    // only the holder of this session's chains can produce a valid tag.)
+    {
+        uint8_t aad[4 + BESKAR_LINK_DEVICE_ID_SIZE];
+        size_t ct_len = sizeof(message.ciphertext);
+        link_store32_le(aad, message.message_number);
+        memcpy(aad + 4, message.recipient_id, 32);
+        if (encrypt_message_authenticated_stream(plaintext, plaintext_len, message_key, nonce,
+                                    aad, sizeof(aad),
+                                    message.ciphertext, &ct_len) != 0) {
+            LOG_ERROR("Message encryption failed");
+            memset(message_key, 0, sizeof(message_key));
+            return -1;
+        }
+        message.ciphertext_len = ct_len;
     }
     /* The nonce travels on the wire with the ciphertext; the message key
      * does not. It used to be copied into the queued message beside the
      * ciphertext it protects. */
     memcpy(message.nonce, nonce, sizeof(nonce));
-    message.ciphertext_len = ct_len;
     memset(message_key, 0, sizeof(message_key));
 
     // Store in pending queue (simulated sending)
@@ -652,13 +666,20 @@ int link_receive_message(const uint8_t *sender_id, const link_message_t *message
 
         // Decrypt with the nonce the sender put on the wire. The receiver
         // previously used a hardcoded zero nonce while the sender used a
-        // random one, so no message could ever authenticate.
-        if (decrypt_message_authenticated_stream(message->ciphertext, message->ciphertext_len,
-                                    message_key, message->nonce,
-                                    plaintext, plaintext_len) != 0) {
-            LOG_ERROR("Message decryption failed");
-            memset(message_key, 0, sizeof(message_key));
-            return -1;
+        // random one, so no message could ever authenticate. The AAD must be
+        // rebuilt from the wire fields exactly as the sender bound them.
+        {
+            uint8_t aad[4 + BESKAR_LINK_DEVICE_ID_SIZE];
+            link_store32_le(aad, message->message_number);
+            memcpy(aad + 4, message->recipient_id, 32);
+            if (decrypt_message_authenticated_stream(message->ciphertext, message->ciphertext_len,
+                                        message_key, message->nonce,
+                                        aad, sizeof(aad),
+                                        plaintext, plaintext_len) != 0) {
+                LOG_ERROR("Message decryption failed");
+                memset(message_key, 0, sizeof(message_key));
+                return -1;
+            }
         }
         memset(message_key, 0, sizeof(message_key));
     }
@@ -1007,14 +1028,14 @@ int link_encrypt_attachment(const uint8_t *plaintext, size_t plaintext_len,
     generate_random_bytes(nonce, 12);
 
     return encrypt_message_authenticated_stream(plaintext, plaintext_len, key_out, nonce,
-                                   ciphertext, ciphertext_len);
+                                   NULL, 0, ciphertext, ciphertext_len);
 }
 
 int link_decrypt_attachment(const uint8_t *ciphertext, size_t ciphertext_len,
                               const uint8_t *key, uint8_t *plaintext, size_t *plaintext_len) {
     uint8_t nonce[12] = {0}; // Extract from ciphertext in real implementation
     return decrypt_message_authenticated_stream(ciphertext, ciphertext_len, key, nonce,
-                                   plaintext, plaintext_len);
+                                   NULL, 0, plaintext, plaintext_len);
 }
 
 int link_generate_safety_number(const uint8_t *contact_id, char *safety_number, size_t *len) {
@@ -1309,134 +1330,78 @@ static int log_link_event(const char *event_type, const char *details) {
     return add_ledger_entry("BESKAR_LINK", digest);
 }
 
-/*
- * Message confidentiality.
+/* Message confidentiality.
  *
- * NOT AES-GCM despite the name, which is kept because the call sites use it.
- * This is a SHA3-based keystream with a SHA3 MAC — enough to keep the message
- * path working end to end and to make tampering detectable, but it is not a
- * reviewed AEAD and must not be described as one. Replacing this with a real
- * AES-256-GCM or ChaCha20-Poly1305 implementation is the next piece of work
- * on this file; see the note in the project README about what is claimed.
+ * AEAD_CHACHA20_POLY1305 (RFC 8439), implemented in src/chacha20poly1305.c
+ * and pinned to the RFC's own published test vectors in
+ * tests/unit/test_chacha20poly1305.c (block function 2.3.2, Poly1305 2.5.2,
+ * full AEAD 2.8.2, plus tamper negatives). This replaces the previous
+ * homemade SHA3 keystream + SHA3 MAC, which was not a reviewed construction.
+ *
+ * What this does NOT give BeskarLink: X3DH, the DH ratchet, post-quantum
+ * anything, or third-party review. See the README status table.
  */
-static int keystream_xor(const uint8_t *in, size_t len, const uint8_t *key,
-                         const uint8_t *nonce, uint8_t *out) {
-    uint8_t block[32];
-    uint8_t seed[32 + 12 + 4];
-    size_t produced = 0;
-    uint32_t counter = 0;
-
-    while (produced < len) {
-        size_t chunk = len - produced;
-        size_t i;
-
-        if (chunk > sizeof(block)) {
-            chunk = sizeof(block);
-        }
-
-        memcpy(seed, key, 32);
-        memcpy(seed + 32, nonce, 12);
-        seed[44] = (uint8_t)(counter >> 24);
-        seed[45] = (uint8_t)(counter >> 16);
-        seed[46] = (uint8_t)(counter >> 8);
-        seed[47] = (uint8_t)counter;
-
-        if (sha3_256(block, seed, sizeof(seed)) != 0) {
-            return -1;
-        }
-
-        for (i = 0; i < chunk; i++) {
-            out[produced + i] = in[produced + i] ^ block[i];
-        }
-
-        produced += chunk;
-        counter++;
-    }
-
-    memset(block, 0, sizeof(block));
-    memset(seed, 0, sizeof(seed));
-    return 0;
-}
-
-static int message_tag(const uint8_t *ciphertext, size_t ct_len,
-                       const uint8_t *key, const uint8_t *nonce,
-                       uint8_t *tag) {
-    sha3_ctx_t ctx;
-
-    if (sha3_256_init(&ctx) != 0 ||
-        sha3_update(&ctx, key, 32) != 0 ||
-        sha3_update(&ctx, nonce, 12) != 0 ||
-        sha3_update(&ctx, ciphertext, ct_len) != 0 ||
-        sha3_final(&ctx, tag) != 0) {
-        return -1;
-    }
+static int link_store32_le(uint8_t *p, uint32_t v) {
+    p[0] = (uint8_t)v;
+    p[1] = (uint8_t)(v >> 8);
+    p[2] = (uint8_t)(v >> 16);
+    p[3] = (uint8_t)(v >> 24);
     return 0;
 }
 
 static int encrypt_message_authenticated_stream(const uint8_t *plaintext, size_t pt_len,
                                    const uint8_t *key, const uint8_t *nonce,
+                                   const uint8_t *aad, size_t aad_len,
                                    uint8_t *ciphertext, size_t *ct_len) {
-    uint8_t tag[32];
-
     if (plaintext == NULL || key == NULL || nonce == NULL ||
-        ciphertext == NULL || ct_len == NULL) {
+        ciphertext == NULL || ct_len == NULL ||
+        (aad == NULL && aad_len > 0)) {
         return -1;
     }
-    if (pt_len > BESKAR_LINK_MAX_MESSAGE_SIZE - sizeof(tag)) {
+    if (pt_len > BESKAR_LINK_MAX_MESSAGE_SIZE - CHACHA20POLY1305_TAG_SIZE) {
         LOG_ERROR("BeskarLink: message too large to encrypt (%zu)", pt_len);
         return -1;
     }
 
-    if (keystream_xor(plaintext, pt_len, key, nonce, ciphertext) != 0) {
+    if (chacha20poly1305_encrypt(ciphertext, plaintext, pt_len, key, nonce,
+                                 aad, aad_len) != 0) {
         return -1;
     }
-    if (message_tag(ciphertext, pt_len, key, nonce, tag) != 0) {
-        return -1;
-    }
-
-    memcpy(ciphertext + pt_len, tag, sizeof(tag));
-    *ct_len = pt_len + sizeof(tag);
+    *ct_len = pt_len + CHACHA20POLY1305_TAG_SIZE;
     return 0;
 }
 
 static int decrypt_message_authenticated_stream(const uint8_t *ciphertext, size_t ct_len,
                                    const uint8_t *key, const uint8_t *nonce,
+                                   const uint8_t *aad, size_t aad_len,
                                    uint8_t *plaintext, size_t *pt_len) {
-    uint8_t expected[32];
     size_t body_len;
-    uint8_t diff = 0;
-    size_t i;
 
     if (ciphertext == NULL || key == NULL || nonce == NULL ||
-        plaintext == NULL || pt_len == NULL || ct_len < sizeof(expected)) {
+        plaintext == NULL || pt_len == NULL ||
+        (aad == NULL && aad_len > 0)) {
+        return -1;
+    }
+    if (ct_len < CHACHA20POLY1305_TAG_SIZE) {
+        LOG_ERROR("BeskarLink: ciphertext shorter than a tag (%zu)", ct_len);
         return -1;
     }
 
-    body_len = ct_len - sizeof(expected);
+    body_len = ct_len - CHACHA20POLY1305_TAG_SIZE;
 
-    /* The caller's plaintext capacity was never checked: body_len came from
-     * the untrusted ciphertext_len, and up to 64 KB could be written into a
-     * smaller buffer. */
+    /* The caller's plaintext capacity gate stays: body_len comes from the
+     * untrusted ciphertext_len. */
     if (*pt_len < body_len) {
         LOG_ERROR("BeskarLink: plaintext buffer too small (%zu < %zu)",
                   *pt_len, body_len);
         return -1;
     }
 
-    if (message_tag(ciphertext, body_len, key, nonce, expected) != 0) {
-        return -1;
-    }
-
-    /* Constant-time tag comparison, and check it before touching plaintext. */
-    for (i = 0; i < sizeof(expected); i++) {
-        diff |= (uint8_t)(expected[i] ^ ciphertext[body_len + i]);
-    }
-    if (diff != 0) {
+    /* The AEAD verifies the tag in constant time before any plaintext is
+     * written; a forged or spliced ciphertext never decrypts. */
+    if (chacha20poly1305_decrypt(plaintext, ciphertext, ct_len, key, nonce,
+                                 aad, aad_len) != 0) {
         LOG_WARN("BeskarLink: message authentication failed; discarding");
-        return -1;
-    }
-
-    if (keystream_xor(ciphertext, body_len, key, nonce, plaintext) != 0) {
         return -1;
     }
 
