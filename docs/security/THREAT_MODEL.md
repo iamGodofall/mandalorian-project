@@ -6,7 +6,7 @@ and contributors deciding what to trust, what to fix next, and what not to
 claim. Version 1.0, 2026-11-11; describes the working tree as of this date —
 the host build, not the seL4/RISC-V target.
 
-**Status authority:** [README.md#security-guarantees](../../README.md#security-guarantees)
+**Status authority:** [README.md#security-guarantees](https://github.com/iamGodofall/mandalorian-project#security-guarantees)
 is the single source of truth for what is implemented versus design-only.
 Where this file and that table disagree, that table wins.
 
