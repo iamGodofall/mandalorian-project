@@ -9,14 +9,14 @@
 - [x] **seL4 Microkernel Integration** — capability-based security foundation
 - [x] **Mandalorian Gate (9-step enforcement)** — no bypass paths; all tests passing
 - [x] **Continuous Guardian** — 50ms SHA3-256 integrity checks (ROM-resident)
-- [x] **Helm — Post-Quantum Attestation** — CRYSTALS-Dilithium signatures + Ed25519
+- [x] **Helm — Attestation** — HMAC-SHA3-256 over registered per-app keys; forged-signature check in the demo. CRYSTALS-Dilithium: NOT implemented
 - [x] **BeskarVault HSM** — 32 key slots, 5 security levels, tamper response
-- [x] **BeskarLink** — Signal Protocol + post-quantum augmentation
+- [x] **BeskarLink** — SHA3 keystream + MAC with symmetric-chain ratchet; real encrypt→deliver→decrypt round trip in the demo; replay rejected. Not the Signal Double Ratchet (no X3DH, no DH ratchet, no reviewed AEAD)
 - [x] **BeskarAppGuard** — 64 granular permissions, 16 categories
 - [x] **BeskarEnterprise** — decentralized policy, zero cloud dependency
 - [x] **Merkle Shield Ledger** — immutable audit trail with receipts
 - [x] **Windows Development Support** — WSL2 build guide + VS Code integration
-- [x] **CI/CD Pipeline** — GitHub Actions (7 jobs: tests, build, security, cross-platform, pages)
+- [x] **CI/CD Pipeline** — GitHub Actions (6 jobs: build+test, crypto vectors, sanitizers, duplicate symbols, source hygiene, docs; PR #5 adds fuzzing + TSan + security contracts once merged)
 - [x] **OpenClaw Adapter** — agent-to-gate bridge (exec/read/write/process/web/memory/cron)
 - [x] **seL4 dirty + 21 commits behind** — sync in progress
 - [x] **README badges** — CI status, test pass rate, license badges
@@ -25,7 +25,8 @@
 
 ## 🔴 Priority: Investor-Ready (Do First)
 
-- [ ] **OpenClaw adapter needs build integration** — `#include` into mandalorian core Makefile
+- [x] **OpenClaw adapter build integration** — compiled into mandalorian_core
+- [ ] **Merge PR #5** — fuzzing, ThreadSanitizer and security-contract workflows (all green on the branch)
 - [ ] **seL4 sync** — push local changes, pull upstream, resolve conflicts
 - [ ] **Demo video** — 90-second architecture walkthrough + live gate demo (Keybase? Loom?)
 - [ ] **README deployment section** — fix broken GitHub Pages links (`/docs/` → `docs/`)

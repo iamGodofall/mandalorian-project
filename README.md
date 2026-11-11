@@ -83,7 +83,7 @@ before relying on any row.
 | **Hash integrity** | Working | SHA3-256/512 pass the FIPS 202 known-answer vectors (`tests/unit/test_sha3_vectors.c`) and match an independent implementation across every length up to several blocks. |
 | **Key destruction on tamper** | Not implemented | Requires the tamper mesh and custom PCB described under Hardware Reality Check. |
 | **Secret hygiene** | Partial | Key material is wiped with `secure_zero()`, which the compiler cannot optimise away. Keys still live in ordinary application RAM — a real HSM never exposes them, which needs the hardware in Phase 2. |
-| **Forward secrecy** | Partial | The symmetric chain ratchet advances per message, so a captured chain key does not recover earlier message keys. The **DH ratchet and X3DH are not implemented** — `x3dh_key_agreement()` returns random bytes rather than performing any Diffie-Hellman — so there is no break-in recovery and this is *not* the Signal Double Ratchet. |
+| **Forward secrecy** | Partial | The symmetric chain ratchet advances per message, so a captured chain key does not recover earlier message keys. The **DH ratchet and X3DH are not implemented** — there is no Diffie-Hellman anywhere in the tree; session chain keys are derived from the session-request bytes, which simulates the transport, not key agreement — so there is no break-in recovery and this is *not* the Signal Double Ratchet. |
 | **Message encryption** | Placeholder | BeskarLink uses a SHA3-based keystream with a SHA3 MAC, not a reviewed AEAD. Do not use it to protect real messages. |
 | **Post-quantum resistance** | Not implemented | No CRYSTALS-Dilithium, Kyber, or any PQC primitive exists in this repository. |
 | **Continuous integrity** | Working (simulated) | 50ms CRC32 with periodic SHA3-256 full verification. Measures simulated regions; there is no hardware watchdog behind it. |
@@ -97,7 +97,7 @@ before relying on any row.
 |-----------|------|---------|--------|
 | **Device** | Mandalorian Phone | RISC-V-based sovereign mobile hardware | Dev: VisionFive 2 (JH7110) / Prod: Custom SoC (Phase 3) |
 | **Core OS** | BeskarCore | seL4-based betrayal-resistant foundation | Phase 1 development |
-| **Attestation** | Helm | Post-quantum sovereign attestation co-processor | Phase 2 (discrete HSM) |
+| **Attestation** | Helm | HMAC-SHA3-256 attestation over registered per-app keys (host build, real verification) | Working; PQC (Dilithium/Kyber) Phase 2+ |
 | **Privacy Agent** | Aegis | IPC monitoring + consent enforcement | Integrated into BeskarCore |
 | **Runtime** | WebAssembly | Cross-platform app execution (native-first) | Phase 1 |
 

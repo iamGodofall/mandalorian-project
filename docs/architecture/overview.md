@@ -23,7 +23,8 @@ Every phone today is a **betrayal machine**:
 2. **Minimal trusted computing base** — seL4 is ~15K LOC of formally verified code. Everything else is outside the TCB.
 3. **Defense in depth** — 7 security layers, each designed to fail closed (never open).
 4. **Tamper-evident, not just tamper-resistant** — If you try to tamper, we know.
-5. **Post-quantum from day one** — No waiting for NIST final standards. Dilithium + Kyber are deployed.
+5. **Post-quantum from day one** — Dilithium + Kyber are deployed.
+   *(Status 2026-11: target principle. No PQC primitive exists in the tree yet — attestation is HMAC-SHA3-256 today. See the README status table.)*
 
 ---
 
@@ -181,7 +182,7 @@ This means: **AI agents operating on Mandalorian are themselves capability-bound
 | Firmware updates are opaque | Yes | No (verified boot + Guardian) |
 | Keys extractable via hardware attack | Yes | No (BeskarVault zeroizes) |
 | Audit trail of OS-level ops | No | Yes (Shield Ledger) |
-| Post-quantum key exchange | No | Yes (Kyber-768) |
+| Post-quantum key exchange | No | Not implemented (target: Kyber-768) |
 | Formal verification of TCB | No | Yes (seL4 is formally verified) |
 | Sovereign key storage | No | Yes (Airlock mode) |
 

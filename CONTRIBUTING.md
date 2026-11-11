@@ -31,12 +31,15 @@ cd mandalorian-project
 
 ```bash
 # Build tests
-cd tests && mkdir build && cd build
-cmake .. && cmake --build .
+# Build and test from the repository root (needs only a C compiler and CMake)
+cmake -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build --parallel
+ctest --test-dir build --output-on-failure   # must be 100%
 
-# Run tests
-./Debug/comprehensive_test.exe  # Windows
-./comprehensive_test            # Linux/macOS
+# With sanitizers
+cmake -B build-asan -DCMAKE_BUILD_TYPE=Debug -DENABLE_SANITIZERS=ON
+cmake --build build-asan --parallel
+ctest --test-dir build-asan --output-on-failure
 
 # Run security audit
 ./scripts/security-audit.sh
@@ -60,7 +63,7 @@ git checkout -b feature/your-feature-name
 # ... edit code ...
 
 # Test thoroughly
-cd tests/build && cmake --build . && ./comprehensive_test
+cd build && cmake --build . && ctest --test-dir build --output-on-failure
 
 # Run security audit
 ../../scripts/security-audit.sh
@@ -222,8 +225,11 @@ Brief description of changes
 All contributions undergo security review:
 
 1. **Automated Checks**
-   - Static analysis (Clang Static Analyzer, Frama-C)
-   - Fuzzing (libFuzzer, AFL++)
+   - Static analysis: cppcheck (reporting, not gated yet)
+   - Fuzzing: libFuzzer targets exist (`-DENABLE_FUZZING=ON`, clang) and a fixed-corpus fuzz test runs in CI; AFL++ is not wired
+   - Crypto: FIPS 202 known-answer vectors cross-checked against Python hashlib in CI
+   - Hygiene gates: duplicate symbols, conflict markers, weak randomness, committed artifacts
+   - NOT yet wired, despite being required for crypto changes: Clang Static Analyzer, Frama-C/ACSL, dudect timing analysis
    - Security audit script
 
 2. **Manual Review**
@@ -232,7 +238,7 @@ All contributions undergo security review:
    - Architecture review for major changes
 
 3. **Required for Crypto Changes**
-   - Timing analysis (dudect)
+   - Timing analysis (dudect) — promised, not yet wired into CI
    - Formal verification where possible
    - Third-party audit for critical code
 
@@ -241,8 +247,8 @@ All contributions undergo security review:
 **DO NOT** open public issues for security vulnerabilities.
 
 Instead:
-1. Email: security@mandalorian-project.org
-2. Encrypt with PGP key (in docs/security/)
+1. Open a private GitHub Security Advisory (preferred; see SECURITY.md)
+2. Email: info@socialfeed.co.za (subject: "Mandalorian security disclosure")
 3. Allow 90 days for fix before disclosure
 
 ## 📜 License
@@ -258,9 +264,8 @@ Contributors will be:
 
 ## ❓ Questions?
 
-- Discord: #dev-contributors
-- Matrix: #mandalorian-dev:matrix.org
-- Email: dev@mandalorian-project.org
+- GitHub Issues (bugs and features) and GitHub Discussions (questions)
+- Email: dev@socialfeed.co.za
 
 ## "This is the way."
 

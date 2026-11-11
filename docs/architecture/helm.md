@@ -1,4 +1,14 @@
-# Helm — Post-Quantum Attestation & Policy Engine
+# Helm — Attestation & Policy Engine
+
+> **Status (2026-11):** Attestation is **HMAC-SHA3-256** over the nonce bytes
+> plus the app id, keyed with a per-app registered key, compared in constant
+> time. The verification is real and covered by the Helm demo's forged-
+> signature check. There is **no Dilithium, no Kyber, no Ed25519 signature
+> check** in this tree — the CRYSTALS/ML-DSA material below is the TARGET
+> architecture, kept for design reference, not a description of what ships.
+> See the README status table before relying on anything here.
+
+# Post-Quantum Attestation & Policy Engine (target design)
 
 > *"The Mandalorian without Helm is just a dangerous phone."*
 

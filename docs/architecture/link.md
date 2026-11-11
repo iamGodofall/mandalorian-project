@@ -1,6 +1,14 @@
 # BeskarLink — Secure Messaging Protocol
 
-> Signal Protocol + Post-Quantum Augmentation. No metadata. No cloud dependency.
+> **Status (2026-11):** The message path is a **SHA3-based keystream with a
+> SHA3 MAC** and a symmetric-chain ratchet. The demo performs a real encrypt →
+> deliver → decrypt round trip and rejects replays. There is **no X3DH, no DH
+> ratchet, no Kyber, no AES-256-GCM** in this tree, and it is not compatible
+> with Signal clients. Everything below that mentions those is the TARGET
+> design, not what ships. Do not protect real messages with this code. See
+> the README status table.
+
+> Signal Protocol + Post-Quantum Augmentation (target design). No metadata. No cloud dependency.
 
 ---
 
@@ -8,7 +16,7 @@
 
 BeskarLink is the Mandalorian's **secure messaging layer** — end-to-end encrypted communication between Mandalorian devices, with optional federation to external clients (Signal, Matrix, etc.).
 
-**Key innovation**: Post-quantum key agreement (Kyber-768) layered on top of Signal's X3DH + Double Ratchet, so messages are secure against both classical and quantum adversaries.
+**Key innovation (target)**: Post-quantum key agreement (Kyber-768) layered on top of Signal's X3DH + Double Ratchet. **Today**: SHA3 keystream + MAC over a symmetric chain ratchet; X3DH and the DH ratchet are not implemented.
 
 ---
 
